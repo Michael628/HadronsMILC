@@ -1,0 +1,34 @@
+A2A is computed by contracting left and right vectors in blocks
+E - low mode eigenvectors
+HW - high mode wall sources
+HS - high mode CG solves
+
+The blocks are looped in order:
+1. E-E
+2. E-HW
+3. HS-E
+4. HS-HW
+
+The eigenvectors are checkerboarded, which means the first 3 steps involve checkerboarded contractions.
+
+For local gammas:
+1. E-E
+ - even-even
+ - odd-odd
+2. E-HW
+ - even-Full
+ - odd-Full
+3. HS-E
+ - Full-even
+ - Full-odd
+4. HS-HW
+ - Full-Full
+
+Grid View creation data flow:
+1. E-E
+2. E-HW
+3. HS-E
+ *Option 1: Try mapping full volume points to checkerboard. Share full volume views between even and odd tasks
+ Option 2: Allocate space for checkerboarded phases, high mode sources, and high mode solves (and later, gauge links).
+4. HS-HW
+ - Full volume, only one task is used, no sharing required.

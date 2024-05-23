@@ -1,0 +1,16 @@
+/build*
+/.buildutils
+/.vscode
+/autom4te.cache
+/config.*
+/compile
+/ar-lib
+/aclocal.m4
+/configure
+/depcomp
+/install-sh
+/missing
+Makefile.in
+.DS_Store
+*~
+sftp*

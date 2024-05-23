@@ -1,0 +1,25 @@
+The "hadrons-app" folder is a copy of the "application-template" folder at the base of Hadrons. 
+I use this compiled executable instead of HadronsXmlRun, i.e. just pass it an XML file as usual
+along with whatever Grid parameters (--grid 4.4.4.4 etc.). This lets me compile
+tweaks to Hadrons without compiling all of Hadrons. It's configured 
+similar to Hadrons and Grid:
+
+./bootstrap.sh
+
+${SRCDIR}/configure \
+  --with-hadrons=${HADRONSINSTALLDIR}      \
+  --with-grid=${GRIDINSTALLDIR} 
+
+
+You'll see in hadrons-app/cpp/moduleHelper.cpp the main thing I'm overwriting here
+is the template definition for StagLocalCoherenceLanczos. It's compiled here with nBasis=384
+instead of the current default of 60, i.e.
+
+MSolver::TLocalCoherenceLanczos<STAGIMPL,384>.
+
+If you happened to have compiled Hadrons already with 
+
+#define HADRONS_DEFAULT_LANCZOS_NBASIS 384
+
+then you can just use HadronsXmlRun instead. Alternatively, you can change 
+that line at the top of Hadrons/EigenPack.hpp and recompile Hadrons.
