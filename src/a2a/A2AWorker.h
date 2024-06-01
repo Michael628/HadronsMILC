@@ -143,9 +143,6 @@ void A2AWorkerBase<FImpl>::StagMesonField(TensorType &mat,
     // scalar_type *matDevice = _cache_device;
     scalar_type *matDevice = mat.data();
 
-    // Low mode onelink only for the moment
-    assert(!(_odd_shifts && !(checkerL && checkerR)));
-
     if (_l_addr != lhs_wi_E) {
         _l_addr = lhs_wi_E;
 

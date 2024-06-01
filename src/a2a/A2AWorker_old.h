@@ -355,7 +355,7 @@ accelerator_for2d(ls_index,localStride*sizeL,r_index,sizeR,simdSize,{ \
         } \
         acceleratorSynchronise(); \
         \
-        sum[mu] += innerProduct(left,link_ahead*shift_ahead+shift_behind); \
+        sum[mu] += innerProduct(left,link_ahead*shift_ahead+link_behind*shift_behind); \
       } \
       for (int mu=0;mu<nGamma;mu++) { \
         coalescedWrite(shm_p[shmem_idx+mu*localStride],sum[mu]); \
@@ -363,8 +363,6 @@ accelerator_for2d(ls_index,localStride*sizeL,r_index,sizeR,simdSize,{ \
     } \
   } \
 });
-
-//link_ahead*shift_ahead+link_behind*shift_behind); \
 
 #define A2A_KERNEL_COMPUTE_LOCAL_TIMEDIR_NOMOM() \
   accelerator_for2d(ls_index,localStride*sizeL,r_index,sizeR,simdSize,{ \

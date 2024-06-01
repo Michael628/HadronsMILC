@@ -39,7 +39,7 @@ public:
         }
     }
 
-    virtual ~A2AViewBase() { this->closeViews(); }
+    virtual ~A2AViewBase() { this->closeViews();  }
 };
 
 template<typename obj>

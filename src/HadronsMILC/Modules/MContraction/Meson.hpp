@@ -221,9 +221,9 @@ EnableIf<is_lattice<TField>,void> TMesonMILC<FImpl>::contract(Result &result, co
     envGetTmp(PropagatorField, prop);
     envGetTmp(TField, field);
 
-    gamma(field,sink);
+    gamma(field,source);
 
-    buildProp(prop, source, field);
+    buildProp(prop, field, sink);
 
 
     buf = sinkFunc(trace(prop));
@@ -262,8 +262,8 @@ EnableIf<is_lattice<TField>,void> TMesonMILC<FImpl>::contract(Result &result, co
 
         LOG(Message) << "Contracting element i = " << i << "." << std::endl;
 
-        gamma(field,sink[i]);
-        buildProp(prop, source[i], field);
+        gamma(field,source[i]);
+        buildProp(prop, field,sink[i]);
 
 
         buf = sinkFunc(trace(prop));

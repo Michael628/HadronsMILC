@@ -512,7 +512,9 @@ public:
         _phase_view->openViews(gammas.data(),nGamma);
     }
 
-    virtual ~A2ATaskLocal() { _phase_view->closeViews(); }
+    virtual ~A2ATaskLocal() { 
+        if (_phase_view) _phase_view->closeViews();
+    }
 
     std::shared_ptr<A2AFieldView<cobj> > getPhaseView() { return _phase_view; }
 
@@ -676,16 +678,10 @@ protected:
     const std::vector<StagGamma::SpinTastePair> &_gammas = {};
     std::vector<int> _shift_dirs, _shift_displacements;
     LatticeGaugeField *_U;
-    std::vector<LatticeColourMatrix> _link_E,         _link_O;
-    std::vector<LatticeColourMatrix> _link_shifted_E, _link_shifted_O;
 
-    std::shared_ptr<A2AFieldView<vColourMatrix> >               _link_E_view,          _link_O_view;
-    std::shared_ptr<A2AFieldView<vColourMatrix> >               _link_shifted_E_view,  _link_shifted_O_view;
-    // std::shared_ptr<A2AStencilView<vColourMatrix,FImplParams> > _link_stencil_E_view,  _link_stencil_O_view;
-
-    std::shared_ptr<A2AFieldView<vColourMatrix> >               _link_left_view,       _link_right_view;
-    std::shared_ptr<A2AStencilView<vobj,FImplParams> >          _right_stencil_view;
-    // std::shared_ptr<A2AStencilView<vColourMatrix,FImplParams> > _link_stencil_view;
+    std::vector<LatticeColourMatrix>                     _link,        _link_shifted;
+    std::shared_ptr<A2AFieldView<vColourMatrix> >        _link_view,   _link_shifted_view;
+    std::shared_ptr<A2AStencilView<vobj,FImplParams> >   _right_stencil_view;
 
 public:
 
@@ -717,22 +713,9 @@ public:
     A2ATaskOnelink(GridBase *grid, int orthogDir, A2ATaskOnelink<FImpl> &other, const std::vector<StagGamma::SpinTastePair> &gammas, LatticeGaugeField* U, int cb = Even)
     : A2ATaskOnelink<FImpl>(grid,orthogDir,gammas,cb) {
         _U = U;
-        _link_E_view = other.getLinkView(Even);
-        _link_O_view = other.getLinkView(Odd);
-        _link_shifted_E_view = other.getLinkView(Even,true);
-        _link_shifted_O_view = other.getLinkView(Odd,true);
-        // _link_stencil_E_view = other.getLinkStencilView(Even);
-        // _link_stencil_O_view = other.getLinkStencilView(Odd);
+        _link_view = other.getLinkView();
+        _link_shifted_view = other.getLinkView(true);
 
-        if (cb == Even) {
-            _link_left_view = _link_E_view;
-            _link_right_view = _link_shifted_E_view;
-            // _link_stencil_view = _link_stencil_O_view;
-        } else {
-            _link_left_view = _link_O_view;
-            _link_right_view = _link_shifted_O_view;
-            // _link_stencil_view = _link_stencil_E_view;
-        }        
     }
 
     A2ATaskOnelink(GridBase *grid, int orthogDir, const std::vector<StagGamma::SpinTastePair> &gammas, LatticeGaugeField* U, int cb = Even)
@@ -744,75 +727,32 @@ public:
 
         int nGamma = _gammas.size();
 
-        _link_E.resize(nGamma,this->_grid);
-        _link_O.resize(nGamma,this->_grid);
-        _link_shifted_E.resize(nGamma,this->_grid);
-        _link_shifted_O.resize(nGamma,this->_grid);
+        _link.resize(nGamma,_U->Grid());
+        _link_shifted.resize(nGamma,_U->Grid());
 
         StagGamma spinTaste;
-        LatticeColourMatrix link_temp(_U->Grid());
 
         for (int i = 0; i < nGamma; i++) {
 
             spinTaste.setSpinTaste(_gammas[i]);
 
-            link_temp = PeekIndex<LorentzIndex>(*_U,_shift_dirs[2*i]); // Store full lattice links in shift direction
+            _link[i] = PeekIndex<LorentzIndex>(*_U,_shift_dirs[2*i]); // Store full lattice links in shift direction
 
-            spinTaste.applyPhase(link_temp,link_temp); // store spin-taste phase
+            _link_shifted[i] = Cshift(_link[i],_shift_dirs[2*i],-1);
 
-            pickCheckerboard(Even,_link_E[i],link_temp);
-            pickCheckerboard(Odd,_link_O[i],link_temp);
+            spinTaste.applyPhase(_link[i],_link[i]); // store spin-taste phase
+            spinTaste.applyPhase(_link_shifted[i],_link_shifted[i]); // store spin-taste phase
 
-            link_temp = Cshift(link_temp,_shift_dirs[2*i],-1);
-
-            pickCheckerboard(Even,_link_shifted_E[i],link_temp);
-            pickCheckerboard(Odd,_link_shifted_O[i],link_temp);
+        
         }
+        _link_view = std::make_shared<A2AFieldView<vColourMatrix> >();
+        _link_shifted_view = std::make_shared<A2AFieldView<vColourMatrix> >();
 
-        // _link_stencil_E_view = std::make_shared<A2AStencilView<vColourMatrix,FImplParams> >();
-        // _link_stencil_O_view = std::make_shared<A2AStencilView<vColourMatrix,FImplParams> >();
-
-        _link_E_view = std::make_shared<A2AFieldView<vColourMatrix> >();
-        _link_O_view = std::make_shared<A2AFieldView<vColourMatrix> >();
-        _link_shifted_E_view = std::make_shared<A2AFieldView<vColourMatrix> >();
-        _link_shifted_O_view = std::make_shared<A2AFieldView<vColourMatrix> >();
-
-        int size = _shift_dirs.size()/2;
-
-        std::vector<Coordinate> shifts;
-        for (int i = 0; i < size; ++i)
-        {
-            // auto ptr = std::make_unique<GaugeStencil>(this->_grid, 1, Even, 
-                // std::initializer_list<int >({_shift_dirs[2*i]}), 
-                // std::initializer_list<int >({-1}));
-            // _link_stencil_E_view->addStencil(ptr);
-
-            // ptr = std::make_unique<GaugeStencil>(this->_grid, 1, Odd, 
-                // std::initializer_list<int >({_shift_dirs[2*i]}), 
-                // std::initializer_list<int >({-1}));
-            // _link_stencil_O_view->addStencil(ptr);
-        }
-        // _link_stencil = std::make_shared<GeneralLocalStencil>(ghost.grids.back(),shifts);
-        // _link_stencil_E_view->openViews(_link_E.data(),nGamma);
-        // _link_stencil_O_view->openViews(_link_O.data(),nGamma);
-        // _links_view->openViews(_links.data(),nGamma);
-        _link_E_view->openViews(_link_E.data(),nGamma);
-        _link_O_view->openViews(_link_O.data(),nGamma);
-        _link_shifted_E_view->openViews(_link_shifted_E.data(),nGamma);
-        _link_shifted_O_view->openViews(_link_shifted_O.data(),nGamma);
+        _link_view->openViews(_link.data(),nGamma);
+        _link_shifted_view->openViews(_link_shifted.data(),nGamma);
 
         double t1 = usecond();
         std::cout << GridLogPerformance << " MesonField onelink timings: build link fields + comms: " << (t1-t0)/1000 << " ms" << std::endl;   
-
-        if (cb == Even) {
-            _link_left_view = _link_E_view;
-            _link_right_view = _link_shifted_E_view;
-            // _link_stencil_view = _link_stencil_O_view;
-        } else {
-            _link_left_view = _link_O_view;
-            _link_right_view = _link_shifted_O_view;
-            // _link_stencil_view = _link_stencil_E_view;
-        }
     }
 
     // Updates object to compute meson field with new `right` vectors.
@@ -832,18 +772,22 @@ public:
 
         }
 
+        int cb = (this->_cb_left == Odd) ? Even : Odd;
+
         switch(this->_contract_type) {
-        case ContractType::RightHalf:
-        case ContractType::BothHalf:
         case ContractType::Full:
+            cb = Even;
+        case ContractType::BothHalf:
+        case ContractType::RightHalf:
             this->_grid = right[0].Grid();
+            break;
+        case ContractType::LeftHalf:
+            cb = Even;
         default:
             break;
         }
 
         if (checkerR) this->generateCoorMap();
-
-        int cb = (this->_cb_left == Odd) ? Even : Odd;
 
         auto ptr = std::make_unique<FermStencil>(this->_grid, _shift_dirs.size(), cb,
                                                                 _shift_dirs, _shift_displacements);
@@ -866,36 +810,22 @@ public:
     }
 
     virtual ~A2ATaskOnelink() { 
-        _right_stencil_view->closeViews(); 
-        // _link_stencil_E_view->closeViews(); 
-        // _link_stencil_O_view->closeViews(); 
-        _link_E_view->closeViews(); 
-        _link_O_view->closeViews(); 
-        _link_shifted_E_view->closeViews(); 
-        _link_shifted_O_view->closeViews(); 
+        if (_right_stencil_view) _right_stencil_view->closeViews(); 
+        if (_link_view) _link_view->closeViews(); 
+        if (_link_shifted_view) _link_shifted_view->closeViews(); 
     }
 
     std::shared_ptr<A2AStencilView<vobj,FImplParams> > getRightStencilView() { return _right_stencil_view; }
 
-    std::shared_ptr<A2AFieldView<vColourMatrix> >   getLinkView(int cb, bool shifted = false) 
+    std::shared_ptr<A2AFieldView<vColourMatrix> >   getLinkView(bool shifted = false) 
     { 
-        if (cb == Even) { 
-            if (shifted) 
-                return _link_shifted_E_view;
-            else 
-                return _link_E_view; 
-        } else {
-            if (shifted) 
-                return _link_shifted_O_view;
-            else 
-                return _link_O_view; 
-        }
+        if (shifted) 
+            return _link_shifted_view;
+        else 
+            return _link_view; 
     }
-    // std::shared_ptr<A2AStencilView<vColourMatrix,FImplParams> > getLinkStencilView(int cb) 
-    // { if (cb == Even) return _link_stencil_E_view; else return _link_stencil_O_view; }
 
-
-    virtual int getNgamma() { return _link_E_view->size(); }
+    virtual int getNgamma() { return _link_view->size(); }
 
     virtual double getFlops() {
       // matrix*vector = 3 inner products
@@ -917,16 +847,12 @@ public:
         assert(nBlocks == 1);
 
         // Pointers for accelerator indexing
-        GaugeView *viewGL_p   = this->_link_left_view->getView() + mu_offset;
-        GaugeView *viewGR_p   = this->_link_right_view->getView() + mu_offset;
+        GaugeView *viewGL_p   = this->_link_view->getView() + mu_offset;
+        GaugeView *viewGR_p   = this->_link_shifted_view->getView() + mu_offset;
+
         FermStencilView  *stencilR_p = this->_right_stencil_view->getView(); // ket stencil for shifted links
+        vobj             *bufRight_p = this->_right_stencil_view->getBuffer(); // buffer for shifted kets in halo region
 
-        // GaugeStencilView *stencilG_p = this->_link_stencil_view->getView() + mu_offset; // Gauge stencil for shifted links
-
-        vobj          *bufRight_p = this->_right_stencil_view->getBuffer(); // buffer for shifted kets in halo region
-        // vColourMatrix *bufGauge_p = this->_link_stencil_view->getBuffer(); // buffer for shifted links in halo region
-
-        // Integer *offsetG_p = this->_link_stencil_view->getOffset() + mu_offset; // buffer offsets for shifted links in halo region
         int haloBuffRightSize = this->_right_stencil_view->getOffset(1);
 
         int gammaStride = sizeR*sizeL*reducedOrthogDimSize;
@@ -954,7 +880,7 @@ public:
 
                     for (int mu = 0; mu < nGamma; mu++) {
                         int rightShiftOffset = 2*(mu+mu_offset);
-                        link_ahead = coalescedRead(viewGL_p[mu][ss]);
+                        link_ahead = coalescedRead(viewGL_p[mu][ocoor_p[ss]]);
 
                         SE=stencilR_p->GetEntry(ptype,rightShiftOffset,ss);
                         if(SE->_is_local) {
@@ -972,17 +898,9 @@ public:
                         }
                         acceleratorSynchronise();
 
-                        // SE=stencilG_p[mu].GetEntry(ptype,0,ss);
-                        // if(SE->_is_local) {
-                            // link_behind = adj(coalescedReadPermute(viewGR_p[mu][SE->_offset],ptype,SE->_permute));
-                        // } else {
-                            // link_behind = adj(coalescedRead(bufGauge_p[offsetG_p[mu]+SE->_offset]));
-                        // }
-                        // acceleratorSynchronise();
+                        link_behind = adj(coalescedRead(viewGR_p[mu][ocoor_p[ss]]));
 
-                        link_behind = adj(coalescedRead(viewGR_p[mu][ss]));
-
-                        sum[mu] += innerProduct(left,link_ahead*shift_ahead+shift_behind);//link_ahead*shift_ahead+link_behind*shift_behind);
+                        sum[mu] += innerProduct(left,link_ahead*shift_ahead+link_behind*shift_behind);
                     }
                     for (int mu=0;mu<nGamma;mu++) {
                         int shmem_idx = rt+shmem_base+mu*gammaStride;
@@ -1001,16 +919,12 @@ public:
         assert(nBlocks == 1);
 
         // Pointers for accelerator indexing
-        GaugeView *viewGL_p   = this->_link_left_view->getView() + mu_offset;
-        GaugeView *viewGR_p   = this->_link_right_view->getView() + mu_offset;
+        GaugeView *viewGL_p   = this->_link_view->getView() + mu_offset;
+        GaugeView *viewGR_p   = this->_link_shifted_view->getView() + mu_offset;
+
         FermStencilView  *stencilR_p = this->_right_stencil_view->getView(); // ket stencil for shifted links
+        vobj             *bufRight_p = this->_right_stencil_view->getBuffer(); // buffer for shifted kets in halo region
 
-        // GaugeStencilView *stencilG_p = this->_link_stencil_view->getView() + mu_offset; // Gauge stencil for shifted links
-
-        vobj          *bufRight_p = this->_right_stencil_view->getBuffer(); // buffer for shifted kets in halo region
-        // vColourMatrix *bufGauge_p = this->_link_stencil_view->getBuffer(); // buffer for shifted links in halo region
-
-        // Integer *offsetG_p = this->_link_stencil_view->getOffset() + mu_offset; // buffer offsets for shifted links in halo region
         int haloBuffRightSize = this->_right_stencil_view->getOffset(1);
 
         int gammaStride = sizeR*sizeL*reducedOrthogDimSize;
@@ -1056,17 +970,9 @@ public:
                         }
                         acceleratorSynchronise();
 
-                        // SE=stencilG_p[mu].GetEntry(ptype,0,ss);
-                        // if(SE->_is_local) {
-                            // link_behind = adj(coalescedReadPermute(viewGR_p[mu][SE->_offset],ptype,SE->_permute));
-                        // } else {
-                            // link_behind = adj(coalescedRead(bufGauge_p[offsetG_p[mu]+SE->_offset]));
-                        // }
-                        // acceleratorSynchronise();
-
                         link_behind = adj(coalescedRead(viewGR_p[mu][ss]));
 
-                        sum[mu] += innerProduct(left,link_ahead*shift_ahead+shift_behind);//link_ahead*shift_ahead+link_behind*shift_behind);
+                        sum[mu] += innerProduct(left,link_ahead*shift_ahead+link_behind*shift_behind);
                     }
                     for (int mu=0;mu<nGamma;mu++) {
                         int shmem_idx = rt+shmem_base+mu*gammaStride;
@@ -1076,7 +982,91 @@ public:
             }
         });
     }
-    virtual void vectorSumMixed(cobj *shm_p, int mu_offset, int N) { assert(0); }
+
+    virtual void vectorSumMixed(cobj *shm_p, int mu_offset, int N) { 
+
+        COMMON_VARS;
+
+        assert(orthogDir == Tdir); // This kernel assumes lattice is coalesced over time slices
+        assert(nBlocks == 1);
+
+        // Pointers for accelerator indexing
+        GaugeView *viewGL_p   = this->_link_view->getView() + mu_offset;
+        GaugeView *viewGR_p   = this->_link_shifted_view->getView() + mu_offset;
+
+        FermStencilView  *stencilR_p = this->_right_stencil_view->getView(); // ket stencil for shifted links
+        vobj             *bufRight_p = this->_right_stencil_view->getBuffer(); // buffer for shifted kets in halo region
+
+        int haloBuffRightSize = this->_right_stencil_view->getOffset(1);
+
+        int gammaStride = sizeR*sizeL*reducedOrthogDimSize;
+        int nGamma = N;
+
+        bool checkerL = this->_contract_type == ContractType::LeftHalf;
+
+        accelerator_for2d(l_index,sizeL,r_index,sizeR,simdSize,{
+            calcColourMatrix link_ahead, link_behind;
+            calcSpinor left, shift_ahead, shift_behind;
+            calcScalar sum[MF_SUM_ARRAY_MAX];
+
+            StencilEntry *SE;
+            int ptype, ss,ss_left,ss_right,ss_link;
+            int shmem_base = reducedOrthogDimSize*(l_index+sizeL*r_index);
+
+            for (int rt=0;rt < reducedOrthogDimSize; rt++) {
+
+                for (int mu=0;mu<nGamma;mu++) {
+                    sum[mu] = Zero();
+                }
+
+                for (int so=0;so < localSpatialVolume; so++) {
+                    ss = rt*localSpatialVolume+so;
+
+                    ss_link = ocoor_p[ss];
+                    if (checkerL) {
+                        ss_left = ss;
+                        ss_right = ss_link;
+                    } else {
+                        ss_left = ss_link;
+                        ss_right = ss;
+                    }
+                    acceleratorSynchronise();
+
+                    left   = coalescedRead(viewL_p[l_index][ss_left]);
+
+
+                    for (int mu = 0; mu < nGamma; mu++) {
+                        int rightShiftOffset = 2*(mu+mu_offset);
+                        link_ahead = coalescedRead(viewGL_p[mu][ss_link]);
+
+                        SE=stencilR_p->GetEntry(ptype,rightShiftOffset,ss_right);
+                        if(SE->_is_local) {
+                            shift_ahead = coalescedReadPermute(viewR_p[r_index][SE->_offset],ptype,SE->_permute);
+                        } else {
+                            shift_ahead = coalescedRead(bufRight_p[r_index*haloBuffRightSize+SE->_offset]);
+                        }
+                        acceleratorSynchronise();
+
+                        SE=stencilR_p->GetEntry(ptype,rightShiftOffset+1,ss_right);
+                        if(SE->_is_local) {
+                            shift_behind = coalescedReadPermute(viewR_p[r_index][SE->_offset],ptype,SE->_permute);
+                        } else {
+                            shift_behind = coalescedRead(bufRight_p[r_index*haloBuffRightSize+SE->_offset]);
+                        }
+                        acceleratorSynchronise();
+
+                        link_behind = adj(coalescedRead(viewGR_p[mu][ss_link]));
+
+                        sum[mu] += innerProduct(left,link_ahead*shift_ahead+link_behind*shift_behind);
+                    }
+                    for (int mu=0;mu<nGamma;mu++) {
+                        int shmem_idx = rt+shmem_base+mu*gammaStride;
+                        coalescedWrite(shm_p[shmem_idx],sum[mu]);
+                    }
+                }
+            }
+        });
+    }
 };
 #undef A2A_TYPEDEFS
 #undef COMMON_VARS
