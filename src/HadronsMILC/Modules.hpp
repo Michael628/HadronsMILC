@@ -13,6 +13,7 @@
 #include "Modules/MSolver/A2AVectors.hpp"
 #include "Modules/MSolver/ImplicitlyRestartedLanczos.hpp"
 #include "Modules/MSolver/LowModeProj.hpp"
+#include "Modules/MSolver/LowModeProjFull.hpp"
 #include "Modules/MSolver/MixedPrecisionCG.hpp"
 #include "Modules/MSolver/MixedPrecisionRBPrecCG.hpp"
 #include "Modules/MSolver/RBPrecCG.hpp"

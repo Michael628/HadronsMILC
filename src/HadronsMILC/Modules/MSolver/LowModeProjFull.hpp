@@ -27,8 +27,8 @@
  */
 
 /*  END LEGAL */
-#ifndef HadronsMILC_MSolver_LowModeProj_hpp_
-#define HadronsMILC_MSolver_LowModeProj_hpp_
+#ifndef HadronsMILC_MSolver_LowModeProjFull_hpp_
+#define HadronsMILC_MSolver_LowModeProjFull_hpp_
 
 #include <Hadrons/Global.hpp>
 #include <Hadrons/Module.hpp>
@@ -120,45 +120,6 @@ DependencyMap TLowModeProjMILCFull<FImpl,Pack>::getObjectDependencies(void)
 
 // C++11 does not support template lambdas so it is easier
 // to make a macro with the solver body
-#define SOLVER_BODY                                                                 \
-    auto &rbTemp = envGet(FermionField,"rbTemp");                                   \
-    auto &temp = envGet(FermionField,"temp");                             \
-    auto &tempDag = envGet(FermionField,"tempDag");                             \
-    auto &rbFerm = envGet(FermionField,"rbFerm");                                   \
-    auto &rbFermNeg = envGet(FermionField,"rbFermNeg");                             \
-    auto &MrbFermNeg = envGet(FermionField,"MrbFermNeg");                           \
-                                                \
-    int cb = epack.evec[0].Checkerboard();                                            \
-    int cbNeg = (cb==Even) ? Odd : Even;                                              \
-                                                \
-    RealD norm = 1./::sqrt(norm2(epack.evec[0]));                                     \
-                                                \
-    sol = Zero(); \
-    rbTemp = Zero();                                                                  \
-    rbTemp.Checkerboard() = cb;                                                       \
-    temp = Zero();                                                               \
-    tempDag = Zero();                                                               \
-    for (int k=epack.evec.size()-1;k >= 0;k--) {                                      \
-        const FermionField& e = epack.evec[k];                                        \
-        const ComplexD lam_D    = ComplexD(0.0,epack.eval[k].imag());                 \
-        const ComplexD lam     = epack.eval[k];                                  \
-        mat.Meooe(e, rbTemp); \
-        rbTemp = rbTemp/lam_D; \
-        setCheckerboard(temp,e); \
-        setCheckerboard(temp,rbTemp); \
-        if (cb == Even) { \
-            setCheckerboard(tempDag,e); \
-            setCheckerboard(tempDag,-rbTemp); \
-        } else { \
-            setCheckerboard(tempDag,-e); \
-            setCheckerboard(tempDag,rbTemp); \
-        } \
-        const ComplexD ip    = TensorRemove(innerProduct(temp,source))/lam;       \
-        const ComplexD ipDag = TensorRemove(innerProduct(tempDag,source))/conjugate(lam);   \
-        axpy(sol,ip,temp,sol); \
-        axpy(sol,ipDag,tempDag,sol); \
-    }                                                                                 \
-    sol *= norm;                         
 
 template <typename FImpl, typename Pack>
 void TLowModeProjMILCFull<FImpl,Pack>::setup(void)
@@ -170,19 +131,9 @@ void TLowModeProjMILCFull<FImpl,Pack>::setup(void)
        HADRONS_ERROR(Argument, "Ls > 1 not implemented");
     }
 
-    envCache(FermionField, "rbFerm", 1, envGetRbGrid(FermionField));
-    envCache(FermionField, "rbFermNeg", 1, envGetRbGrid(FermionField));
-    envCache(FermionField, "MrbFermNeg", 1, envGetRbGrid(FermionField));
     envCache(FermionField, "rbTemp", 1, envGetRbGrid(FermionField));
-    envCache(FermionField, "rbTempNeg", 1, envGetRbGrid(FermionField));
-
-    auto &rbFerm     = envGet(FermionField, "rbFerm");
-    auto &rbFermNeg  = envGet(FermionField, "rbFermNeg");
-    auto &MrbFermNeg = envGet(FermionField, "MrbFermNeg");
-
-    rbFerm     = Zero();
-    rbFermNeg  = Zero();
-    MrbFermNeg = Zero();
+    envCache(FermionField, "temp", 1, envGetGrid(FermionField));
+    envCache(FermionField, "tempDag", 1, envGetGrid(FermionField));
 
     LOG(Message) << "Setting up low mode projector "
                  << "for action '" << par().action 
@@ -194,7 +145,43 @@ void TLowModeProjMILCFull<FImpl,Pack>::setup(void)
 
     auto makeSolver    = [&mat, &epack, project, this] (bool subGuess) {
         return [&mat, &epack, subGuess, project, this] (FermionField &sol, const FermionField &source) {
-            SOLVER_BODY;
+	  auto &rbTemp = envGet(FermionField,"rbTemp");
+	  auto &temp = envGet(FermionField,"temp");
+	  auto &tempDag = envGet(FermionField,"tempDag");
+
+	  int cb = epack.evec[0].Checkerboard();
+	  int cbNeg = (cb==Even) ? Odd : Even;
+
+	  RealD norm = 1./::sqrt(2.0*norm2(epack.evec[0]));
+
+	  sol = Zero();
+	  rbTemp = Zero();
+	  rbTemp.Checkerboard() = cb;
+	  temp = Zero();
+	  tempDag = Zero();
+	  for (int k=epack.evec.size()-1;k >= 0;k--) {
+	    const FermionField& e = epack.evec[k];
+	    const ComplexD lam_D    = ComplexD(0.0,-1.0/(epack.eval[k]).imag());	
+	    const ComplexD lam     = 1.0/epack.eval[k];
+	    mat.Meooe(e, rbTemp);
+	    rbTemp = lam_D*rbTemp;
+	    setCheckerboard(temp,e);
+	    setCheckerboard(temp,rbTemp);
+	    if (cb == Even) {
+	      rbTemp = -rbTemp;
+	      setCheckerboard(tempDag,e);
+	      setCheckerboard(tempDag,rbTemp);
+	    } else {
+	      setCheckerboard(tempDag,rbTemp);
+	      rbTemp = -e;
+	      setCheckerboard(tempDag,rbTemp);
+	    }
+	    const ComplexD ip    = TensorRemove(innerProduct(temp,source))*lam;
+	    const ComplexD ipDag = TensorRemove(innerProduct(tempDag,source))*conjugate(lam);
+	    axpy(sol, ip, temp, sol);
+	    axpy(sol,ipDag,tempDag,sol);
+	  }
+	  sol *= norm;
         };
     };
 
@@ -218,4 +205,4 @@ END_MODULE_NAMESPACE
 
 END_HADRONS_NAMESPACE
 
-#endif // Hadrons_MFermion_LowModeProj_hpp_
+#endif // Hadrons_MFermion_LowModeProjFull_hpp_

@@ -14,6 +14,7 @@ modules_cpp =\
   Modules/MSolver/A2AVectors.cpp \
   Modules/MSolver/ImplicitlyRestartedLanczos.cpp \
   Modules/MSolver/LowModeProj.cpp \
+  Modules/MSolver/LowModeProjFull.cpp \
   Modules/MSolver/MixedPrecisionCG.cpp \
   Modules/MSolver/MixedPrecisionRBPrecCG.cpp \
   Modules/MSolver/RBPrecCG.cpp \
@@ -38,6 +39,7 @@ modules_hpp =\
   Modules/MSolver/A2AVectors.hpp \
   Modules/MSolver/ImplicitlyRestartedLanczos.hpp \
   Modules/MSolver/LowModeProj.hpp \
+  Modules/MSolver/LowModeProjFull.hpp \
   Modules/MSolver/MixedPrecisionCG.hpp \
   Modules/MSolver/MixedPrecisionRBPrecCG.hpp \
   Modules/MSolver/RBPrecCG.hpp \

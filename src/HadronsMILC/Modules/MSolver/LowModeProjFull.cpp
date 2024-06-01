@@ -24,10 +24,10 @@
  */
 
 /*  END LEGAL */
-#include "LowModeProj.hpp"
+#include "LowModeProjFull.hpp"
 
 using namespace Grid;
 using namespace Hadrons;
 using namespace MSolver;
 
-template class Grid::Hadrons::MSolver::TLowModeProjMILC<STAGIMPL,MassShiftEigenPack<STAGIMPL> >;
+template class Grid::Hadrons::MSolver::TLowModeProjMILCFull<STAGIMPL,MassShiftEigenPack<STAGIMPL> >;
