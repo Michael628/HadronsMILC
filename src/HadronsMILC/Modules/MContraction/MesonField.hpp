@@ -399,7 +399,7 @@ void TMesonFieldMILC<FImpl,Pack>::execute(void)
 
     GaugeField* U = nullptr;
     if (!par().spinTaste.gauge.empty()) {
-        U = env().getObject<GaugeField>(par().spinTaste.gauge);
+        U = env().template getObject<GaugeField>(par().spinTaste.gauge);
     }
 
     int orthogDir = env().getNd() - 1;

@@ -468,9 +468,8 @@ public:
     A2A_TYPEDEFS;
 
 protected:
-    const std::vector<StagGamma::SpinTastePair> &_gammas = {};
+    std::vector<StagGamma::SpinTastePair> _gammas;
     std::vector<ComplexField> _phase;
-    const std::vector<ComplexField> &_phase_ref = {};
     std::shared_ptr<A2AFieldView<cobj> > _phase_view;
 
 public:
@@ -503,7 +502,7 @@ public:
     }
 
     A2ATaskLocal(GridBase *grid, int orthogDir, const std::vector<ComplexField> &gammas, int cb = Even):
-    A2ATaskBase<FImpl>(grid,orthogDir,cb),_phase_ref(gammas)  {
+    A2ATaskBase<FImpl>(grid,orthogDir,cb)  {
 
         int nGamma = gammas.size();
 
