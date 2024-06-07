@@ -177,7 +177,7 @@ void TImplicitlyRestartedLanczosMILC<Field, FieldIo>::execute(void)
     {
         epack.write(par().output, par().multiFile, vm().getTrajectory());
 
-        saveResult(par().output,"evals",epack.eval);
+        saveResult(par().output + "_evals","evals",epack.eval);
     }
 }
 
