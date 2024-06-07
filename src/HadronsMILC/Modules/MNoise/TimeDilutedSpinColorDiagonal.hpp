@@ -45,7 +45,8 @@ class TimeDilutedSpinColorDiagonalMILCPar: Serializable
 {
 public:
     GRID_SERIALIZABLE_CLASS_MEMBERS(TimeDilutedSpinColorDiagonalMILCPar,
-                                    unsigned int, nsrc);
+                                    unsigned int, nsrc,
+                                    unsigned int, tStep);
 };
 
 template <typename FImpl>
@@ -122,10 +123,13 @@ void TTimeDilutedSpinColorDiagonalMILC<FImpl>::execute(void)
     int nferm = noise.fermSize();
     int nt    = envGetGrid(FermionField)->GlobalDimensions()[Tp];
     int nsc   = (int)(nferm/(noise.size()*nt));
+    int tStep = par().tStep > 1 ? par().tStep : 1;
+
+    nferm = (nferm+nsc*(tStep-1))/tStep;
 
     noisevec.resize(nferm,envGetGrid(FermionField));
     for (int i=0;i<nferm;i++) {
-        noisevec[i] = noise.getFerm(i);
+        noisevec[i] = noise.getFerm((i%nsc)+(i/nsc)*tStep);
     }
 
     auto &time_shift = envGet(std::vector<Integer>,getName()+"_shift");
@@ -133,7 +137,7 @@ void TTimeDilutedSpinColorDiagonalMILC<FImpl>::execute(void)
     time_shift.resize(nferm,0);
 
     for (int i = 0;i<time_shift.size();i++) {
-        time_shift[i] = (i/nsc)%nt;
+        time_shift[i] = ((i/nsc)*tStep)%nt;
     }
 }
 

@@ -13,26 +13,28 @@ BEGIN_HADRONS_NAMESPACE
  ******************************************************************************/
 BEGIN_MODULE_NAMESPACE(MSolver)
 
-/*class ImplicitlyRestartedLanczosPar: Serializable
+class ImplicitlyRestartedLanczosMILCPar: Serializable
 {
 public:
-    GRID_SERIALIZABLE_CLASS_MEMBERS(ImplicitlyRestartedLanczosPar,
+    GRID_SERIALIZABLE_CLASS_MEMBERS(ImplicitlyRestartedLanczosMILCPar,
                                     LanczosParams, lanczosParams,
                                     std::string,   op,
                                     std::string,   output,
                                     std::string,   epackIn,
+                                    std::string,   projector,
                                     bool,          redBlack,
                                     bool,          evenEigen,
                                     bool,          multiFile);
-};*/
+};
 
 template <typename Field, typename FieldIo = Field>
-class TImplicitlyRestartedLanczosMILC: public Module<ImplicitlyRestartedLanczosPar>
+class TImplicitlyRestartedLanczosMILC: public Module<ImplicitlyRestartedLanczosMILCPar>
 {
 public:
     typedef BaseEigenPack<Field>      BasePack;
     typedef EigenPack<Field, FieldIo> Pack;
     typedef LinearOperatorBase<Field> Op;
+    SOLVER_TYPE_ALIASES(STAGIMPL,);
 public:
     // constructor
     TImplicitlyRestartedLanczosMILC(const std::string name);
@@ -56,7 +58,7 @@ MODULE_REGISTER_TMP(StagIRLIo32, ARG(TImplicitlyRestartedLanczosMILC<STAGIMPL::F
 // constructor /////////////////////////////////////////////////////////////////
 template <typename Field, typename FieldIo>
 TImplicitlyRestartedLanczosMILC<Field, FieldIo>::TImplicitlyRestartedLanczosMILC(const std::string name)
-: Module<ImplicitlyRestartedLanczosPar>(name)
+: Module<ImplicitlyRestartedLanczosMILCPar>(name)
 {}
 
 // dependencies/products ///////////////////////////////////////////////////////
@@ -67,6 +69,9 @@ std::vector<std::string> TImplicitlyRestartedLanczosMILC<Field, FieldIo>::getInp
 
     if (!par().epackIn.empty()) {
         in.push_back(par().epackIn);
+        if (!par().projector.empty()) {
+            in.push_back(par().projector);
+        }
     }
     
     return in;
@@ -145,6 +150,7 @@ void TImplicitlyRestartedLanczosMILC<Field, FieldIo>::execute(void)
         auto &epackIn = envGetDerived(BasePack, Pack, par().epackIn);
 
         offset = epackIn.evec.size();
+        LOG(Message) << "calculating Chebyshev evals of input eigs" << std::endl;
         for (int i=0;i<offset;i++) {
             epackIn.evec[i].Checkerboard() = (par().evenEigen?Even:Odd);
             chebyOp(epackIn.evec[i],polyVec);
@@ -152,7 +158,14 @@ void TImplicitlyRestartedLanczosMILC<Field, FieldIo>::execute(void)
             epack.evec[i] = epackIn.evec[i];
         }
 
-        basisOrthogonalize(epackIn.evec,src,offset);
+        LOG(Message) << "Orthogonalizing initial source with input eigs" << std::endl;
+        if (!par().projector.empty()) {
+            auto &solver  = envGet(Solver, par().projector);
+            polyVec = src;
+            solver(src,polyVec);
+        } else {
+            basisOrthogonalize(epackIn.evec,src,offset);
+        }
     }
 
     irl.calc(epack.eval, epack.evec, src, nconv, false,offset);

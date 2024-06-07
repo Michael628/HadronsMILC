@@ -139,34 +139,9 @@ DependencyMap TRBPrecCGMILC<FImpl>::getObjectDependencies(void)
 // setup ///////////////////////////////////////////////////////////////////////
 // C++11 does not support template lambdas so it is easier
 // to make a macro with the solver body
-#define SOLVER_BODY                                                                          \
-int cb = this->isEven_?Even:Odd;                                                             \
-ZeroGuesser<FermionField>    defaultGuesser;                                                 \
-LinearFunction<FermionField> &guesser = (guesserPt == nullptr) ? defaultGuesser : *guesserPt;\
-ConjugateGradient<FermionField> cg(par().residual,                                           \
-                                   par().maxIteration);                                      \
-schurSolve_t<FermionField> schurSolver(cg,false,false,cb);                                   \
-schurSolver.subtractGuess(subGuess);                                                         \
-schurSolver(mat, source, sol, guesser);
+#define SOLVER_BODY
 
-#define SOLVER_IMPROVE_BODY                                                                  \
-int cbNeg = this->isEven_?Odd:Even;                                                          \
-FermionField test(envGetGrid(FermionField));                                                 \
-FermionField solRb(envGetRbGrid(FermionField)), solRbNeg(envGetRbGrid(FermionField));        \
-LOG(Message) << "Improving residual of complementary checkerboard." << std::endl;            \
-schurSolve_t<FermionField> schurSolverNeg(cg,false,false,cbNeg);                             \
-schurSolverNeg.subtractGuess(subGuess);                                                      \
-pickCheckerboard(cb,solRb,sol);                                                              \
-pickCheckerboard(cbNeg,solRbNeg,sol);                                                        \
-GuessWrapper guessNeg(solRbNeg);                                                             \
-schurSolverNeg(mat, source, sol, guessNeg);                                                  \
-setCheckerboard(sol,solRb);                                                                  \
-mat.M(sol,test);                                                                             \
-test = test-source;                                                                          \
-RealD ns = norm2(source);                                                                    \
-RealD nr = norm2(test);                                                                      \
-LOG(Message) << "..........Combining checkerboards." << std::endl;                           \
-LOG(Message) << "Final combined true residual: "<< std::sqrt(nr/ns) << std::endl;
+#define SOLVER_IMPROVE_BODY
 
 template <typename FImpl>
 void TRBPrecCGMILC<FImpl>::setup(void)
@@ -200,17 +175,46 @@ void TRBPrecCGMILC<FImpl>::setup(void)
         return [&mat, guesserPt, subGuess, this]
         (FermionField &sol, const FermionField &source) 
         {
-            SOLVER_BODY;
+            int cb = this->isEven_?Even:Odd;
+            ZeroGuesser<FermionField>    defaultGuesser;
+            LinearFunction<FermionField> &guesser = (guesserPt == nullptr) ? defaultGuesser : *guesserPt;
+            ConjugateGradient<FermionField> cg(par().residual,
+                                               par().maxIteration);
+            schurSolve_t<FermionField> schurSolver(cg,false,false,cb);
+            schurSolver.subtractGuess(subGuess);
+            schurSolver(mat, source, sol, guesser);
 
-            SOLVER_IMPROVE_BODY;
+            int cbNeg = this->isEven_?Odd:Even;
+            FermionField test(envGetGrid(FermionField));
+            FermionField solRb(envGetRbGrid(FermionField)), solRbNeg(envGetRbGrid(FermionField));
+            LOG(Message) << "Improving residual of complementary checkerboard." << std::endl;
+            schurSolve_t<FermionField> schurSolverNeg(cg,false,false,cbNeg);
+            schurSolverNeg.subtractGuess(subGuess);
+            pickCheckerboard(cb,solRb,sol);
+            pickCheckerboard(cbNeg,solRbNeg,sol);
+            GuessWrapper guessNeg(solRbNeg);
+            schurSolverNeg(mat, source, sol, guessNeg);
+            setCheckerboard(sol,solRb);
+            mat.M(sol,test);
+            test = test-source;
+            RealD ns = norm2(source);
+            RealD nr = norm2(test);
+            LOG(Message) << "..........Combining checkerboards." << std::endl;
+            LOG(Message) << "Final combined true residual: "<< std::sqrt(nr/ns) << std::endl;
         };
     };
     auto makeVecSolver = [&mat, guesserPt, this](bool subGuess) {
         return [&mat, guesserPt, subGuess, this]
         (std::vector<FermionField> &sol, const std::vector<FermionField> &source) 
         {
-            SOLVER_BODY;
-
+            int cb = this->isEven_?Even:Odd;
+            ZeroGuesser<FermionField>    defaultGuesser;
+            LinearFunction<FermionField> &guesser = (guesserPt == nullptr) ? defaultGuesser : *guesserPt;
+            ConjugateGradient<FermionField> cg(par().residual,
+                                               par().maxIteration);
+            schurSolve_t<FermionField> schurSolver(cg,false,false,cb);
+            schurSolver.subtractGuess(subGuess);
+            schurSolver(mat, source, sol, guesser);
             LOG(Warning) << "Vector solver does not improve residual of complementary checkerboard. Desired residual not reached." << std::endl;
 
         };
@@ -228,9 +232,32 @@ void TRBPrecCGMILC<FImpl>::setup(void)
                 guesserPt = new GuessWrapper(guessRb);
             }
 
-            SOLVER_BODY;
+            int cb = this->isEven_?Even:Odd;
+            ZeroGuesser<FermionField>    defaultGuesser;
+            LinearFunction<FermionField> &guesser = (guesserPt == nullptr) ? defaultGuesser : *guesserPt;
+            ConjugateGradient<FermionField> cg(par().residual,
+                                               par().maxIteration);
+            schurSolve_t<FermionField> schurSolver(cg,false,false,cb);
+            schurSolver.subtractGuess(subGuess);
+            schurSolver(mat, source, sol, guesser);
 
-            SOLVER_IMPROVE_BODY;
+            int cbNeg = this->isEven_?Odd:Even;
+            FermionField test(envGetGrid(FermionField));
+            FermionField solRb(envGetRbGrid(FermionField)), solRbNeg(envGetRbGrid(FermionField));
+            LOG(Message) << "Improving residual of complementary checkerboard." << std::endl;
+            schurSolve_t<FermionField> schurSolverNeg(cg,false,false,cbNeg);
+            schurSolverNeg.subtractGuess(subGuess);
+            pickCheckerboard(cb,solRb,sol);
+            pickCheckerboard(cbNeg,solRbNeg,sol);
+            GuessWrapper guessNeg(solRbNeg);
+            schurSolverNeg(mat, source, sol, guessNeg);
+            setCheckerboard(sol,solRb);
+            mat.M(sol,test);
+            test = test-source;
+            RealD ns = norm2(source);
+            RealD nr = norm2(test);
+            LOG(Message) << "..........Combining checkerboards." << std::endl;
+            LOG(Message) << "Final combined true residual: "<< std::sqrt(nr/ns) << std::endl;
         };
     };    
     auto solver    = makeSolver(false);

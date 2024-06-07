@@ -49,6 +49,8 @@ public:
   GRID_SERIALIZABLE_CLASS_MEMBERS(LowModeProjMILCPar,
                                   std::string, action,
                                   bool, projector,
+                                  unsigned int, eigStart,
+                                  unsigned int, nEigs,
                                   std::string, lowModes);
 };
 
@@ -118,68 +120,6 @@ DependencyMap TLowModeProjMILC<FImpl,Pack>::getObjectDependencies(void)
  *              TLowModeProjMILC setup                                         *
  ******************************************************************************/
 
-// C++11 does not support template lambdas so it is easier
-// to make a macro with the solver body
-#define SOLVER_BODY                                                                 \
-    auto &rbTemp = envGet(FermionField,"rbTemp");                                   \
-    auto &rbTempNeg = envGet(FermionField,"rbTempNeg");                             \
-    auto &rbFerm = envGet(FermionField,"rbFerm");                                   \
-    auto &rbFermNeg = envGet(FermionField,"rbFermNeg");                             \
-    auto &MrbFermNeg = envGet(FermionField,"MrbFermNeg");                           \
-                                                \
-    int cb = epack.evec[0].Checkerboard();                                            \
-    int cbNeg = (cb==Even) ? Odd : Even;                                              \
-                                                \
-    RealD norm = 1./::sqrt(norm2(epack.evec[0]));                                     \
-                                                \
-    rbTemp = Zero();                                                                  \
-    rbTemp.Checkerboard() = cb;                                                       \
-    rbTempNeg = Zero();                                                               \
-    rbTempNeg.Checkerboard() = cb;                                                    \
-                                                \
-    rbFerm.Checkerboard() = cb;                                                       \
-    rbFermNeg.Checkerboard() = cbNeg;                                                 \
-    MrbFermNeg.Checkerboard() = cb;                                                   \
-    {                                            \
-      pickCheckerboard(cb,rbFerm,source);                                                  \
-      pickCheckerboard(cbNeg,rbFermNeg,source);                                            \
-    }                                           \
-    mat.MeooeDag(rbFermNeg, MrbFermNeg); \
-                                                \
-    for (int k=epack.evec.size()-1;k >= 0;k--) {                                      \
-        const FermionField& e = epack.evec[k];                                        \
-                                                \
-        const RealD mass     = epack.eval[k].real();                                  \
-        const RealD lam_D    = epack.eval[k].imag();                                  \
-        const RealD invlam_D = 1./lam_D;                                              \
-        const RealD invmag   = 1./(pow(mass,2)+pow(lam_D,2));                         \
-                                                                                      \
-        if (!project) {                                                       \
-            const ComplexD ip    = TensorRemove(innerProduct(e,rbFerm))*invmag;       \
-            const ComplexD ipNeg = TensorRemove(innerProduct(e,MrbFermNeg))*invmag;   \
-            axpy(rbTemp,    mass*ip+ipNeg,   e,rbTemp);                               \
-            axpy(rbTempNeg, mass*ipNeg*invlam_D*invlam_D-ip, e,rbTempNeg);            \
-        } else {                                                                      \
-            const ComplexD ip    = TensorRemove(innerProduct(e,rbFerm));              \
-            const ComplexD ipNeg = TensorRemove(innerProduct(e,MrbFermNeg));          \
-            axpy(rbTemp,    ip,   e,rbTemp);                                          \
-            axpy(rbTempNeg, ipNeg*invlam_D*invlam_D, e,rbTempNeg);                    \
-        }                                                                             \
-    }                                                                                 \
-                                                                                      \
-    mat.Meooe(rbTempNeg, rbFermNeg);                                                  \
-    {                                                                                 \
-      setCheckerboard(sol,rbTemp);                                                    \
-      setCheckerboard(sol,rbFermNeg);                                                 \
-    }                                                                                 \
-    sol *= norm;                                                                      \
-    if (subGuess) {                                                                   \
-        if (project) {                                                                \
-            sol = source - sol;                                                       \
-        } else {                                                                      \
-           HADRONS_ERROR(Argument, "Subtracted solver only supported for projector=true"); \
-       }                                                                              \
-    }
 
 template <typename FImpl, typename Pack>
 void TLowModeProjMILC<FImpl,Pack>::setup(void)
@@ -213,9 +153,74 @@ void TLowModeProjMILC<FImpl,Pack>::setup(void)
     auto &mat       = envGet(FMat, par().action);
     auto &epack   = envGet(Pack, par().lowModes);
 
-    auto makeSolver    = [&mat, &epack, project, this] (bool subGuess) {
-        return [&mat, &epack, subGuess, project, this] (FermionField &sol, const FermionField &source) {
-            SOLVER_BODY;
+    auto eigStart = par().eigStart;
+    auto nEigs = par().nEigs;
+
+    if (nEigs - eigStart > epack.evec.size() - eigStart) {
+        HADRONS_ERROR(Argument,"Requested eigs (parameters eigStart and nEigs) exceeds maximum eigenvector index.")
+    }
+
+    auto makeSolver    = [&mat, &epack, project, eigStart, nEigs, this] (bool subGuess) {
+        return [&mat, &epack, subGuess, project, eigStart, nEigs, this] (FermionField &sol, const FermionField &source) {
+            auto &rbTemp = envGet(FermionField,"rbTemp");
+            auto &rbTempNeg = envGet(FermionField,"rbTempNeg");
+            auto &rbFerm = envGet(FermionField,"rbFerm");
+            auto &rbFermNeg = envGet(FermionField,"rbFermNeg");
+            auto &MrbFermNeg = envGet(FermionField,"MrbFermNeg");
+
+            int cb = epack.evec[0].Checkerboard();
+            int cbNeg = (cb==Even) ? Odd : Even;
+
+            RealD norm = 1./::sqrt(norm2(epack.evec[0]));
+
+            rbTemp = Zero();
+            rbTemp.Checkerboard() = cb;
+            rbTempNeg = Zero();
+            rbTempNeg.Checkerboard() = cb;
+
+            rbFerm.Checkerboard() = cb;
+            rbFermNeg.Checkerboard() = cbNeg;
+            MrbFermNeg.Checkerboard() = cb;
+            {
+              pickCheckerboard(cb,rbFerm,source);
+              pickCheckerboard(cbNeg,rbFermNeg,source);
+            }
+            mat.MeooeDag(rbFermNeg, MrbFermNeg);
+
+            for (int k=eigStart+nEigs-1;k >= eigStart;k--) {
+                const FermionField& e = epack.evec[k];
+
+                const RealD mass     = epack.eval[k].real();
+                const RealD lam_D    = epack.eval[k].imag();
+                const RealD invlam_D = 1./lam_D;
+                const RealD invmag   = 1./(pow(mass,2)+pow(lam_D,2));
+
+                if (!project) {
+                    const ComplexD ip    = TensorRemove(innerProduct(e,rbFerm))*invmag;
+                    const ComplexD ipNeg = TensorRemove(innerProduct(e,MrbFermNeg))*invmag;
+                    axpy(rbTemp,    mass*ip+ipNeg,   e,rbTemp);
+                    axpy(rbTempNeg, mass*ipNeg*invlam_D*invlam_D-ip, e,rbTempNeg);
+                } else {
+                    const ComplexD ip    = TensorRemove(innerProduct(e,rbFerm));
+                    const ComplexD ipNeg = TensorRemove(innerProduct(e,MrbFermNeg));
+                    axpy(rbTemp,    ip,   e,rbTemp);
+                    axpy(rbTempNeg, ipNeg*invlam_D*invlam_D, e,rbTempNeg);
+                }
+            }
+
+            mat.Meooe(rbTempNeg, rbFermNeg);
+            {
+              setCheckerboard(sol,rbTemp);
+              setCheckerboard(sol,rbFermNeg);
+            }
+            sol *= norm;
+            if (subGuess) {
+                if (project) {
+                    sol = source - sol;
+                } else {
+                   HADRONS_ERROR(Argument, "Subtracted solver only supported for projector=true");
+               }
+            }
         };
     };
 

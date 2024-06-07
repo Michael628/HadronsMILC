@@ -145,43 +145,43 @@ void TLowModeProjMILCFull<FImpl,Pack>::setup(void)
 
     auto makeSolver    = [&mat, &epack, project, this] (bool subGuess) {
         return [&mat, &epack, subGuess, project, this] (FermionField &sol, const FermionField &source) {
-	  auto &rbTemp = envGet(FermionField,"rbTemp");
-	  auto &temp = envGet(FermionField,"temp");
-	  auto &tempDag = envGet(FermionField,"tempDag");
+    	  auto &rbTemp = envGet(FermionField,"rbTemp");
+    	  auto &temp = envGet(FermionField,"temp");
+    	  auto &tempDag = envGet(FermionField,"tempDag");
 
-	  int cb = epack.evec[0].Checkerboard();
-	  int cbNeg = (cb==Even) ? Odd : Even;
+    	  int cb = epack.evec[0].Checkerboard();
+    	  int cbNeg = (cb==Even) ? Odd : Even;
 
-	  RealD norm = 1./::sqrt(2.0*norm2(epack.evec[0]));
+    	  RealD norm = 1./::sqrt(4.0*norm2(epack.evec[0]));
 
-	  sol = Zero();
-	  rbTemp = Zero();
-	  rbTemp.Checkerboard() = cb;
-	  temp = Zero();
-	  tempDag = Zero();
-	  for (int k=epack.evec.size()-1;k >= 0;k--) {
-	    const FermionField& e = epack.evec[k];
-	    const ComplexD lam_D    = ComplexD(0.0,-1.0/(epack.eval[k]).imag());	
-	    const ComplexD lam     = 1.0/epack.eval[k];
-	    mat.Meooe(e, rbTemp);
-	    rbTemp = lam_D*rbTemp;
-	    setCheckerboard(temp,e);
-	    setCheckerboard(temp,rbTemp);
-	    if (cb == Even) {
-	      rbTemp = -rbTemp;
-	      setCheckerboard(tempDag,e);
-	      setCheckerboard(tempDag,rbTemp);
-	    } else {
-	      setCheckerboard(tempDag,rbTemp);
-	      rbTemp = -e;
-	      setCheckerboard(tempDag,rbTemp);
-	    }
-	    const ComplexD ip    = TensorRemove(innerProduct(temp,source))*lam;
-	    const ComplexD ipDag = TensorRemove(innerProduct(tempDag,source))*conjugate(lam);
-	    axpy(sol, ip, temp, sol);
-	    axpy(sol,ipDag,tempDag,sol);
-	  }
-	  sol *= norm;
+    	  sol = Zero();
+    	  rbTemp = Zero();
+    	  rbTemp.Checkerboard() = cb;
+    	  temp = Zero();
+    	  tempDag = Zero();
+    	  for (int k=epack.evec.size()-1;k >= 0;k--) {
+    	    const FermionField& e = epack.evec[k];
+    	    const ComplexD lam_D    = ComplexD(0.0,-1.0/(epack.eval[k]).imag());	
+    	    const ComplexD lam     = 1.0/epack.eval[k];
+    	    mat.Meooe(e, rbTemp);
+    	    rbTemp = lam_D*rbTemp;
+    	    setCheckerboard(temp,e);
+    	    setCheckerboard(temp,rbTemp);
+    	    if (cb == Even) {
+    	      rbTemp = -rbTemp;
+    	      setCheckerboard(tempDag,e);
+    	      setCheckerboard(tempDag,rbTemp);
+    	    } else {
+    	      setCheckerboard(tempDag,rbTemp);
+    	      rbTemp = -e;
+    	      setCheckerboard(tempDag,rbTemp);
+    	    }
+    	    const ComplexD ip    = TensorRemove(innerProduct(temp,source))*lam;
+    	    const ComplexD ipDag = TensorRemove(innerProduct(tempDag,source))*conjugate(lam);
+    	    axpy(sol, ip, temp, sol);
+    	    axpy(sol,ipDag,tempDag,sol);
+    	  }
+    	  sol *= norm;
         };
     };
 
