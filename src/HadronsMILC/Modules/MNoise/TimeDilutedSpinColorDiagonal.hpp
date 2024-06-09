@@ -125,7 +125,7 @@ void TTimeDilutedSpinColorDiagonalMILC<FImpl>::execute(void)
     int nsc   = (int)(nferm/(noise.size()*nt));
     int tStep = par().tStep > 1 ? par().tStep : 1;
 
-    nferm = (nferm+nsc*(tStep-1))/tStep;
+    nferm = (nferm/nsc+(tStep-1))/tStep*nsc;
 
     noisevec.resize(nferm,envGetGrid(FermionField));
     for (int i=0;i<nferm;i++) {

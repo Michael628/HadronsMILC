@@ -93,9 +93,6 @@ protected:
     virtual void execute(void);
 private:
     void makeSource(PropagatorField &src, const PropagatorField &q);
-private:
-    bool        hasPhase_{false};
-    std::string momphName_, tName_;
 };
 
 MODULE_REGISTER_TMP(StagSeqAslash, TSeqAslashMILC<STAGIMPL>, MSource);
@@ -107,8 +104,6 @@ MODULE_REGISTER_TMP(StagSeqAslash, TSeqAslashMILC<STAGIMPL>, MSource);
 template <typename FImpl>
 TSeqAslashMILC<FImpl>::TSeqAslashMILC(const std::string name)
 : Module<SeqAslashMILCPar>(name)
-, momphName_ (name + "_momph")
-, tName_ (name + "_t")
 {}
 
 // dependencies/products ///////////////////////////////////////////////////////
@@ -152,8 +147,8 @@ void TSeqAslashMILC<FImpl>::setup(void)
                           + env().getObjectType(par().q)
                           + ")", env().getObjectAddress(par().q))
     }
-    envCache(Lattice<iScalar<vInteger>>, tName_, 1, envGetGrid(LatticeComplex));
-    envCacheLat(LatticeComplex, momphName_);
+    envTmp(Lattice<iScalar<vInteger>>, "t", 1, envGetGrid(LatticeComplex));
+    envTmpLat(LatticeComplex, "ph");
     envTmpLat(LatticeComplex, "coor");
 }
 
@@ -162,27 +157,23 @@ template <typename FImpl>
 void TSeqAslashMILC<FImpl>::makeSource(PropagatorField &src, 
                                    const PropagatorField &q)
 {
-    auto &ph           = envGet(LatticeComplex, momphName_);
-    auto &t            = envGet(Lattice<iScalar<vInteger>>, tName_);
+    envGetTmp(LatticeComplex,ph);
+    envGetTmp(Lattice<iScalar<vInteger>>, t);
     auto &stoch_photon = envGet(EmField, par().emField);
 
-    if (!hasPhase_)
-    {
-        Complex           i(0.0,1.0);
-        std::vector<Real> p;
+    Complex           i(0.0,1.0);
+    std::vector<Real> p;
 
-        envGetTmp(LatticeComplex, coor);
-        p  = strToVec<Real>(par().mom);
-        ph = Zero();
-        for(unsigned int mu = 0; mu < env().getNd(); mu++)
-        {
-            LatticeCoordinate(coor, mu);
-            ph = ph + (p[mu]/env().getDim(mu))*coor;
-        }
-        ph = exp((Real)(2*M_PI)*i*ph);
-        LatticeCoordinate(t, Tp);
-        hasPhase_ = true;
+    envGetTmp(LatticeComplex, coor);
+    p  = strToVec<Real>(par().mom);
+    ph = Zero();
+    for(unsigned int mu = 0; mu < env().getNd(); mu++)
+    {
+        LatticeCoordinate(coor, mu);
+        ph = ph + (p[mu]/env().getDim(mu))*coor;
     }
+    ph = exp((Real)(2*M_PI)*i*ph);
+    LatticeCoordinate(t, Tp);
     
     StagGamma gamma;
     if (!par().spinTaste.gauge.empty()) {
