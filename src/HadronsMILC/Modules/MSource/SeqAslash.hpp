@@ -66,6 +66,7 @@ public:
                                     std::string,    q,
                                     unsigned int,   tA,
                                     unsigned int,   tB,
+                                    SpinTasteParams, spinTaste,
                                     std::string,    emField,
                                     std::string,    mom);
 };
@@ -131,6 +132,8 @@ std::vector<std::string> TSeqAslashMILC<FImpl>::getOutput(void)
 template <typename FImpl>
 void TSeqAslashMILC<FImpl>::setup(void)
 {
+    envTmpLat(PropagatorField, "field");
+
     if (envHasType(PropagatorField, par().q))
     {
         envCreateLat(PropagatorField, getName());
@@ -181,20 +184,36 @@ void TSeqAslashMILC<FImpl>::makeSource(PropagatorField &src,
         hasPhase_ = true;
     }
     
+    StagGamma gamma;
+    if (!par().spinTaste.gauge.empty()) {
+        auto& Umu = envGet(GaugeField,par().spinTaste.gauge);
+        gamma.setGaugeField(Umu);
+    }
     Complex ci(0.0,1.0);
     src = Zero();
-    for(unsigned int mu=0;mu<=3;mu++)
+    auto gamma_vals = StagGamma::ParseSpinTasteString(par().spinTaste.gammas,par().spinTaste.applyG5);
+    if (gamma_vals.size() != 4) {
+        HADRONS_ERROR(Argument,"spinTaste parameter must provide 4 gammas for J.A")
+    }
+
+    envGetTmp(PropagatorField,field);
+    field = Zero();
+
+    for(unsigned int mu=0;mu<gamma_vals.size();mu++)
     {
-        StagGamma gmu(StagGamma::gmu[mu],StagGamma::StagAlgebra::G1);
+        gamma.setSpinTaste(gamma_vals[mu]);
+        gamma(field,q);
 
         src = src + where((t >= par().tA) and (t <= par().tB), 
-                          ci*PeekIndex<LorentzIndex>(stoch_photon, mu) *ph*(gmu*q), 0.*q);
+                          ci*PeekIndex<LorentzIndex>(stoch_photon, mu) *(ph*q), 0.*q);
     }
 }
 
 template <typename FImpl>
 void TSeqAslashMILC<FImpl>::execute(void)
 {
+    LOG(Warning) << "Applying spinTaste gammas in (x,y,z,t) order." << std::endl;
+
     if (par().tA == par().tB)
     {
         LOG(Message) << "Generating Aslash sequential source(s) at t= " << par().tA 

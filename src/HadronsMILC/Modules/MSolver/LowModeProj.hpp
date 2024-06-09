@@ -156,8 +156,8 @@ void TLowModeProjMILC<FImpl,Pack>::setup(void)
     auto eigStart = par().eigStart;
     auto nEigs = par().nEigs;
 
-    if (nEigs - eigStart > epack.evec.size() - eigStart) {
-        HADRONS_ERROR(Argument,"Requested eigs (parameters eigStart and nEigs) exceeds maximum eigenvector index.")
+    if (eigStart > nEigs || eigStart > epack.evec.size() || nEigs - eigStart > epack.evec.size() - eigStart) {
+        HADRONS_ERROR(Argument,"Requested eigs (parameters eigStart and nEigs) out of bounds.")
     }
 
     auto makeSolver    = [&mat, &epack, project, eigStart, nEigs, this] (bool subGuess) {
@@ -187,7 +187,7 @@ void TLowModeProjMILC<FImpl,Pack>::setup(void)
             }
             mat.MeooeDag(rbFermNeg, MrbFermNeg);
 
-            for (int k=eigStart+nEigs-1;k >= eigStart;k--) {
+            for (int k=(eigStart+nEigs-1) ; k >= int(eigStart) ; k--) {
                 const FermionField& e = epack.evec[k];
 
                 const RealD mass     = epack.eval[k].real();
