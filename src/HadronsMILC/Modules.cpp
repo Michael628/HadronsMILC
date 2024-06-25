@@ -19,5 +19,6 @@
 #include "Modules/MSolver/RBPrecCG.cpp"
 #include "Modules/MSource/RandomWall.cpp"
 #include "Modules/MSource/SeqAslash.cpp"
+#include "Modules/MSource/SeqGamma.cpp"
 #include "Modules/MUtilities/EigenPackExtractEvals.cpp"
 #include "Modules/MUtilities/ModifyEigenPack.cpp"

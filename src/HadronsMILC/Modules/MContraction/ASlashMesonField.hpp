@@ -56,6 +56,7 @@ public:
         std::string, action,
         std::string, right,
         std::string, output,
+        SpinTasteParams, spinTaste,
         std::string, EmFunc,
         int,         nEmFields,
         std::string, EmSeedString,
@@ -349,6 +350,11 @@ void TASlashMesonFieldMILC<FImpl,Pack>::execute(void)
         if (!par().EmSeedString.empty())
             rng.SeedUniqueString(par().EmSeedString);
 
+        auto gamma_vals = StagGamma::ParseSpinTasteString(par().spinTaste.gammas,par().spinTaste.applyG5);
+        if (gamma_vals.size() != env().getNd()) {
+        HADRONS_ERROR(Argument,"spinTaste parameter must provide 4 gammas for J.A")
+        }
+
         for (unsigned int j = 0; j < par().nEmFields; ++j)
         {
 
@@ -356,7 +362,7 @@ void TASlashMesonFieldMILC<FImpl,Pack>::execute(void)
             photon.StochasticField(AField, rng, w);
             for (unsigned int k = 0; k < env().getNd(); ++k)
             {
-                gamma.setSpinTaste(StagGamma::gmu[k],StagGamma::gmu[k]);
+                gamma.setSpinTaste(gamma_vals[k]);
                 coor = PeekIndex<LorentzIndex>(AField,k);
                 gamma.applyPhase(coor,coor);
                 Amu[j] += coor;

@@ -29,7 +29,9 @@ class Contractor:
     def __init__(self,series,cfg):
         # self.Nt = 64
         self.Nt = 48
-        self.mesonfilestem = "e1000n1dt1/mesons/mf_{series}_{w}_{v}.{cfg}/{g}_0_0_0.h5"
+        self.evalfilestem = "eigs/evals/evalmassless3248f211b580m002426m06730m8447nv1000{series}.{cfg}.h5"
+        self.mesonfilestem = "e1000n1dt1/mesons/m001555/mf_{series}.{cfg}/{g}_0_0_0.h5"
+        #self.mesonfilestem = "e1000n1dt1/mesons/mf_{series}_{w}_{v}.{cfg}/{g}_0_0_0.h5"
         # self.mesonfilestem = "e2000n1dt1/mesons/m001907/mf_{series}.{cfg}/{g}_0_0_0.h5"
         # self.elabel = "e2000"
         self.elabel = "e1000"
@@ -39,25 +41,33 @@ class Contractor:
         self.Nem    = 10
         self.emseedstring  = 'em'
         self.seedstring    = 'seed'
-        self.diagrams      = ['selfen','photex']
-        self.subdirs       = ["em{Nem}","em{Nem}"]
-        self.outfilestem   = 'a2a_corrs/{diagram}/{subdir}/corr_local_vec_conn_{diagram}_{permkey}_seed{Nseeds}_{series}.{cfg}.p'
-        self.Npoint        = 4
+        #self.diagrams      = ['selfen','photex']
+        #self.subdirs       = ["em{Nem}","em{Nem}"]
+        self.diagrams      = ['vec_local']
+        self.massold = "001555"
+        #self.massold = "002426"
+        #self.massnew = "002426"
+        #self.massnew = "001555"
+        self.massnew = "003297"
+        self.subdirs       = [f"m{self.massnew}"]
+        #self.outfilestem   = 'a2a_corrs/{diagram}/{subdir}/corr_vec_local_conn_{diagram}_{permkey}_seed{Nseeds}_{series}.{cfg}.p'
+        self.outfilestem   = 'a2a_corrs/{diagram}/{subdir}/corr_vec_local_conn_{diagram}_{permkey}_{series}.{cfg}.p'
+        #self.Npoint        = 4
         # self.outfilestem   = 'a2a_corrs/{diagram}/{subdir}/corr_conn_{diagram}_{permkey}_{series}.{cfg}.p'
-        # self.outfilestem   = 'a2a_corrs/test/corr_local_vec_conn_{diagram}_{permkey}_seed{Nseeds}_{series}.{cfg}.p'
-        # self.Npoint        = 2
+        # self.outfilestem   = 'a2a_corrs/test/corr_vec_local_conn_{diagram}_{permkey}_seed{Nseeds}_{series}.{cfg}.p'
+        self.Npoint        = 2
         self.timingPrint = False
         # self.diagrams = ['vec_local']
         # self.subdirs = ['']
-        # self.outfilestem ='a2a_corrs/test/corr_sib_local_vec_conn_{permkey}_seed{Nseeds}_{series}.{cfg}.p'
+        # self.outfilestem ='a2a_corrs/test/corr_sib_vec_local_conn_{permkey}_seed{Nseeds}_{series}.{cfg}.p'
         # self.Npoint = 3
 
     def loadMeson(self,keyl,keyr,gamma,time=()):
 
-            with h5py.File(self.mesonfilestem.format(w=keyl,v=keyr,g=gamma,series=self.series,cfg=self.cfg),"r") as f:
-                a_group_key = list(f.keys())[0]
-                return np.array(f[a_group_key]['a2aMatrix'][time].view(np.complex64),
-                                                        dtype=np.complex128)
+        with h5py.File(self.mesonfilestem.format(w=keyl,v=keyr,g=gamma,series=self.series,cfg=self.cfg),"r") as f:
+            a_group_key = list(f.keys())[0]
+            return np.array(f[a_group_key]['a2aMatrix'][time].view(np.complex64),
+                            dtype=np.complex128)
     
     def contract(self,m1,m2,m3=None,m4=None,open_indices=(0,-1)):
         # two-point functions
@@ -123,17 +133,43 @@ class Contractor:
         #return C/Nt
         return cp.asnumpy(C/self.Nt)
 
+    def shiftMass(self,mat):
+        with h5py.File(self.evalfilestem.format(series=self.series,cfg=self.cfg),'r') as f:
+            try:
+                evals = np.array(f['/evals'][()].view(np.float64),dtype=np.float64)
+            except KeyError:
+                evals = np.array(f['/EigenValueFile/evals'][()].view(np.float64),dtype=np.float64)
+
+        evals = np.sqrt(evals)
+        mass_old = float(f'0.{self.massold}')
+        mass_new = float(f'0.{self.massnew}')
+
+        eval_scaling = np.zeros((len(evals),2),dtype=np.complex128)
+        eval_scaling[:,0] = np.divide(mass_old+1.j*evals,mass_new+1.j*evals)
+        eval_scaling[:,1] = np.conjugate(eval_scaling[:,0])
+        eval_scaling = eval_scaling.reshape((-1,))
+
+        mat[:] = np.multiply(mat,eval_scaling[np.newaxis,np.newaxis,:])
+        
     def vec_conn_2pt(self,seedlist,local):
 
         corr = {}
 
-        #gammas = [f"G{g}_G{g}" if local else f"G{g}_G1" for g in ['X','Y','Z']]
-        gammas = [f"Gamma{g}" if local else f"G{g}_G1" for g in ['X','Y','Z']]
+        shift_mass = False
+        if self.massnew and self.massold and self.massnew != self.massold:
+            shift_mass = True
+            
+        gammas = [f"G{g}_G{g}" if local else f"G{g}_G1" for g in ['X','Y','Z']]
+        #gammas = [f"Gamma{g}" if local else f"G{g}_G1" for g in ['X','Y','Z']]
 
         for gamma in gammas:
 
             mat1 = self.loadMeson(seedlist[0],seedlist[1],gamma)
+            if shift_mass and seedlist[1] == self.elabel:
+                self.shiftMass(mat1)
             mat2 = self.loadMeson(seedlist[2],seedlist[3],gamma)
+            if shift_mass and seedlist[3] == self.elabel:
+                self.shiftMass(mat2)
 
             corr[gamma] = self.time_average(self.contract(mat1,mat2))
 
@@ -260,8 +296,8 @@ local_gammas = [f"G{g}_G{g}" for g in ['X','Y','Z']]
 
 for Nlow in range(Nmesons+1):
 
-    # if Nlow < 2:
-       # continue
+    if Nlow < 2:
+       continue
     
     HLperms = multiset_permutations(['L']*Nlow+['H']*(Nmesons-Nlow))
     for perm in HLperms:

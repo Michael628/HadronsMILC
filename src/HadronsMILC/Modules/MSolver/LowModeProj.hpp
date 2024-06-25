@@ -50,7 +50,7 @@ public:
                                   std::string, action,
                                   bool, projector,
                                   unsigned int, eigStart,
-                                  unsigned int, nEigs,
+                                  int, nEigs,
                                   std::string, lowModes);
 };
 
@@ -156,6 +156,10 @@ void TLowModeProjMILC<FImpl,Pack>::setup(void)
     auto eigStart = par().eigStart;
     auto nEigs = par().nEigs;
 
+    if (nEigs < 1) {
+        nEigs = epack.evec.size();
+    }
+    
     if (eigStart > nEigs || eigStart > epack.evec.size() || nEigs - eigStart > epack.evec.size() - eigStart) {
         HADRONS_ERROR(Argument,"Requested eigs (parameters eigStart and nEigs) out of bounds.")
     }

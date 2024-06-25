@@ -20,6 +20,7 @@ modules_cpp =\
   Modules/MSolver/RBPrecCG.cpp \
   Modules/MSource/RandomWall.cpp \
   Modules/MSource/SeqAslash.cpp \
+  Modules/MSource/SeqGamma.cpp \
   Modules/MUtilities/EigenPackExtractEvals.cpp \
   Modules/MUtilities/ModifyEigenPack.cpp
 
@@ -45,6 +46,7 @@ modules_hpp =\
   Modules/MSolver/RBPrecCG.hpp \
   Modules/MSource/RandomWall.hpp \
   Modules/MSource/SeqAslash.hpp \
+  Modules/MSource/SeqGamma.hpp \
   Modules/MUtilities/EigenPackExtractEvals.hpp \
   Modules/MUtilities/ModifyEigenPack.hpp
 

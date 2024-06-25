@@ -1,5 +1,5 @@
 /*
- * SeqAslashMILC.hpp, part of Hadrons (https://github.com/aportelli/Hadrons)
+ * SeqGammaMILC.hpp, part of Hadrons (https://github.com/aportelli/Hadrons)
  *
  * Copyright (C) 2015 - 2020
  *
@@ -29,8 +29,8 @@
 
 /*  END LEGAL */
 
-#ifndef HadronsMILC_MSource_SeqAslash_hpp_
-#define HadronsMILC_MSource_SeqAslash_hpp_
+#ifndef HadronsMILC_MSource_SeqGamma_hpp_
+#define HadronsMILC_MSource_SeqGamma_hpp_
 
 #include <Hadrons/Global.hpp>
 #include <Hadrons/Module.hpp>
@@ -43,7 +43,7 @@ BEGIN_HADRONS_NAMESPACE
  
  Sequential source
  -----------------------------
- * src_x = q_x * theta(x_3 - tA) * theta(tB - x_3) * i * A_mu g_mu * exp(i x.mom)
+ * src_x = q_x * theta(x_3 - tA) * theta(tB - x_3) g_mu * exp(i x.mom)
  
  * options:
  - q: input propagator (string)
@@ -55,34 +55,31 @@ BEGIN_HADRONS_NAMESPACE
  */
 
 /******************************************************************************
- *                        Sequential Aslash source                            *
+ *                        Sequential Gamma source                            *
  ******************************************************************************/
 BEGIN_MODULE_NAMESPACE(MSource)
 
-class SeqAslashMILCPar: Serializable
+class SeqGammaMILCPar: Serializable
 {
 public:
-    GRID_SERIALIZABLE_CLASS_MEMBERS(SeqAslashMILCPar,
+    GRID_SERIALIZABLE_CLASS_MEMBERS(SeqGammaMILCPar,
                                     std::string,    q,
                                     unsigned int,   tA,
                                     unsigned int,   tB,
                                     SpinTasteParams, spinTaste,
-                                    std::string,    emField,
                                     std::string,    mom);
 };
 
 template <typename FImpl>
-class TSeqAslashMILC: public Module<SeqAslashMILCPar>
+class TSeqGammaMILC: public Module<SeqGammaMILCPar>
 {
 public:
     FERM_TYPE_ALIASES(FImpl,);
 public:
-    typedef PhotonR::GaugeField     EmField;
-public:
     // constructor
-    TSeqAslashMILC(const std::string name);
+    TSeqGammaMILC(const std::string name);
     // destructor
-    virtual ~TSeqAslashMILC(void) {};
+    virtual ~TSeqGammaMILC(void) {};
     // dependency relation
     virtual std::vector<std::string> getInput(void);
     virtual std::vector<std::string> getOutput(void);
@@ -95,31 +92,32 @@ private:
     void makeSource(PropagatorField &src, const PropagatorField &q);
 };
 
-MODULE_REGISTER_TMP(StagSeqAslash, TSeqAslashMILC<STAGIMPL>, MSource);
+MODULE_REGISTER_TMP(StagSeqGamma, TSeqGammaMILC<STAGIMPL>, MSource);
 
 /******************************************************************************
- *                         TSeqAslashMILC implementation                           *
+ *                         TSeqGammaMILC implementation                           *
  ******************************************************************************/
 // constructor /////////////////////////////////////////////////////////////////
 template <typename FImpl>
-TSeqAslashMILC<FImpl>::TSeqAslashMILC(const std::string name)
-: Module<SeqAslashMILCPar>(name)
+TSeqGammaMILC<FImpl>::TSeqGammaMILC(const std::string name)
+: Module<SeqGammaMILCPar>(name)
 {}
 
 // dependencies/products ///////////////////////////////////////////////////////
 template <typename FImpl>
-std::vector<std::string> TSeqAslashMILC<FImpl>::getInput(void)
+std::vector<std::string> TSeqGammaMILC<FImpl>::getInput(void)
 {
-    std::vector<std::string> in = {par().q,par().emField};
+    std::vector<std::string> in = {par().q};
     
     if (!par().spinTaste.gauge.empty()) {
         in.push_back(par().spinTaste.gauge);
-    }    
+    }
+
     return in;
 }
 
 template <typename FImpl>
-std::vector<std::string> TSeqAslashMILC<FImpl>::getOutput(void)
+std::vector<std::string> TSeqGammaMILC<FImpl>::getOutput(void)
 {
     std::vector<std::string> out = {getName()};
     
@@ -128,7 +126,7 @@ std::vector<std::string> TSeqAslashMILC<FImpl>::getOutput(void)
 
 // setup ///////////////////////////////////////////////////////////////////////
 template <typename FImpl>
-void TSeqAslashMILC<FImpl>::setup(void)
+void TSeqGammaMILC<FImpl>::setup(void)
 {
     envTmpLat(PropagatorField, "field");
 
@@ -157,12 +155,11 @@ void TSeqAslashMILC<FImpl>::setup(void)
 
 // execution ///////////////////////////////////////////////////////////////////
 template <typename FImpl>
-void TSeqAslashMILC<FImpl>::makeSource(PropagatorField &src, 
+void TSeqGammaMILC<FImpl>::makeSource(PropagatorField &src, 
                                    const PropagatorField &q)
 {
     envGetTmp(LatticeComplex,ph);
     envGetTmp(Lattice<iScalar<vInteger>>, t);
-    auto &stoch_photon = envGet(EmField, par().emField);
 
     Complex           i(0.0,1.0);
     std::vector<Real> p;
@@ -183,42 +180,35 @@ void TSeqAslashMILC<FImpl>::makeSource(PropagatorField &src,
         auto& Umu = envGet(GaugeField,par().spinTaste.gauge);
         gamma.setGaugeField(Umu);
     }
-    Complex ci(0.0,1.0);
     src = Zero();
     auto gamma_vals = StagGamma::ParseSpinTasteString(par().spinTaste.gammas,par().spinTaste.applyG5);
-    if (gamma_vals.size() != 4) {
-        HADRONS_ERROR(Argument,"spinTaste parameter must provide 4 gammas for J.A")
-    }
 
     envGetTmp(PropagatorField,field);
     field = Zero();
 
-    for(unsigned int mu=0;mu<gamma_vals.size();mu++)
-    {
-        gamma.setSpinTaste(gamma_vals[mu]);
-        gamma(field,q);
+    gamma.setSpinTaste(gamma_vals[0]);
+    gamma(field,q);
 
-        src = src + where((t >= par().tA) and (t <= par().tB), 
-                          ci*PeekIndex<LorentzIndex>(stoch_photon, mu) *(ph*field), 0.*field);
-    }
+    src = where((t >= par().tA) and (t <= par().tB), 
+                          ph*field, 0.*field);
 }
 
 template <typename FImpl>
-void TSeqAslashMILC<FImpl>::execute(void)
+void TSeqGammaMILC<FImpl>::execute(void)
 {
     LOG(Warning) << "Applying spinTaste gammas in (x,y,z,t) order." << std::endl;
 
     if (par().tA == par().tB)
     {
-        LOG(Message) << "Generating Aslash sequential source(s) at t= " << par().tA 
-		             << " using the photon field '" << par().emField 
+        LOG(Message) << "Generating Gamma sequential source(s) at t= " << par().tA 
+		             << " using the spin-taste '" << par().spinTaste.gammas
                      << "'" << std::endl; 
     }
     else
     {
-        LOG(Message) << "Generating Aslash sequential source(s) for "
+        LOG(Message) << "Generating Gamma sequential source(s) for "
                      << par().tA << " <= t <= " << par().tB 
-		             << " using the photon field '" << par().emField 
+                     << " using the spin-taste '" << par().spinTaste.gammas
                      << "'" << std::endl;
     }
     
@@ -249,4 +239,4 @@ END_MODULE_NAMESPACE
 
 END_HADRONS_NAMESPACE
 
-#endif // Hadrons_MSource_SeqAslash_hpp_
+#endif // Hadrons_MSource_SeqGamma_hpp_
