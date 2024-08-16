@@ -2,11 +2,11 @@ import copy
 import os
 import random
 
-def buildParams(**moduleTemplates):
+def build_params(**module_templates):
 
     env = os.environ
 
-    scheduleFile=f"schedules/seq_sib_{env['SERIES']}{env['CFG']}.sched"
+    schedule_file=f"schedules/seq_sib_{env['SERIES']}{env['CFG']}.sched"
 
     masses=env["MASSES"].strip().split(" ")
     gammas = {
@@ -35,7 +35,7 @@ def buildParams(**moduleTemplates):
                      "mutationRate":"0.1",
                  },
                  "graphFile":"",
-                f"scheduleFile":scheduleFile,
+                f"schedule_file":schedule_file,
                 "saveSchedule":"false",
                 "parallelWriteMaxRetry":"-1",
             },
@@ -45,37 +45,37 @@ def buildParams(**moduleTemplates):
 
     modules = []
 
-    module = copy.deepcopy(moduleTemplates["loadGauge"])
+    module = copy.deepcopy(module_templates["load_gauge"])
     module["id"]["name"] = "gauge"
     module["options"]["file"] = f"configs/l{env['ENS']}{env['SERIES']}.ildg"
     modules.append(module)
 
-    module = copy.deepcopy(moduleTemplates["loadGauge"])
+    module = copy.deepcopy(module_templates["load_gauge"])
     module["id"]["name"] = "gauge_fat"
     module["options"]["file"] = f"configs/fat{env['ENS']}{env['SERIES']}.ildg"
     modules.append(module)
 
-    module = copy.deepcopy(moduleTemplates["loadGauge"])
+    module = copy.deepcopy(module_templates["load_gauge"])
     module["id"]["name"] = "gauge_long"
     module["options"]["file"] = f"configs/lng{env['ENS']}{env['SERIES']}.ildg"
     modules.append(module)
 
-    module = copy.deepcopy(moduleTemplates["castGauge"])
+    module = copy.deepcopy(module_templates["cast_gauge"])
     module["id"]["name"] = "gauge_fatf"
     module["options"]["field"] = "gauge_fat"
     modules.append(module)
 
-    module = copy.deepcopy(moduleTemplates["castGauge"])
+    module = copy.deepcopy(module_templates["cast_gauge"])
     module["id"]["name"] = "gauge_longf"
     module["options"]["field"] = "gauge_long"
     modules.append(module)
 
-    module = copy.deepcopy(moduleTemplates["sink"])
+    module = copy.deepcopy(module_templates["sink"])
     module["id"]["name"] = "sink"
     module["options"]["mom"] = "0 0 0"
     modules.append(module)
 
-    module = copy.deepcopy(moduleTemplates["epackLoad"])
+    module = copy.deepcopy(module_templates["epack_load"])
     module["id"]["name"] = "epack"
     module["options"]["filestem"] = f"eigs/eig{env['ENS']}nv{env['SOURCEEIGS']}{env['SERIES']}"
     module["options"]["size"] = env['EIGS']
@@ -92,7 +92,7 @@ def buildParams(**moduleTemplates):
         block_label=f"t{time_index}"
         noise=f"noise_{block_label}"
 
-        module = copy.deepcopy(moduleTemplates["noiseRW"])
+        module = copy.deepcopy(module_templates["noise_rw"])
         module["id"]["name"] = noise
         module["options"]["nSrc"] = env["NOISE"]
         module["options"]["tStep"] = str(time)
@@ -104,34 +104,34 @@ def buildParams(**moduleTemplates):
             mass_label = "m"+m1
 
             if time_index == tStart:
-                module = copy.deepcopy(moduleTemplates["epackModify"])
+                module = copy.deepcopy(module_templates["epack_modify"])
                 module["id"]["name"] = f"evecs_{mass_label}"
                 module["options"]["eigenPack"] = "epack"
                 module["options"]["mass"] = mass
                 modules.append(module)
                  
-                module = copy.deepcopy(moduleTemplates["action"])
+                module = copy.deepcopy(module_templates["action"])
                 module["id"]["name"] = f"stag_{mass_label}"
                 module["options"]["mass"] = mass
                 module["options"]["gaugefat"] = "gauge_fat"
                 module["options"]["gaugelong"] = "gauge_long"
                 modules.append(module)
 
-                module = copy.deepcopy(moduleTemplates["actionF"])
+                module = copy.deepcopy(module_templates["action_float"])
                 module["id"]["name"] = f"istag_{mass_label}"
                 module["options"]["mass"] = mass
                 module["options"]["gaugefat"] = "gauge_fatf"
                 module["options"]["gaugelong"] = "gauge_longf"
                 modules.append(module)
          
-                module = copy.deepcopy(moduleTemplates["cgMP"])
+                module = copy.deepcopy(module_templates["mixed_precision_cg"])
                 module["id"]["name"] = f"stag_ama_{mass_label}"
                 module["options"]["outerAction"] = f"stag_{mass_label}"
                 module["options"]["innerAction"] = f"istag_{mass_label}"
                 module["options"]["residual"] = "1e-8"
                 modules.append(module)
           
-                module = copy.deepcopy(moduleTemplates["lmaProj"])
+                module = copy.deepcopy(module_templates["lma_solver"])
                 module["id"]["name"] = f"stag_ranLL_{mass_label}"
                 module["options"]["action"] = f"stag_{mass_label}"
                 module["options"]["lowModes"] = f"evecs_{mass_label}"
@@ -160,7 +160,7 @@ def buildParams(**moduleTemplates):
                         guess=""
                         quark_1=f"quark_{solver_label}_{gamma_label}_{mass_label}_{block_label}_{gamma_suf}"
                                 
-                        module = copy.deepcopy(moduleTemplates["quarkProp"])
+                        module = copy.deepcopy(module_templates["quark_prop"])
                         module["id"]["name"] = quark_1
                         module["options"].update({
                             "source"   :noise,
@@ -174,7 +174,7 @@ def buildParams(**moduleTemplates):
                         })
                         modules.append(module)
 
-                        module = copy.deepcopy(moduleTemplates["seqGamma"])
+                        module = copy.deepcopy(module_templates["seq_gamma"])
                         module["id"]["name"] = quark_1 + f"_{sib_label}"
                         module["options"].update({
                             "q"   :quark_1+gamma_suf,
@@ -192,7 +192,7 @@ def buildParams(**moduleTemplates):
                         #guess=f"quark_ranLL_{gamma_label}_{mass_label}_{block_label}_{gamma_suf}_{sib_label}_M" if solver_label == "ama" else ""
                         guess=""
 
-                        module = copy.deepcopy(moduleTemplates["quarkProp"])
+                        module = copy.deepcopy(module_templates["quark_prop"])
                         module["id"]["name"] = quark_1 + f"_{sib_label}_M"
                         module["options"].update({
                             "source"   :quark_1 + f"_{sib_label}",
@@ -211,7 +211,7 @@ def buildParams(**moduleTemplates):
                             quark_1=quark_1+ f"_{sib_label}_M"
                             quark_2=f"quark_{solver_label}_pion_local_{mass_label}_{block_label}_G5_G5_{sib_label}_M"
 
-                            module = copy.deepcopy(moduleTemplates["propContract"])
+                            module = copy.deepcopy(module_templates["prop_contract"])
                             module["id"]["name"] = f"corr_{solver_label}_{gamma_label}_{mass_label}_{block_label}_{gamma_suf}_{sib_label}"
                             module["options"].update({
                                 "source":quark_1,
@@ -232,7 +232,7 @@ def buildParams(**moduleTemplates):
 
     moduleList = [m["id"]["name"] for m in modules]
 
-    f = open(scheduleFile,"w")
+    f = open(schedule_file,"w")
     f.write(str(len(moduleList))+"\n"+"\n".join(moduleList))
     f.close()
     

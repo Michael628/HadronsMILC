@@ -2,12 +2,12 @@ import copy
 import os
 import re
 
-def buildParams(**moduleTemplates):
+def build_params(**module_templates):
 
     env = os.environ
     tStop = 1
     tStart = 0
-    scheduleFile=""
+    schedule_file=""
 
     masses=env["MASSES"].strip().split(" ")
 
@@ -34,7 +34,7 @@ def buildParams(**moduleTemplates):
                     "mutationRate":"0.1",
                 },
                 "graphFile":"",
-                "scheduleFile":scheduleFile,
+                "schedule_file":schedule_file,
                 "saveSchedule":"false",
                 "parallelWriteMaxRetry":"-1",
             },
@@ -44,29 +44,29 @@ def buildParams(**moduleTemplates):
 
     modules = []
 
-    module = copy.deepcopy(moduleTemplates["loadGauge"])
+    module = copy.deepcopy(module_templates["load_gauge"])
     module["id"]["name"] = "gauge_fat"
     module["options"]["file"] = f"configs/fat{env['ENS']}{env['SERIES']}.ildg"
     modules.append(module)
 
-    module = copy.deepcopy(moduleTemplates["loadGauge"])
+    module = copy.deepcopy(module_templates["load_gauge"])
     module["id"]["name"] = "gauge"
     module["options"]["file"] = f"configs/l{env['ENS']}{env['SERIES']}.ildg"
     modules.append(module)
     
-    module = copy.deepcopy(moduleTemplates["loadGauge"])
+    module = copy.deepcopy(module_templates["load_gauge"])
     module["id"]["name"] = "gauge_long"
     module["options"]["file"] = f"configs/lng{env['ENS']}{env['SERIES']}.ildg"
     modules.append(module)
 
-    module = copy.deepcopy(moduleTemplates["epackLoad"])
+    module = copy.deepcopy(module_templates["epack_load"])
     module["id"]["name"] = "epack"
     module["options"]["filestem"] = f"eigs/eig{env['ENS']}nv{env['SOURCEEIGS']}{env['SERIES']}"
     module["options"]["size"] = env['EIGS']
     module["options"]["multiFile"] = "false"
     modules.append(module)
 
-    module = copy.deepcopy(moduleTemplates["sink"])
+    module = copy.deepcopy(module_templates["sink"])
     module["id"]["name"] = "sink"
     module["options"]["mom"] = "0 0 0"
     modules.append(module)
@@ -77,7 +77,7 @@ def buildParams(**moduleTemplates):
         block_label=f"t{time_index}"
         noise=f"noise_{block_label}"
 
-        module = copy.deepcopy(moduleTemplates["timeDilutedNoise"])
+        module = copy.deepcopy(module_templates["time_diluted_noise"])
         module["id"]["name"] = noise
         module["options"]["nsrc"] = env["NOISE"]
         module["options"]["tStep"] = str(time)
@@ -88,20 +88,20 @@ def buildParams(**moduleTemplates):
             mass1_label = "m"+m1
 
             if time_index == tStart:
-                module = copy.deepcopy(moduleTemplates["epackModify"])
+                module = copy.deepcopy(module_templates["epack_modify"])
                 module["id"]["name"] = f"evecs_{mass1_label}"
                 module["options"]["eigenPack"] = "epack"
                 module["options"]["mass"] = mass1
                 modules.append(module)
                  
-                module = copy.deepcopy(moduleTemplates["action"])
+                module = copy.deepcopy(module_templates["action"])
                 module["id"]["name"] = f"stag_{mass1_label}"
                 module["options"]["mass"] = mass1
                 module["options"]["gaugefat"] = "gauge_fat"
                 module["options"]["gaugelong"] = "gauge_long"
                 modules.append(module)
           
-                module = copy.deepcopy(moduleTemplates["lmaProj"])
+                module = copy.deepcopy(module_templates["lma_solver"])
                 module["id"]["name"] = f"stag_ranLL_{mass1_label}"
                 module["options"]["action"] = f"stag_{mass1_label}"
                 module["options"]["lowModes"] = f"evecs_{mass1_label}"
@@ -109,7 +109,7 @@ def buildParams(**moduleTemplates):
                 module["options"]["nEigs"] = env['EIGS']
                 modules.append(module)
 
-                module = copy.deepcopy(moduleTemplates["mesonField"])
+                module = copy.deepcopy(module_templates["meson_field"])
                 module["id"]["name"] = f"mf_ll_wv_e_t0"
                 module["options"].update({
                     "action":f"stag_{mass1_label}",
@@ -125,7 +125,7 @@ def buildParams(**moduleTemplates):
                 })
                 modules.append(module)
 
-                module = copy.deepcopy(moduleTemplates["mesonField"])
+                module = copy.deepcopy(module_templates["meson_field"])
                 module["id"]["name"] = f"mf_ll_wv_t0_e_local"
                 module["options"].update({
                     "action":f"stag_{mass1_label}",
@@ -141,7 +141,7 @@ def buildParams(**moduleTemplates):
                 })
                 modules.append(module)
 
-                module = copy.deepcopy(moduleTemplates["mesonField"])
+                module = copy.deepcopy(module_templates["meson_field"])
                 module["id"]["name"] = f"mf_ll_wv_e_e_local"
                 module["options"].update({
                     "action":f"stag_{mass1_label}",
@@ -172,7 +172,7 @@ def buildParams(**moduleTemplates):
                     guess=f"quark_ranLL_{gamma_label}_{mass1_label}_{block_label}" if "ama" in solver_label else ""
                     quark=f"quark_{solver_label}_{gamma_label}_{mass1_label}_{block_label}"
 
-                    module = copy.deepcopy(moduleTemplates["quarkProp"])
+                    module = copy.deepcopy(module_templates["quark_prop"])
                     module["id"]["name"] = quark
                     module["options"].update({
                         "source"   :noise+"_vec",
@@ -188,7 +188,7 @@ def buildParams(**moduleTemplates):
 
                     quark_sink=f"quark_{solver_label}_pion_local_{mass1_label}_{block_label}"
 
-                    module = copy.deepcopy(moduleTemplates["propContract"])
+                    module = copy.deepcopy(module_templates["prop_contract"])
                     module["id"]["name"] = f"corr_{solver_label}_{gamma_label}_{mass1_label}_{block_label}"
                     module["options"].update({
                         "source":quark,

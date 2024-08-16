@@ -2,7 +2,7 @@ import copy
 import os
 import random
 
-def buildParams(**moduleTemplates):
+def build_params(**module_templates):
 
      env = os.environ
 
@@ -43,7 +43,7 @@ def buildParams(**moduleTemplates):
                for gamma in gammas:
 
                     if j == 0 and i == 0:
-                         elem = copy.deepcopy(moduleTemplates["contractA2Amatrix"])
+                         elem = copy.deepcopy(module_templates["contract_a2a_matrix"])
                          elem["file"] = f"e{env['EIGS']}n{env['NOISE']}dt{env['DT']}/proj_mesons/mf_{env['SERIES']}_{elabel}_{elabel}.{env['CFG']}/{gamma}_0_0_0.h5"
                          elem["dataset"] = f"{gamma}_0_0_0"
                          elem["cacheSize"] = "1"
@@ -55,7 +55,7 @@ def buildParams(**moduleTemplates):
                          a2aMatrix.append(elem)
 
                     if j == 0:
-                         elem = copy.deepcopy(moduleTemplates["contractA2Amatrix"])
+                         elem = copy.deepcopy(module_templates["contract_a2a_matrix"])
                          elem["file"] = f"e{env['EIGS']}n{env['NOISE']}dt{env['DT']}/proj_mesons/mf_{env['SERIES']}_{wseed}_{elabel}.{env['CFG']}/{gamma}_0_0_0.h5"
                          elem["dataset"] = f"{gamma}_0_0_0"
                          elem["cacheSize"] = "1"
@@ -67,7 +67,7 @@ def buildParams(**moduleTemplates):
                          a2aMatrix.append(elem)
 
                     if i == 0:
-                         elem = copy.deepcopy(moduleTemplates["contractA2Amatrix"])
+                         elem = copy.deepcopy(module_templates["contract_a2a_matrix"])
                          elem["file"] = f"e{env['EIGS']}n{env['NOISE']}dt{env['DT']}/proj_mesons/mf_{env['SERIES']}_{elabel}_{vseed}.{env['CFG']}/{gamma}_0_0_0.h5"
                          elem["dataset"] = f"{gamma}_0_0_0"
                          elem["cacheSize"] = "1"
@@ -81,7 +81,7 @@ def buildParams(**moduleTemplates):
                     if sw == sv:
                          continue
 
-                    elem = copy.deepcopy(moduleTemplates["contractA2Amatrix"])
+                    elem = copy.deepcopy(module_templates["contract_a2a_matrix"])
                     elem["file"] = f"e{env['EIGS']}n{env['NOISE']}dt{env['DT']}/proj_mesons/mf_{env['SERIES']}_{wseed}_{vseed}.{env['CFG']}/{gamma}_0_0_0.h5"
                     elem["dataset"] = f"{gamma}_0_0_0"
                     elem["cacheSize"] = "1"
@@ -103,13 +103,13 @@ def buildParams(**moduleTemplates):
 
                for gamma in gammas:
                     if j == 0:
-                         elem = copy.deepcopy(moduleTemplates["contractA2Aproduct"])
+                         elem = copy.deepcopy(module_templates["contract_a2a_product"])
                          elem["terms"] = f"{gamma+wseed1+elabel} {gamma+elabel+vseed1}"
                          elem["translations"] = f"0..{time-1}"
                          product.append(elem)
 
                     if i == 0:
-                         elem = copy.deepcopy(moduleTemplates["contractA2Aproduct"])
+                         elem = copy.deepcopy(module_templates["contract_a2a_product"])
                          elem["terms"] = f"{gamma+elabel+vseed2} {gamma+wseed2+elabel}"
                          elem["translations"] = f"0..{time-1}"
                          product.append(elem)
@@ -117,7 +117,7 @@ def buildParams(**moduleTemplates):
                     if s2 <= s1:
                          continue
                     
-                    elem = copy.deepcopy(moduleTemplates["contractA2Aproduct"])
+                    elem = copy.deepcopy(module_templates["contract_a2a_product"])
                     elem["terms"] = f"{gamma+wseed1+vseed2} {gamma+wseed2+vseed1}"
                     elem["translations"] = f"0..{time-1}"
                     product.append(elem)

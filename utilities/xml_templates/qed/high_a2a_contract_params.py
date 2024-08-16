@@ -1,7 +1,7 @@
 import copy
 import os
 
-def buildParams(**moduleTemplates):
+def build_params(**module_templates):
 
      env = os.environ
      lat = env["ENS"][:4]
@@ -26,7 +26,7 @@ def buildParams(**moduleTemplates):
                      "mutationRate":"0.1",
                  },
                  "graphFile":"",
-                 "scheduleFile":"",
+                 "schedule_file":"",
                  "saveSchedule":"false",
                  "parallelWriteMaxRetry":"-1",
              },
@@ -36,22 +36,22 @@ def buildParams(**moduleTemplates):
 
      modules = []
 
-     module = copy.deepcopy(moduleTemplates["loadGauge"])
+     module = copy.deepcopy(module_templates["load_gauge"])
      module["id"]["name"] = "gauge"
      module["options"]["file"] = f'configs/l{env["ENS"]}{env["SERIES"]}.ildg'
      modules.append(module)
 
-     module = copy.deepcopy(moduleTemplates["loadGauge"])
+     module = copy.deepcopy(module_templates["load_gauge"])
      module["id"]["name"] = "gauge_fat"
      module["options"]["file"] = f'configs/fat{env["ENS"]}{env["SERIES"]}.ildg'
      modules.append(module)
 
-     module = copy.deepcopy(moduleTemplates["loadGauge"])
+     module = copy.deepcopy(module_templates["load_gauge"])
      module["id"]["name"] = "gauge_long"
      module["options"]["file"] = f'configs/lng{env["ENS"]}{env["SERIES"]}.ildg'
      modules.append(module)
 
-     module = copy.deepcopy(moduleTemplates["epackLoad"])
+     module = copy.deepcopy(module_templates["epack_load"])
      module["id"]["name"] = "epack_l"
      module["options"]["filestem"] = f'eigenpacks/eig{env["ENS"]}nv{env["SOURCEEIGS"]}{env["SERIES"]}'
      module["options"]["size"] = env["EIGS"]
@@ -61,14 +61,14 @@ def buildParams(**moduleTemplates):
      mass_string = f"m{m}"
      mass = f"0.{m}"
 
-     module = copy.deepcopy(moduleTemplates["action"])
+     module = copy.deepcopy(module_templates["action"])
      module["id"]["name"] = f"stag_{mass_string}"
      module["options"]["mass"] = mass
      module["options"]["gaugefat"] = "gauge_fat"
      module["options"]["gaugelong"] = "gauge_long"
      modules.append(module)
 
-     module = copy.deepcopy(moduleTemplates["epackModify"])
+     module = copy.deepcopy(module_templates["epack_modify"])
      module["id"]["name"] = f"evecs_l_{mass_string}"
      module["options"]["eigenPack"] = "epack_l"
      module["options"]["mass"] = mass
@@ -78,21 +78,21 @@ def buildParams(**moduleTemplates):
          seedw = "w"+seeds[i]
          seedv = "v"+seeds[-1-i]
 
-         module = copy.deepcopy(moduleTemplates["loadVectors"])
+         module = copy.deepcopy(module_templates["load_vectors"])
          module["id"]["name"] = seedw
          module["options"]["filestem"] = f'data/vectors/{seedw[1:]}_w'
          #module["options"]["multiFile"] = 'true'
          module['options']['size'] = str(3*int(env['NOISE'])*int(env["TIME"]))
          modules.append(module)
      
-         module = copy.deepcopy(moduleTemplates["loadVectors"])
+         module = copy.deepcopy(module_templates["load_vectors"])
          module["id"]["name"] = seedv
          module["options"]["filestem"] = f'data/vectors/{seedv[1:]}_v'
          #module["options"]["multiFile"] = 'true'
          module['options']['size'] = str(3*int(env['NOISE'])*int(env["TIME"]))
          modules.append(module)
      
-         module = copy.deepcopy(moduleTemplates["mesonField"])
+         module = copy.deepcopy(module_templates["meson_field"])
          module["id"]["type"] = "MContraction::QEDMesonField"
          module["id"]["name"] = f"mf_ll_{seedw}_eig"
          module["options"].update({
@@ -100,9 +100,9 @@ def buildParams(**moduleTemplates):
              "block":"300",
              "left":seedw,
              "right":"",
-             "EmFunc":"",
+             "em_func":"",
              "EmSeedString":"test_1",
-             "nEmFields":"0",
+             "nem_fields":"0",
              "spinTaste":{
                  "gammas":gamma_string,
                  "gauge" :"gauge" if "G1" in gamma_string else "",
@@ -113,7 +113,7 @@ def buildParams(**moduleTemplates):
          })
          modules.append(module)                    
 
-         module = copy.deepcopy(moduleTemplates["mesonField"])
+         module = copy.deepcopy(module_templates["meson_field"])
          module["id"]["type"] = "MContraction::QEDMesonField"
          module["id"]["name"] = f"mf_ll_eig_{seedv}"
          module["options"].update({
@@ -121,9 +121,9 @@ def buildParams(**moduleTemplates):
              "block":"300",
              "left":"",
              "right":seedv,
-             "EmFunc":"",
+             "em_func":"",
              "EmSeedString":"test_1",
-             "nEmFields":"0",
+             "nem_fields":"0",
              "spinTaste":{
                  "gammas":gamma_string,
                  "gauge" :"gauge" if "G1" in gamma_string else "",
@@ -134,7 +134,7 @@ def buildParams(**moduleTemplates):
          })
          modules.append(module)                    
 
-         module = copy.deepcopy(moduleTemplates["mesonField"])
+         module = copy.deepcopy(module_templates["meson_field"])
          module["id"]["type"] = "MContraction::QEDMesonField"
          module["id"]["name"] = f"mf_ll_{seedw}_{seedv}"
          module["options"].update({
@@ -142,9 +142,9 @@ def buildParams(**moduleTemplates):
               "block":"300",
               "left":seedw,
               "right":seedv,
-              "EmFunc":"",
+              "em_func":"",
               "EmSeedString":"test_1",
-              "nEmFields":"0",
+              "nem_fields":"0",
               "spinTaste":{
                    "gammas":gamma_string,
                    "gauge" :"gauge" if "G1" in gamma_string else "",

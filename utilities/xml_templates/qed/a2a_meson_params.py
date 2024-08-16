@@ -2,11 +2,11 @@ import copy
 import os
 import random
 
-def buildParams(**moduleTemplates):
+def build_params(**module_templates):
 
      env = os.environ
      jobid=int(random.random()*100)
-     scheduleFile=f"schedules/meson_{jobid}.sched"
+     schedule_file=f"schedules/meson_{jobid}.sched"
      
      gammas = ["(G1 G1)", "(G5 G5)", "(GX GX)","(GY GY)","(GZ GZ)"]
      gamma_string=" ".join(gammas)
@@ -27,7 +27,7 @@ def buildParams(**moduleTemplates):
                      "mutationRate":"0.1",
                  },
                  "graphFile":"",
-                 "scheduleFile":scheduleFile,
+                 "schedule_file":schedule_file,
                  "saveSchedule":"false",
                  "parallelWriteMaxRetry":"-1",
              },
@@ -37,17 +37,17 @@ def buildParams(**moduleTemplates):
 
      modules = []
 
-     module = copy.deepcopy(moduleTemplates["loadGauge"])
+     module = copy.deepcopy(module_templates["load_gauge"])
      module["id"]["name"] = "gauge_fat"
      module["options"]["file"] = f'configs/fat{env["ENS"]}{env["SERIES"]}.ildg'
      modules.append(module)
 
-     module = copy.deepcopy(moduleTemplates["loadGauge"])
+     module = copy.deepcopy(module_templates["load_gauge"])
      module["id"]["name"] = "gauge_long"
      module["options"]["file"] = f'configs/lng{env["ENS"]}{env["SERIES"]}.ildg'
      modules.append(module)
 
-     module = copy.deepcopy(moduleTemplates["epackLoad"])
+     module = copy.deepcopy(module_templates["epack_load"])
      module["id"]["name"] = "epack_l"
      module["options"]["filestem"] = f'eigs/eig{env["ENS"]}nv{env["SOURCEEIGS"]}{env["SERIES"]}'
      module["options"]["size"] = env["EIGS"]
@@ -57,14 +57,14 @@ def buildParams(**moduleTemplates):
      mass_string = f"m{m}"
      mass = f"0.{m}"
 
-     module = copy.deepcopy(moduleTemplates["action"])
+     module = copy.deepcopy(module_templates["action"])
      module["id"]["name"] = f"stag_{mass_string}"
      module["options"]["mass"] = mass
      module["options"]["gaugefat"] = "gauge_fat"
      module["options"]["gaugelong"] = "gauge_long"
      modules.append(module)
 
-     module = copy.deepcopy(moduleTemplates["epackModify"])
+     module = copy.deepcopy(module_templates["epack_modify"])
      module["id"]["name"] = f"evecs_l_{mass_string}"
      module["options"]["eigenPack"] = "epack_l"
      module["options"]["mass"] = mass
@@ -74,7 +74,7 @@ def buildParams(**moduleTemplates):
      for sv in range(int(env["NSEEDS"])):
 
           vseed=f"v{seed}{sv}"
-          module = copy.deepcopy(moduleTemplates["loadVectors"])
+          module = copy.deepcopy(module_templates["load_vectors"])
           module["id"]["name"] = vseed
           module["options"]["filestem"] = f"e{env['EIGS']}n{env['NOISE']}dt{env['DT']}/vectors/{mass_string}/{seed}{sv}_v"
           module["options"]["multiFile"] = 'true'
@@ -82,7 +82,7 @@ def buildParams(**moduleTemplates):
           modules.append(module)
           
                
-          module = copy.deepcopy(moduleTemplates["mesonField"])
+          module = copy.deepcopy(module_templates["meson_field"])
           module["id"]["type"] = "MContraction::StagA2AMesonField"
           module["id"]["name"] = f"mf_ll_eig_{vseed}"
           module["options"].update({
@@ -105,12 +105,12 @@ def buildParams(**moduleTemplates):
                noise=f"noise_{seed}{sw}"
 
                if sv == 0:
-                    module = copy.deepcopy(moduleTemplates["fullVolumeNoise"])
+                    module = copy.deepcopy(module_templates["full_volume_noise"])
                     module["id"]["name"] = noise
                     module["options"]["nsrc"] = env['NOISE']
                     modules.append(module)
 
-                    module = copy.deepcopy(moduleTemplates["mesonField"])
+                    module = copy.deepcopy(module_templates["meson_field"])
                     module["id"]["type"] = "MContraction::StagA2AMesonField"
                     module["id"]["name"] = f"mf_ll_{wseed}_eig"
                     module["options"].update({
@@ -129,7 +129,7 @@ def buildParams(**moduleTemplates):
                     modules.append(module)                    
 
                     if sw == 0:
-                        module = copy.deepcopy(moduleTemplates["mesonField"])
+                        module = copy.deepcopy(module_templates["meson_field"])
                         module["id"]["type"] = "MContraction::StagA2AMesonField"
                         module["id"]["name"] = f"mf_ll_eig_eig"
                         module["options"].update({
@@ -150,7 +150,7 @@ def buildParams(**moduleTemplates):
                if sv == sw:
                     continue
                
-               module = copy.deepcopy(moduleTemplates["mesonField"])
+               module = copy.deepcopy(module_templates["meson_field"])
                module["id"]["type"] = "MContraction::StagA2AMesonField"
                module["id"]["name"] = f"mf_ll_{wseed}_{vseed}"
                module["options"].update({
@@ -172,7 +172,7 @@ def buildParams(**moduleTemplates):
      
      moduleList = [m["id"]["name"] for m in modules]
 
-     f = open(scheduleFile, "w")
+     f = open(schedule_file, "w")
      f.write(str(len(moduleList)) + "\n" + "\n".join(moduleList))
      f.close()
 

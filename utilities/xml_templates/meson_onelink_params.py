@@ -1,7 +1,7 @@
 import copy
 import os
 
-def buildParams(**moduleTemplates):
+def build_params(**module_templates):
 
     env = os.environ
 
@@ -30,7 +30,7 @@ def buildParams(**moduleTemplates):
                     "mutationRate":"0.1",
                 },
                 "graphFile":"",
-                "scheduleFile":"",
+                "schedule_file":"",
                 "saveSchedule":"false",
                 "parallelWriteMaxRetry":"-1",
             },
@@ -40,29 +40,29 @@ def buildParams(**moduleTemplates):
 
     modules = []
 
-    module = copy.deepcopy(moduleTemplates["loadGauge"])
+    module = copy.deepcopy(module_templates["load_gauge"])
     module["id"]["name"] = "gauge_fat"
     module["options"]["file"] = f"configs/fat{env['ENS']}{env['SERIES']}.ildg"
     modules.append(module)
 
-    module = copy.deepcopy(moduleTemplates["loadGauge"])
+    module = copy.deepcopy(module_templates["load_gauge"])
     module["id"]["name"] = "gauge"
     module["options"]["file"] = f"configs/l{env['ENS']}{env['SERIES']}.ildg"
     modules.append(module)
     
-    module = copy.deepcopy(moduleTemplates["loadGauge"])
+    module = copy.deepcopy(module_templates["load_gauge"])
     module["id"]["name"] = "gauge_long"
     module["options"]["file"] = f"configs/lng{env['ENS']}{env['SERIES']}.ildg"
     modules.append(module)
 
-    module = copy.deepcopy(moduleTemplates["action"])
+    module = copy.deepcopy(module_templates["action"])
     module["id"]["name"] = "stag_e"
     module["options"]["mass"] = "0.0"
     module["options"]["gaugefat"] = "gauge_fat"
     module["options"]["gaugelong"] = "gauge_long"
     modules.append(module)
 
-    module = copy.deepcopy(moduleTemplates["epackLoad"])
+    module = copy.deepcopy(module_templates["epack_load"])
     module["id"]["name"] = "epack"
     module["options"]["filestem"] = f"eigs/eig{env['ENS']}nv{env['SOURCEEIGS']}{env['SERIES']}"
     module["options"]["size"] = env['EIGS']
@@ -73,20 +73,20 @@ def buildParams(**moduleTemplates):
          mass1 = "0." + m1
          mass1_label = "m"+m1
 
-         module = copy.deepcopy(moduleTemplates["epackModify"])
+         module = copy.deepcopy(module_templates["epack_modify"])
          module["id"]["name"] = f"evecs_{mass1_label}"
          module["options"]["eigenPack"] = "epack"
          module["options"]["mass"] = mass1
          modules.append(module)
                  
-         module = copy.deepcopy(moduleTemplates["action"])
+         module = copy.deepcopy(module_templates["action"])
          module["id"]["name"] = f"stag_{mass1_label}"
          module["options"]["mass"] = mass1
          module["options"]["gaugefat"] = "gauge_fat"
          module["options"]["gaugelong"] = "gauge_long"
          modules.append(module)
          
-         module = copy.deepcopy(moduleTemplates["mesonField"])
+         module = copy.deepcopy(module_templates["meson_field"])
          module["id"]["name"] = f"mf_ll_wv_onelink"
          module["options"].update({
               "action":f"stag_{mass1_label}",

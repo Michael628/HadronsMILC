@@ -1,10 +1,10 @@
 import copy
 import os
 
-def buildParams(**moduleTemplates):
+def build_params(**module_templates):
 
      env = os.environ
-     scheduleFile=f"schedules/a2a_proj_meson_{env['SERIES']}{env['CFG']}.sched"
+     schedule_file=f"schedules/a2a_proj_meson_{env['SERIES']}{env['CFG']}.sched"
      
      sources = str(3*int(env['NOISE'])*int(env["TIME"]))
 
@@ -27,7 +27,7 @@ def buildParams(**moduleTemplates):
                      "mutationRate":"0.1",
                  },
                  "graphFile":"",
-                 "scheduleFile":scheduleFile,
+                 "schedule_file":schedule_file,
                  "saveSchedule":"false",
                  "parallelWriteMaxRetry":"-1",
              },
@@ -37,17 +37,17 @@ def buildParams(**moduleTemplates):
 
      modules = []
 
-     module = copy.deepcopy(moduleTemplates["loadGauge"])
+     module = copy.deepcopy(module_templates["load_gauge"])
      module["id"]["name"] = "gauge_fat"
      module["options"]["file"] = f'configs/fat{env["ENS"]}{env["SERIES"]}.ildg'
      modules.append(module)
 
-     module = copy.deepcopy(moduleTemplates["loadGauge"])
+     module = copy.deepcopy(module_templates["load_gauge"])
      module["id"]["name"] = "gauge_long"
      module["options"]["file"] = f'configs/lng{env["ENS"]}{env["SERIES"]}.ildg'
      modules.append(module)
 
-     module = copy.deepcopy(moduleTemplates["epackLoad"])
+     module = copy.deepcopy(module_templates["epack_load"])
      module["id"]["name"] = "epack"
      module["options"]["filestem"] = f'eigs/eig{env["ENS"]}nv{env["SOURCEEIGS"]}{env["SERIES"]}'
      module["options"]["size"] = env["EIGS"]
@@ -57,20 +57,20 @@ def buildParams(**moduleTemplates):
      mass_string = f"m{m}"
      mass = f"0.{m}"
 
-     module = copy.deepcopy(moduleTemplates["action"])
+     module = copy.deepcopy(module_templates["action"])
      module["id"]["name"] = f"stag_{mass_string}"
      module["options"]["mass"] = mass
      module["options"]["gaugefat"] = "gauge_fat"
      module["options"]["gaugelong"] = "gauge_long"
      modules.append(module)
 
-     module = copy.deepcopy(moduleTemplates["epackModify"])
+     module = copy.deepcopy(module_templates["epack_modify"])
      module["id"]["name"] = f"evecs_{mass_string}"
      module["options"]["eigenPack"] = "epack"
      module["options"]["mass"] = mass
      modules.append(module)
 
-     module = copy.deepcopy(moduleTemplates["lmaProj"])
+     module = copy.deepcopy(module_templates["lma_solver"])
      module["id"]["name"] = f"project_low"
      module["options"]["action"] = f"stag_{mass_string}"
      module["options"]["projector"] = "true"
@@ -82,12 +82,12 @@ def buildParams(**moduleTemplates):
 
           wseed=f"w{seed}{sw}"
           if env['DOHIGH'] == 'true':
-               module = copy.deepcopy(moduleTemplates["timeDilutedNoise"])
+               module = copy.deepcopy(module_templates["time_diluted_noise"])
                module["id"]["name"] = f"noise_{seed}{sw}"
                module["options"]["nsrc"] = env['NOISE']
                modules.append(module)
 
-               module = copy.deepcopy(moduleTemplates["quarkProp"])
+               module = copy.deepcopy(module_templates["quark_prop"])
                module["id"]["name"] = wseed
                module["options"].update({
                     "source"   :f"noise_{seed}{sw}_vec",
@@ -102,7 +102,7 @@ def buildParams(**moduleTemplates):
                modules.append(module)
           
                if env['DOEIG'] == 'true':
-                    module = copy.deepcopy(moduleTemplates["mesonField"])
+                    module = copy.deepcopy(module_templates["meson_field"])
                     module["id"]["name"] = f"mf_{wseed}_eig"
                     module["options"].update({
                          "action":f"stag_{mass_string}",
@@ -124,7 +124,7 @@ def buildParams(**moduleTemplates):
                vseed=f"v{seed}{sv}"
                if i == 0:
                     if env['DOHIGH'] == 'true':
-                         module = copy.deepcopy(moduleTemplates["loadVectors"])
+                         module = copy.deepcopy(module_templates["load_vectors"])
                          module["id"]["name"] = vseed
                          module["options"]["filestem"] = f"e{env['EIGS']}n{env['NOISE']}dt{env['DT']}/vectors/{mass_string}/{seed}{sv}_v"
                          module["options"]["multiFile"] = 'true'
@@ -133,7 +133,7 @@ def buildParams(**moduleTemplates):
           
 
                          if env['DOEIG'] == 'true':
-                              module = copy.deepcopy(moduleTemplates["mesonField"])
+                              module = copy.deepcopy(module_templates["meson_field"])
                               module["id"]["name"] = f"mf_eig_{vseed}"
                               module["options"].update({
                                    "action":f"stag_{mass_string}",
@@ -151,7 +151,7 @@ def buildParams(**moduleTemplates):
                               modules.append(module)                    
 
                     if j == 0 and env['DOEIG'] == 'true':
-                         module = copy.deepcopy(moduleTemplates["mesonField"])
+                         module = copy.deepcopy(module_templates["meson_field"])
                          module["id"]["name"] = f"mf_eig_eig"
                          module["options"].update({
                               "action":f"stag_{mass_string}",
@@ -172,7 +172,7 @@ def buildParams(**moduleTemplates):
                     continue
 
                if env['DOHIGH'] == 'true':
-                    module = copy.deepcopy(moduleTemplates["mesonField"])
+                    module = copy.deepcopy(module_templates["meson_field"])
                     module["id"]["name"] = f"mf_{wseed}_{vseed}"
                     module["options"].update({
                          "action":f"stag_{mass_string}",
@@ -193,7 +193,7 @@ def buildParams(**moduleTemplates):
      
      moduleList = [m["id"]["name"] for m in modules]
 
-     f = open(scheduleFile, "w")
+     f = open(schedule_file, "w")
      f.write(str(len(moduleList)) + "\n" + "\n".join(moduleList))
      f.close()
 

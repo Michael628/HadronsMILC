@@ -1,7 +1,7 @@
 import copy
 import os
 
-def buildParams(**moduleTemplates):
+def build_params(**module_templates):
 
     env = os.environ
 
@@ -32,7 +32,7 @@ def buildParams(**moduleTemplates):
                      "mutationRate":"0.1",
                  },
                  "graphFile":"",
-                f"scheduleFile":"",
+                f"schedule_file":"",
                 "saveSchedule":"false",
                 "parallelWriteMaxRetry":"-1",
             },
@@ -42,14 +42,14 @@ def buildParams(**moduleTemplates):
 
     modules = []
 
-    module = copy.deepcopy(moduleTemplates["epackLoad"])
+    module = copy.deepcopy(module_templates["epack_load"])
     module["id"]["name"] = "epack"
     module["options"]["filestem"] = f"eigs/eig{env['ENS']}nv{env['SOURCEEIGS']}{env['SERIES']}"
     module["options"]["size"] = env['EIGS']
     module["options"]["multiFile"] = "false"
     modules.append(module)
 
-    module = copy.deepcopy(moduleTemplates["evalSave"])
+    module = copy.deepcopy(module_templates["eval_save"])
     module["id"]["name"] = "evals"
     module["options"]["eigenPack"] = "epack"
     module["options"]["output"] = f"eigs/evals/evalmassless{env['ENS']}nv{env['SOURCEEIGS']}{env['SERIES']}"
