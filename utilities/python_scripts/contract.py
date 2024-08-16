@@ -3,9 +3,11 @@ import gc
 import os
 import sys
 import itertools
+
 import numpy as np
 import cupy as cp
-import cupy as cpnp
+cpnp = cp
+
 import h5py
 import pickle
 from time import perf_counter
@@ -14,11 +16,12 @@ import opt_einsum as oe
 import logging
 from multiprocessing import Process, Pool, Lock, Manager
 import concurrent.futures
-import time as timer
 import copy
 from mpi4py import MPI
 from dataclasses import dataclass
 import yaml
+from string import Formatter
+from processing_utils import build_format_dict
 
 def loadParam(file):
     """Read the YAML parameter file"""
@@ -31,28 +34,53 @@ def loadParam(file):
 
     return param
 
-def build_subdictionary(key_list: list[str], source_dict: dict):
-    """Builds a dictionary from elements of `source_dict`.
+def convert_to_numpy(corr):
+    return corr if type(corr) is np.ndarray else cp.asnumpy(corr)
+
+def time_average(cij,average=True,open_indices=(0,-1)):
+    """Takes an n,n array and returns a 1-dim array of length n, where the i-th
+    output element is the sum of all input elements with indices separated by i. 
 
     Parameters
     ----------
-    replacement_list : list[str]
-        A list of keywords to find in `source_dict
-
-    source_dict : dict
-        The dictionary from which the returned dict is built
+    cij: ndarray
+        A 2-dim square array
 
     Returns
     -------
-    sub_dict : dict
-        Dictionary for all elements in `source_dict` with values of type str
+    ndarray
+        A 1-dim array with entries that are the average of input entries with equal
+        index separations
     """
-    sub_dict = {}
-    for key in key_list:
-        if key in source_dict and type(source_dict[key]) is str:
-            sub_dict[key] = source_dict[key]
 
-    return sub_dict
+    cij = cpnp.asarray(cij) # Remain cp/np agnostic for utility functions
+
+    nt = cij.shape[open_indices[0]]
+    dim = len(cij.shape)
+
+
+    ones = cpnp.ones(cij.shape)
+    t_range = cpnp.array(range(nt))
+
+    t_start = [None]*dim
+    t_start[open_indices[0]] = slice(None)
+    t_start = tuple(t_start)
+
+    t_end = [None]*dim
+    t_end[open_indices[1]] = slice(None)
+    t_end = tuple(t_end)
+
+    t_mask = cpnp.mod(t_range[t_end]*ones-t_range[t_start]*ones,cpnp.array([nt]))
+
+    time_removed_indices = tuple(slice(None) if t_start[i] == t_end[i] else 0 for i in range(dim))
+
+    C = cpnp.zeros(cij[time_removed_indices].shape+(nt,),dtype=np.complex128)
+
+    print(t_mask.shape)
+    for t in range(nt):
+        C[...,t] = cij[t_mask==t].sum()
+
+    return convert_to_numpy(C/nt)
 
 @dataclass
 class MesonLoader:
@@ -82,8 +110,8 @@ class MesonLoader:
     evalfile: str = ""
     oldmass: str = ""
     newmass: str = ""
-    vmax_index: int = -1
-    wmax_index: int = -1
+    vmax_index: int = slice(None)
+    wmax_index: int = slice(None)
 
     def shift_mass(self,mat: np.ndarray):
         raise Exception("Update this code")
@@ -122,14 +150,14 @@ class MesonLoader:
         -----
         Assumes array is single precision complex. Promotes to double precision.
         """
-        t1 = timer.time()
+        t1 = perf_counter()
         with h5py.File(file,"r") as f:
             a_group_key = list(f.keys())[0]
 
             temp = f[a_group_key]['a2aMatrix']
             temp = cpnp.array(temp[time,self.wmax_index,self.vmax_index].view(np.complex64),
                             dtype=np.complex128)
-            t2 = round((timer.time() - t1),2)
+            t2 = perf_counter()
             print(f"Loaded array {temp.shape} in {t2} sec")
 
             return temp
@@ -150,8 +178,14 @@ class MesonLoader:
                         if self.mesonlist[i][0] == time:
                             continue
 
-                    j = current_times[:i].index(time) # Check that time is the same
-                    if file != self.mesonfiles[j]: # Check that file is the same
+                    # Check for matching time slice
+                    matches = [j for j in range(len(current_times[:i])) if current_times[j] == time]
+
+                    # Check for matching file names
+                    j = self.mesonfiles.index(file)
+
+                    # Check that file matches desired time
+                    if j not in matches: 
                         raise ValueError
 
                     print(f"Found {time} at index {j}")
@@ -189,14 +223,15 @@ class Contractor:
 
         self.series = series
         self.cfg    = cfg
+        self.has_high = False
+
+        if 'high_label' in self.__dict__ and 'high_count' in self.__dict__:
+            self.has_high = True
 
     def printr0(self,text):
         if self.rank == 0:
             print(text)
         return
-
-    def convert_to_numpy(self,corr):
-        return corr if type(corr) is np.ndarray else cp.asnumpy(corr)
 
     def contract(self, m1: np.ndarray, m2: np.ndarray, m3: np.ndarray=None,
                     m4: np.ndarray=None, open_indices: tuple=(0,-1)):
@@ -218,8 +253,8 @@ class Contractor:
         ndarray
             The resultant 2-dim array from the contraction
         """
-        if len(open_indices) != 2:
-            raise Exception("Length of open_indices must be 2")
+        if len(open_indices) > self.npoint:
+            raise Exception(f"Length of open_indices must be <= diagram degree ({self.npoint})")
 
         index_list = ['i','j','k','l'][:self.npoint]
         out_indices = "".join(index_list[i] for i in open_indices)
@@ -236,36 +271,6 @@ class Contractor:
             raise Exception("Expecting 2 <= self.npoint <= 4")
 
         return cij
-
-    def time_average(self,cij):
-        """Takes an n,n array and returns a 1-dim array of length n, where the i-th
-        output element is the sum of all input elements with indices separated by i. 
-
-        Parameters
-        ----------
-        cij: ndarray
-            A 2-dim square array
-
-        Returns
-        -------
-        ndarray
-            A 1-dim array with entries that are the average of input entries with equal
-            index separations
-        """
-
-        C = cpnp.zeros((self.nt,),dtype=np.complex128)
-        ones = cpnp.ones(cij.shape)
-        t_range = cpnp.array(range(self.nt))
-
-        t_start = (slice(None),None)
-        t_end = (None,slice(None))
-        t_mask = cpnp.mod(t_range[t_end]*ones-t_range[t_start]*ones,cpnp.array([self.nt]))
-
-        for t in range(self.nt):
-            C[t] = cij[t_mask==t].sum()
-
-        #return cp.asnumpy(C/self.nt)
-        return C/self.nt
 
     def generate_time_sets(self,symmetric: bool = False):
         """Breaks meson field time extent into `comm_size` blocks and returns unique
@@ -306,15 +311,13 @@ class Contractor:
 
         times = self.generate_time_sets(self.symmetric)
 
-        mesonfile_replacements = {}
-        if 'replacements' in self.mesonfile:
-            mesonfile_replacements = build_subdictionary(self.mesonfile['replacements'],self.__dict__)
+        mesonfile_replacements = build_format_dict(self.mesonfile,self.__dict__)
 
         for gamma in self.gammas:
 
             self.printr0(f"Processing {gamma}")
 
-            mesonfiles = tuple(self.mesonfile['filestem'].format(
+            mesonfiles = tuple(self.mesonfile.format(
                                                 w=seedlist[i],
                                                 v=seedlist[i+1],
                                                 gamma=gamma,
@@ -328,7 +331,7 @@ class Contractor:
             cij = cpnp.zeros((self.nt,self.nt),dtype=np.complex128)
 
             for (t1,m1),(t2,m2) in mat_gen:
-                self.printr0(f"contracting {t1},{t1}")
+                self.printr0(f"contracting {t1},{t2}")
                 cij[t1,t2] = self.contract(m1,m2)
                 if self.symmetric and t1 != t2:
                     cij[t2,t1] = cij[t1,t2].T
@@ -342,9 +345,9 @@ class Contractor:
                 self.comm.Reduce(cij,temp,op=MPI.SUM,root=0)
 
                 if self.rank == 0:
-                    corr[gamma] = self.convert_to_numpy(self.time_average(temp))
+                    corr[gamma] = convert_to_numpy(time_average(temp))
             else:
-                corr[gamma] = self.convert_to_numpy(self.time_average(cij))
+                corr[gamma] = convert_to_numpy(time_average(cij))
 
             del m1,m2
         return corr
@@ -353,40 +356,34 @@ class Contractor:
 
         corr = {}
 
-        times1, times2, times3 = self.generate_time_sets(self.symmetric)
+        times = self.generate_time_sets(self.symmetric)
 
-        mesonfile_replacements = {}
-        if 'replacements' in self.mesonfile:
-            mesonfile_replacements = build_subdictionary(self.mesonfile['replacements'],self.__dict__)
-
-        mat1 = MesonLoader(mesonfile=self.mesonfile['filestem'].format(
-                                            w=seedlist[2],
-                                            v=seedlist[3],
-                                            gamma="G1_G1",
-                                            **mesonfile_replacements),
-                            times=times2)
+        mesonfile_replacements = build_format_dict(self.mesonfile,self.__dict__)
 
         for gamma in self.gammas:
 
             self.printr0(gamma)
-            mat1 = MesonLoader(mesonfile=self.mesonfile['filestem'].format(
-                                                w=seedlist[0],
-                                                v=seedlist[1],
-                                                gamma=gamma,
-                                                **mesonfile_replacements),
-                                times=times1)
 
-            mat3 = MesonLoader(mesonfile=self.mesonfile['filestem'].format(
-                                                w=seedlist[4],
-                                                v=seedlist[5],
-                                                gamma=gamma,
-                                                **mesonfile_replacements),
-                                times=times3)
+            mesonfiles = tuple(self.mesonfile.format(
+                                w=seedlist[i],
+                                v=seedlist[i+1],
+                                gamma=g,
+                                **mesonfile_replacements) for i,g in zip([0,2,4],[gamma,"G1_G1",gamma]))
+
+            mat_gen = MesonLoader(mesonfiles=mesonfiles,
+                                wmax_index=slice(self.wmax_index),
+                                vmax_index=slice(self.vmax_index),
+                                times=times)
 
             cij = cpnp.zeros((self.nt,self.nt,self.nt),dtype=np.complex128)
 
-            for (t1,m1),(t2,m2),(t3,m3) in zip(mat1,mat2,mat3):
-                cij[t1,t2,t3] = self.contract(m1,m2,m3)
+            for (t1,m1),(t2,m2),(t3,m3) in mat_gen:
+
+                self.printr0(f"contracting {t1},{t2},{t3}")
+                cij[t1,t2,t3] = self.contract(m1,m2,m3,open_indices=[0,1,2])
+
+                if self.symmetric:
+                    raise Exception("Symmetric 3dim optimization not implemented.")
 
             self.printr0("contracted")
             if 'comm' in self.__dict__ and self.comm_size > 1:
@@ -397,9 +394,9 @@ class Contractor:
                 self.comm.Reduce(cij,temp,op=MPI.SUM,root=0)
 
                 if self.rank == 0:
-                    corr[gamma] = temp#self.time_average(temp)
+                    corr[gamma] = convert_to_numpy(temp)#time_average(temp)
             else:
-                corr[gamma] = cij#self.time_average(cij)
+                corr[gamma] = convert_to_numpy(cij)#time_average(cij)
 
         return corr
 
@@ -454,7 +451,7 @@ class Contractor:
                     else:
                         raise Exception(f"Unrecognized diagram label: {d}")
 
-                    corr[d][seedkey][gamma][emlabel] = self.time_average(cij)
+                    corr[d][seedkey][gamma][emlabel] = time_average(cij)
 
         return corr
 
@@ -462,36 +459,43 @@ class Contractor:
 
         permkey = "".join(sum(((self.perm[i], self.perm[(i+1) % self.npoint]) for i in range(self.npoint)),()))
 
-        # os.system("nvidia-smi")
-        with cp.cuda.Device(0):
-            veclist = sum(tuple(zip([(mode,(self.low if mode == 'L' else "wseed%i" % seeds[i])) for mode, i in zip(self.perm,self.high_indices)],
-                                    [(mode,(self.low if mode == 'L' else "vseed%i" % seeds[i])) for mode, i in zip(self.perm[1:]+self.perm[:1],self.high_indices[1:]+self.high_indices[:1])])),
-                          ())
+        if cpnp.__name__ == 'cupy':
+            my_device = self.rank % cp.cuda.runtime.getDeviceCount()
+            print(f"Rank {self.rank} is using gpu device {my_device}")
+            cp.cuda.Device(my_device).use()
+        #os.system("nvidia-smi")
+        #with cp.cuda.Device(0):
+        veclist = sum(tuple(zip([(mode,(self.low_label if mode == 'L' else "w%s%i" % (self.high_label,seeds[i]))) for mode, i in zip(self.perm,self.high_indices)],
+                                [(mode,(self.low_label if mode == 'L' else "v%s%i" % (self.high_label,seeds[i]))) for mode, i in zip(self.perm[1:]+self.perm[:1],self.high_indices[1:]+self.high_indices[:1])])),
+                      ())
 
-            seedlist = [v[1] for v in veclist]
-            seedkey = "".join(seedlist)
+        seedlist = [v[1] for v in veclist]
+        seedkey = "".join(seedlist)
 
-            corr = {permkey:{diagram:{}}}
+        seedkey = seedkey.replace(self.high_label, "")
+        seedkey = seedkey.replace(self.low_label, "e")
 
-            # if seedkey not in C[permkey][self.diagrams[0]].keys():
-            self.printr0(f"Processing modes: {veclist}")
-            if diagram in ["vec_local","vec_onelink"]:
-                corr[permkey][diagram][seedkey] = self.vec_conn_2pt(seedlist)
-            if "sib" == diagram:
-                corr[permkey]['sib'][seedkey] = self.sib_conn_3pt(seedlist)
+        corr = {permkey:{diagram:{}}}
 
-            if "selfen" == diagram or "photex" == diagram:
-                corr[permkey].update(self.qed_conn_4pt(seedlist))
+        # if seedkey not in C[permkey][self.diagrams[0]].keys():
+        self.printr0(f"Processing modes: {veclist}")
+        if diagram in ["vec_local","vec_onelink"]:
+            corr[permkey][diagram][seedkey] = self.vec_conn_2pt(seedlist)
+        if "sib" == diagram:
+            corr[permkey]['sib'][seedkey] = self.sib_conn_3pt(seedlist)
 
-            # cp.cuda.Device(index).synchronize()
+        if "selfen" == diagram or "photex" == diagram:
+            corr[permkey].update(self.qed_conn_4pt(seedlist))
 
-            # i = barrier.wait()
+        # cp.cuda.Device(index).synchronize()
 
-            # if i == 0:
-                    # Mesons.clear()
-            # barrier.wait()
+        # i = barrier.wait()
 
-            return corr
+        # if i == 0:
+                # Mesons.clear()
+        # barrier.wait()
+
+        return corr
 
 def main():
 
@@ -507,7 +511,7 @@ def main():
     params = loadParam('params.yaml')
 
     if 'hardware' in params['contract'] and params['contract']['hardware'] == 'cpu':
-        import numpy as cpnp
+        globals()['cpnp'] = np
 
     diagrams = params['contract']['diagrams']
     contractor_dict = dict(zip(diagrams,
@@ -523,14 +527,16 @@ def main():
     for diagram,contractor in contractor_dict.items():
 
 
-        outfile_replacements = {}
-        if 'replacements' in contractor.outfile:
-            outfile_replacements = build_subdictionary(contractor.outfile['replacements'],contractor.__dict__)
+        outfile_replacements = build_format_dict(contractor.outfile,contractor.__dict__)
 
-        contractor.printr0(f'Contracting diagram: {diagram}')
         nmesons = contractor.npoint
 
-        low_range = [nmesons] if 'high' not in contractor.__dict__ else range(contractor.low_start if 'low_start' in contractor.__dict__ else 0,nmesons+1)
+        if contractor.has_high:
+            outfile_replacements['high_label'] = contractor.high_label
+            outfile_replacements['high_count'] = contractor.high_count
+            low_range = range(0,nmesons+1)
+        else: 
+            low_range = [nmesons]  
 
         for nlow in low_range:
     
@@ -541,6 +547,11 @@ def main():
 
                 permkey = "".join(sum(((perm[i], perm[(i+1) % nmesons]) for i in range(nmesons)),()))
 
+                contractor.printr0(f'Contracting diagram: {diagram}, ({permkey})')
+
+                if 'perm_list' in contractor.__dict__ and permkey not in contractor.perm_list:
+                    continue
+
                 if permkey not in C.keys():
                     C[permkey] = {}
 
@@ -548,8 +559,8 @@ def main():
 
                 # Produces list of tuples like (('L','e1000'), ('H','wseed1'), ('H','vseed1'), ('L','e1000'))
                 seeds = [()]
-                if 'high' in contractor.__dict__:
-                    seeds = itertools.combinations(list(range(contractor.high['size'])),nmesons-nlow)
+                if contractor.has_high:
+                    seeds = itertools.combinations(list(range(contractor.high_count)),nmesons-nlow)
 
                 start_time = perf_counter( )
 
@@ -567,14 +578,16 @@ def main():
                       for gamma, v3 in v2.items()]
 
                 stop_time = perf_counter( )
+
                 contractor.printr0('')
-                contractor.printr0('    Elapsed wall clock time for IO+contraction = %g seconds.' % (stop_time - start_time) )
+                contractor.printr0('    Total elapsed time for %s = %g seconds.' % (permkey,stop_time - start_time) )
                 contractor.printr0('')
-                contractor.printr0(f"Finished {permkey}")
                 
                 if 'comm' not in contractor.__dict__ or contractor.rank == 0:
-                    outfile = contractor.outfile['filestem'].format(permkey=permkey,diagram=diagram,**outfile_replacements)
+                    outfile = contractor.outfile.format(permkey=permkey,diagram=diagram,**outfile_replacements)
                     d = C[permkey][diagram]
+                    if not os.path.exists(os.path.dirname(outfile)):
+                        os.makedirs(os.path.dirname(outfile))
                     pickle.dump(C[permkey][diagram],open(outfile,'wb'))
 
 if __name__ == '__main__':
