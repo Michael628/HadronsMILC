@@ -58,7 +58,7 @@ def generate_templates():
         }
     }
 
-    module_templates["IRL"] = {
+    module_templates["irl"] = {
         "id":{
             "name":"",
             "type":"MSolver::StagFermionIRL"
@@ -168,6 +168,16 @@ def generate_templates():
         "options":{
             "nsrc":"",
             'tStep':'1'
+        },
+    }
+
+    module_templates["full_volume_noise"] = {
+        "id":{
+        "name":"",
+            "type":"MNoise::StagFullVolumeSpinColorDiagonal"
+        },
+        "options":{
+            "nsrc":""
         },
     }
 
@@ -296,4 +306,121 @@ def generate_templates():
         },
     }
 
+    # Create operator to generate EM gauge field (A_mu)
+    module_templates["em_func"] = {
+        "id":{
+            "name":"",
+            "type":"MGauge::StochEmFunc"
+        },
+        "options":{
+            "gauge":"",
+            "zmScheme":""
+        }
+    }
+
+    # Create operator to generate EM gauge field (A_mu)
+    module_templates["em_field"] = {
+        "id":{
+            "name":"",
+            "type":"MGauge::StochEm"
+        },
+        "options":{
+            "gauge":"",
+            "zmScheme":"",
+            "improvement":""
+        }
+    }
+
+    module_templates["seq_aslash"] = {
+        "id":{
+        "name":"",
+            "type":"MSource::StagSeqAslash"
+        },
+        "options":{
+            "q":"",  
+            "tA":"",
+            "tB":"",
+            "emField":"",
+            "mom":"",
+        },
+    }
+
+    module_templates["seq_gamma"] = {
+        "id":{
+        "name":"",
+            "type":"MSource::StagSeqGamma"
+        },
+        "options":{
+            "q":"",  
+            "tA":"",
+            "tB":"",
+            "mom":"",
+        },
+    }
+
+    # Builds A2A vectors
+    module_templates["save_vector"] = {
+        "id":{
+            "name":"",
+            "type":"MIO::SaveStagVector",
+        },
+        "options":{
+            "field":"",
+            "multiFile":"true",
+            "output":""
+        },
+    }
+
+    # Builds A2A vectors
+    module_templates["a2a_vector"] = {
+        "id":{
+            "name":"",
+            "type":"MSolver::StagA2AVectors",
+        },
+        "options":{
+            "noise":"",
+            "action":"",
+            "lowModes":"",
+            "solver":"",
+            "highOutput":"",
+            "norm2":"1.0",
+            "highMultiFile":"false"
+        },
+    }
+    
+    # Loads A2A Vectors
+    module_templates["load_vectors"] = {
+        "id":{
+            "name":"",
+            "type":"MIO::StagLoadA2AVectors",
+        },
+        "options":{
+            "filestem":"",
+            "multiFile":"false",
+            "size":""
+        },
+    }
+
+    # A2A Contraction
+    module_templates["contract_a2a_matrix"] = {
+        "file":"",
+        "dataset": "",
+        "cacheSize":"1",
+        "ni":"",
+        "nj":"",
+        "niOffset":"0",
+        "njOffset":"0",
+        "name":""
+    }
+
+    module_templates["contract_a2a_product"] = {
+        "terms":"",
+        "times": {
+            "elem":"0"
+        },
+        "translations":"",
+        "translationAverage":"true",
+        "spaceNormalize":"false"
+    }
+        
     return module_templates
