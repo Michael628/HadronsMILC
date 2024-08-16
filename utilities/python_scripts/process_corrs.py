@@ -2,8 +2,8 @@
 
 import yaml
 import pickle
-from todo_utils import loadParam
-from processing_utils import dict_traversal_iterator
+from todo_utils import load_param
+from processingutils import dict_traversal_iterator
 import numpy as np
 from string import Formatter
 import re
@@ -55,7 +55,7 @@ def main():
           dict:  e{eigs}n{noise}dt{dt}/correlators/python/{gamma}/a2a/corr_{gamma}_LLLLLL.p
 
     """
-    params = loadParam('params.yaml')
+    params = load_param('params.yaml')
 
     proc_params = params['processing']
 
@@ -101,7 +101,7 @@ def main():
                     if not os.path.exists(os.path.dirname(outfile.format(**file_reps))):
                         os.makedirs(os.path.dirname(outfile.format(**file_reps)))
                     if outtype == 'numpy':
-                        pickle.dump(dictToCorr(corr_dict),open(outfile.format(**file_reps),'wb'))
+                        pickle.dump(dict_to_corr(corr_dict),open(outfile.format(**file_reps),'wb'))
                     elif outtype == 'dict':
                         pickle.dump(corr_dict,open(outfile.format(**file_reps),'wb'))                    
             

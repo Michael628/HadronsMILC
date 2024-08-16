@@ -21,7 +21,7 @@ from todo_utils import *
 # params-ens.yaml
 
 ######################################################################
-def jobStillQueued(param, jobID):
+def job_still_queued(param, job_id):
     """Get the status of the queued job"""
     # This code is locale dependent
 
@@ -29,13 +29,13 @@ def jobStillQueued(param, jobID):
     
     user = os.environ['USER']
     if scheduler == 'LSF':
-        cmd = " ".join(["bjobs", "-u", user, "|", "grep -w", jobID])
+        cmd = " ".join(["bjobs", "-u", user, "|", "grep -w", job_id])
     elif scheduler == 'PBS':
-        cmd = " ".join(["qstat", "-u", user, "|", "grep -w", jobID])
+        cmd = " ".join(["qstat", "-u", user, "|", "grep -w", job_id])
     elif scheduler == 'SLURM':
-        cmd = " ".join(["squeue", "-u", user, "|", "grep -w", jobID])
+        cmd = " ".join(["squeue", "-u", user, "|", "grep -w", job_id])
     elif scheduler == 'Cobalt':
-        cmd = " ".join(["qstat", "-fu", user, "|", "grep -w", jobID])
+        cmd = " ".join(["qstat", "-fu", user, "|", "grep -w", job_id])
     else:
         print("Don't recognize scheduler", scheduler)
         print("Quitting")
@@ -90,43 +90,43 @@ def jobStillQueued(param, jobID):
     return False
 
 ######################################################################
-def markCompletedTodoEntry(seriesCfg, precTsrc, todoList):
-    """Update the todoList, change status to X"""
+def mark_completed_todo_entry(series_cfg, prec_tsrc, todo_list):
+    """Update the todo_list, change status to X"""
 
-    key = seriesCfg + "-" + precTsrc
-    todoList[key] = [ seriesCfg, precTsrc, "X" ]
-    print("Marked cfg", seriesCfg, precTsrc, "completed")
+    key = series_cfg + "-" + prec_tsrc
+    todo_list[key] = [ series_cfg, prec_tsrc, "X" ]
+    print("Marked cfg", series_cfg, prec_tsrc, "completed")
 
 
 ######################################################################
-def markCheckingTodoEntry(seriesCfg, precTsrc, todoList):
-    """Update the todoList, change status to X"""
+def mark_checking_todo_entry(series_cfg, prec_tsrc, todo_list):
+    """Update the todo_list, change status to X"""
 
-    key = seriesCfg + "-" + precTsrc
-    todoList[key] = [ seriesCfg, precTsrc, "C" ]
+    key = series_cfg + "-" + prec_tsrc
+    todo_list[key] = [ series_cfg, prec_tsrc, "C" ]
 
 #######################################################################
-def decodeSeriesCfg(seriesCfg):
+def decode_series_cfg(series_cfg):
     """Decode series, cfg, as it appeaers in the todo file"""
-    return seriesCfg.split(".")
+    return series_cfg.split(".")
 
 #######################################################################
-def decodePrecTsrc(seriesCfg):
+def decode_prec_tsrc(series_cfg):
     """Decode prec, tsrc, as it appeaers in the todo file
        Takes P.nn -> [P, nnn]"""
-    return seriesCfg.split(".")
+    return series_cfg.split(".")
 
 ######################################################################
-def purgeProps(param,seriesCfg):
+def purge_props(param,series_cfg):
     """Purge propagators for the specified configuration"""
 
-    print("Purging props for", seriesCfg)
-    series, cfg = decodeSeriesCfg(seriesCfg)
-    configID = codeCfg(series, cfg)
+    print("Purging props for", series_cfg)
+    series, cfg = decode_series_cfg(series_cfg)
+    config_id = code_cfg(series, cfg)
     prop = param['files']['prop']
-    subdirs = prop['subdirs'] + [ configID ]
-    remotePath = os.path.join(*subdirs)
-    cmd = ' '.join([ "nohup", "/bin/rm -r", remotePath, "> /dev/null 2> /dev/null &"])
+    subdirs = prop['subdirs'] + [ config_id ]
+    remote_path = os.path.join(*subdirs)
+    cmd = ' '.join([ "nohup", "/bin/rm -r", remote_path, "> /dev/null 2> /dev/null &"])
     print(cmd)
     try:
         subprocess.call(cmd, shell=True)
@@ -134,16 +134,16 @@ def purgeProps(param,seriesCfg):
         print("ERROR: can't remove props.  Error code", e.returncode, ".")
 
 ######################################################################
-def purgeRands(param,seriesCfg):
+def purge_rands(param,series_cfg):
     """Purge random sources for the specified configuration"""
 
-    print("Purging rands for", seriesCfg)
-    series, cfg = decodeSeriesCfg(seriesCfg)
-    configID = codeCfg(series, cfg)
+    print("Purging rands for", series_cfg)
+    series, cfg = decode_series_cfg(series_cfg)
+    config_iD = code_cfg(series, cfg)
     rand = param['files']['rand']
-    subdirs = rand['subdirs'] + [ configID ]
-    remotePath = os.path.join(*subdirs)
-    cmd = ' '.join([ "nohup", "/bin/rm -r", remotePath, "> /dev/null 2> /dev/null &"])
+    subdirs = rand['subdirs'] + [ config_iD ]
+    remote_path = os.path.join(*subdirs)
+    cmd = ' '.join([ "nohup", "/bin/rm -r", remote_path, "> /dev/null 2> /dev/null &"])
     print(cmd)
     try:
         subprocess.call(cmd, shell=True)
@@ -151,21 +151,21 @@ def purgeRands(param,seriesCfg):
         print("ERROR: can't remove rands.  Error code", e.returncode, ".")
 
 ######################################################################
-def tarInputPath(stream, s06Cfg, precTsrc):
+def tar_input_path(stream, s06Cfg, prec_tsrc):
     """Where the data and logs are found"""
-    return os.path.join(stream, s06Cfg, precTsrc)
+    return os.path.join(stream, s06Cfg, prec_tsrc)
 
 ######################################################################
-def purgeSymLinks(param, jobCase):
-    """Purge symlinks for the specified jobID"""
+def purge_sym_links(param, job_case):
+    """Purge symlinks for the specified job_id"""
 
-    (stream, series, cfg, prec, tsrc, s06Cfg, tsrcID, jobID, jobSeqNo)  = jobCase
+    (stream, series, cfg, prec, tsrc, s06Cfg, tsrc_id, job_id, job_seq_no)  = job_case
 
-    print("Purging symlinks for job", jobID)
+    print("Purging symlinks for job", job_id)
 
     io = param['files']['out']
-    logsPath = os.path.join(tarInputPath(stream, s06Cfg, tsrcID), io['subdir'])
-    cmd = ' '.join([ "find -P", logsPath, "-lname '?*Job'"+ jobID + "'*' -exec /bin/rm '{}' \;"])
+    logs_path = os.path.join(tar_input_path(stream, s06Cfg, tsrc_id), io['subdir'])
+    cmd = ' '.join([ "find -P", logs_path, "-lname '?*Job'"+ job_id + "'*' -exec /bin/rm '{}' \;"])
     print(cmd)
     try:
         subprocess.call(cmd, shell=True)
@@ -173,29 +173,29 @@ def purgeSymLinks(param, jobCase):
         print("ERROR: rmdir exited with code", e.returncode, ".")
 
 ######################################################################
-def goodLogs(param, jobCase):
+def good_logs(param, job_case):
     """Check that the log files are complete"""
 
-    (stream, series, cfg, prec, tsrc, s06Cfg, tsrcID, jobID, jobSeqNo)  = jobCase
-    precTsrcConfigId = [ prec, tsrc, series, cfg ]
+    (stream, series, cfg, prec, tsrc, s06Cfg, tsrc_id, job_id, job_seq_no)  = job_case
+    prec_tsrc_config_id = [ prec, tsrc, series, cfg ]
 
     for step in range(param['job']['steprange']['high']):
-        expectFile = outFileName(stream, precTsrcConfigId, jobSeqNo, '', "step" + str(step))
-        logPath = os.path.join(stream, s06Cfg, tsrcID, "logs", expectFile)
+        expect_file = out_file_name(stream, prec_tsrc_config_id, job_seq_no, '', "step" + str(step))
+        log_path = os.path.join(stream, s06Cfg, tsrc_id, "logs", expect_file)
         try:
-            stat = os.stat(logPath)
+            stat = os.stat(log_path)
         except OSError:
             print("ERROR: Can't find expected output file", path)
             return False
 
         # Check for "RUNNING COMPLETED"
-        entries = countPhrase(logPath, 'RUNNING COMPLETED')
+        entries = count_phrase(log_path, 'RUNNING COMPLETED')
         if entries < 1:
-            print("ERROR: did not find 'RUNNING COMPLETED' in", logPath)
+            print("ERROR: did not find 'RUNNING COMPLETED' in", log_path)
             return False
 
         # Check for nonconvergence, signaled by lines with "NOT"
-        entries = countPhrase(logPath, "NOT")
+        entries = count_phrase(log_path, "NOT")
         if entries > 0:
             print("WARNING: ", entries, "lines with 'NOT' suggesting nonconvergence")
 #            return False
@@ -207,11 +207,11 @@ def goodLogs(param, jobCase):
     return True
 
 ######################################################################
-def checkPath(param, jobKey, fileKey, cfgno, complain):
+def check_path(param, job_key, file_key, cfgno, complain):
     """Complete the file path and check that it exists and has the correct size"""
 
     # Substute variables coded in file path
-    filepath = os.path.join( param['files']['home'], param['files'][jobKey][fileKey] )
+    filepath = os.path.join( param['files']['home'], param['files'][job_key][file_key] )
     for v in param['LMIparam'].keys():
         filepath = re.sub(v, param['LMIparam'][v], filepath)
     series, cfg = cfgno.split('.')
@@ -220,11 +220,11 @@ def checkPath(param, jobKey, fileKey, cfgno, complain):
 
     good = True
     try:
-        fileSize =  os.path.getsize(filepath)
+        file_size =  os.path.getsize(filepath)
     except OSError:
         good = False
 
-    if good and fileSize >= param['files'][jobKey]['goodSize']:
+    if good and file_size >= param['files'][job_key]['good_size']:
         return True
     
     if complain:
@@ -233,102 +233,102 @@ def checkPath(param, jobKey, fileKey, cfgno, complain):
     return False
     
 ######################################################################
-def goodLinks(param, cfgno):
+def good_links(param, cfgno):
     """Check that the ILDG links look OK"""
 
-    good = checkPath(param, 'fnlinks', 'fat', cfgno, True)
-    good = good and checkPath(param, 'fnlinks', 'lng', cfgno, True)
+    good = check_path(param, 'fnlinks', 'fat', cfgno, True)
+    good = good and check_path(param, 'fnlinks', 'lng', cfgno, True)
 
     return good
 
 ######################################################################
-def goodEigs(param, cfgno):
+def good_eigs(param, cfgno):
     """Check that the eigenvector file looks OK"""
 
-    good = checkPath(param, 'eigs', 'eig', cfgno, False)
+    good = check_path(param, 'eigs', 'eig', cfgno, False)
 
     if not good:
         # Check file in subdir
-        good = checkPath(param, 'eigsdir', 'eigdir', cfgno, True)
+        good = check_path(param, 'eigsdir', 'eigdir', cfgno, True)
 
     return good
 
 
 ######################################################################
-def goodLMA(param, cfgno):
+def good_lma(param, cfgno):
     """Check that the LMA output looks OK"""
 
     lma = param['files']['lma']
-    good =          checkPath(param, 'lma', 'ama', cfgno, True)
-    good = good and checkPath(param, 'lma', 'ranLL', cfgno, True)
+    good =          check_path(param, 'lma', 'ama', cfgno, True)
+    good = good and check_path(param, 'lma', 'ranLL', cfgno, True)
 
     if not good and 'ama_alt' in lma.keys():
-        good =          checkPath(param, 'lma', 'ama_alt', cfgno, True)
-        good = good and checkPath(param, 'lma', 'ranLL_alt', cfgno, True)
+        good =          check_path(param, 'lma', 'ama_alt', cfgno, True)
+        good = good and check_path(param, 'lma', 'ranLL_alt', cfgno, True)
     
     return good
 
 ######################################################################
-def goodA2ALocal(param, cfgno):
+def good_a2a_local(param, cfgno):
     """Check that the A2A output looks OK"""
 
-    good =          checkPath(param, 'a2a_local', 'gamma5', cfgno, True)
-    good = good and checkPath(param, 'a2a_local', 'gammaX', cfgno, True)
-    good = good and checkPath(param, 'a2a_local', 'gammaY', cfgno, True)
-    good = good and checkPath(param, 'a2a_local', 'gammaZ', cfgno, True)
+    good =          check_path(param, 'a2a_local', 'gamma_5', cfgno, True)
+    good = good and check_path(param, 'a2a_local', 'gamma_x', cfgno, True)
+    good = good and check_path(param, 'a2a_local', 'gamma_y', cfgno, True)
+    good = good and check_path(param, 'a2a_local', 'gamma_z', cfgno, True)
                      
     return good
 
 ######################################################################
-def goodA2AOnelink(param, cfgno):
+def good_a2a_onelink(param, cfgno):
     """Check that the A2A output looks OK"""
 
-    good =          checkPath(param, 'a2a_onelink', 'gammaX', cfgno, True)
-    good = good and checkPath(param, 'a2a_onelink', 'gammaY', cfgno, True)
-    good = good and checkPath(param, 'a2a_onelink', 'gammaZ', cfgno, True)
+    good =          check_path(param, 'a2a_onelink', 'gamma_x', cfgno, True)
+    good = good and check_path(param, 'a2a_onelink', 'gamma_y', cfgno, True)
+    good = good and check_path(param, 'a2a_onelink', 'gamma_z', cfgno, True)
                      
     return good
 
 ######################################################################
-def goodContractLocal(param, cfgno):
+def good_contract_local(param, cfgno):
     """Check that the contrraction output looks OK"""
 
-    good =          checkPath(param, 'contract_local', 'pion', cfgno, True)
-    good = good and checkPath(param, 'contract_local', 'vecX', cfgno, True)
-    good = good and checkPath(param, 'contract_local', 'vecY', cfgno, True)
-    good = good and checkPath(param, 'contract_local', 'vecZ', cfgno, True)
+    good =          check_path(param, 'contract_local', 'pion', cfgno, True)
+    good = good and check_path(param, 'contract_local', 'vec_x', cfgno, True)
+    good = good and check_path(param, 'contract_local', 'vec_y', cfgno, True)
+    good = good and check_path(param, 'contract_local', 'vec_z', cfgno, True)
                      
     return good
 
 ######################################################################
-def goodContractOnelink(param, cfgno):
+def good_contract_onelink(param, cfgno):
     """Check that the contrraction output looks OK"""
 
-    good =          checkPath(param, 'contract_onelink', 'vecX', cfgno, True)
-    good = good and checkPath(param, 'contract_onelink', 'vecY', cfgno, True)
-    good = good and checkPath(param, 'contract_onelink', 'vecZ', cfgno, True)
+    good =          check_path(param, 'contract_onelink', 'vec_x', cfgno, True)
+    good = good and check_path(param, 'contract_onelink', 'vec_y', cfgno, True)
+    good = good and check_path(param, 'contract_onelink', 'vec_z', cfgno, True)
                      
     return good
 
 ######################################################################
-def goodContractOnelinkPy(param, cfgno):
+def good_contract_onelink_py(param, cfgno):
     """Check that the contrraction output looks OK"""
 
-    good =          checkPath(param, 'contract_onelink_py', 'vec', cfgno, True)
+    good =          check_path(param, 'contract_onelink_py', 'vec', cfgno, True)
 
     return good
 
 ######################################################################
-def moveFailedOutputs(jobCase):
+def move_failed_outputs(job_case):
     """Move failed output to temporary failure archive"""
     
-    (stream, series, cfg, prec, tsrc, s06Cfg, tsrcID, jobID, jobSeqNo)  = jobCase
+    (stream, series, cfg, prec, tsrc, s06Cfg, tsrc_id, job_id, job_seq_no)  = job_case
 
-    badOutputPath = tarInputPath(stream, s06Cfg, tsrcID)
-    failPath = os.path.join(stream, s06Cfg, "fail", jobID)
+    bad_output_path = tar_input_path(stream, s06Cfg, tsrc_id)
+    fail_path = os.path.join(stream, s06Cfg, "fail", job_id)
 
     # Move the failed output
-    cmd = " ".join(["mkdir -p ", failPath, "; mv", badOutputPath, failPath])
+    cmd = " ".join(["mkdir -p ", fail_path, "; mv", bad_output_path, fail_path])
     print(cmd)
     try:
         subprocess.check_output(cmd, shell = True).decode("ASCII")
@@ -336,14 +336,14 @@ def moveFailedOutputs(jobCase):
         status = e.returncode
 
 ######################################################################
-def nextFinished(param, todoList, entryList):
+def next_finished(param, todo_list, entry_list):
     """Find the next well-formed entry marked "Q" whose job is no longer in the queue"""
     a = ()
     nskip = 0
-    while len(entryList) > 0:
-        cfgno = entryList.pop(0)
-        a = todoList[cfgno]
-        index, cfgno, step = findNextQueuedTask(a)
+    while len(entry_list) > 0:
+        cfgno = entry_list.pop(0)
+        a = todo_list[cfgno]
+        index, cfgno, step = find_next_queued_task(a)
         if index == 0:
             continue
         
@@ -357,12 +357,12 @@ def nextFinished(param, todoList, entryList):
             continue
     
         print("------------------------------------------------------------------------------------")
-        print("Checking cfg", todoList[cfgno]                     )
+        print("Checking cfg", todo_list[cfgno]                     )
         print("------------------------------------------------------------------------------------")
         
         # Is job still queued?
-        jobID = a[index+1]
-        if jobStillQueued(param, jobID):
+        job_id = a[index+1]
+        if job_still_queued(param, job_id):
             index = 0  # To signal no checking
             continue
         break
@@ -370,41 +370,41 @@ def nextFinished(param, todoList, entryList):
     return index, cfgno, step
 
 ######################################################################
-def checkPendingJobs(YAML):
+def check_pending_jobs(YAML):
     """Process all entries marked Q in the todolist"""
 
     # Read primary parameter file
-    param = loadParam(YAML)
+    param = load_param(YAML)
 
     # Read the todo file
-    todoFile = param['nanny']['todoFile']
-    lockFile = lockFileName(todoFile)
+    todo_file = param['nanny']['todo_file']
+    lock_file = lock_file_name(todo_file)
 
     # First, just get a list of entries
-    waitSetTodoLock(lockFile)
-    todoList = readTodo(todoFile)
-    removeTodoLock(lockFile)
-    entryList = sorted(todoList,key=keyToDoEntries)
+    wait_set_todo_lock(lock_file)
+    todo_list = read_todo(todo_file)
+    remove_todo_lock(lock_file)
+    entry_list = sorted(todo_list,key=key_todo_entries)
 
-    # Run through the entries. The entryList is static, but the
+    # Run through the entries. The entry_list is static, but the
     # todo file could be changing due to other proceses
-    while len(entryList) > 0:
+    while len(entry_list) > 0:
         # Reread the todo file (it might have changed)
-        waitSetTodoLock(lockFile)
-        todoList = readTodo(todoFile)
+        wait_set_todo_lock(lock_file)
+        todo_list = read_todo(todo_file)
 
-        index, cfgno, step = nextFinished(param, todoList, entryList)
+        index, cfgno, step = next_finished(param, todo_list, entry_list)
         if index == 0:
-            removeTodoLock(lockFile)
+            remove_todo_lock(lock_file)
             continue
 
         step = step[:-1]
         # Mark that we are checking this item and rewrite the todo list
-        todoList[cfgno][index] = step + "C"
-        writeTodo(todoFile, todoList)
-        removeTodoLock(lockFile)
+        todo_list[cfgno][index] = step + "C"
+        write_todo(todo_file, todo_list)
+        remove_todo_lock(lock_file)
 
-        if step not in param["jobSetup"].keys():
+        if step not in param["job_setup"].keys():
             print("ERROR: unrecognized step key", step)
             sys.exit(1)
 
@@ -412,35 +412,35 @@ def checkPendingJobs(YAML):
         sfx = ""
         status = True
         if step == "S":
-            status = status and goodLinks(param, cfgno)
+            status = status and good_links(param, cfgno)
         if step == "E":
-            status = status and goodEigs(param, cfgno)
+            status = status and good_eigs(param, cfgno)
         if step in ["L","A","B","N","D"]:
-            status = status and goodLMA(param, cfgno)
+            status = status and good_lma(param, cfgno)
         if step in ["L","A","M","M1","D"]:
-            status = status and goodA2AOnelink(param, cfgno)
+            status = status and good_a2a_onelink(param, cfgno)
         if step in ["L","A","M"]:
-            status = status and goodA2ALocal(param, cfgno)
+            status = status and good_a2a_local(param, cfgno)
         if step == "H":
-            status = status and goodContractLocal(param, cfgno)
+            status = status and good_contract_local(param, cfgno)
         if step == "I":
-            status = status and goodContractOnelink(param, cfgno)
+            status = status and good_contract_onelink(param, cfgno)
         if step == "G":
-            status = status and goodContractOnelinkPy(param, cfgno)
+            status = status and good_contract_onelink_py(param, cfgno)
 
         sys.stdout.flush()
 
         # Update the entry in the todo file
-        waitSetTodoLock(lockFile)
-        todoList = readTodo(todoFile)
+        wait_set_todo_lock(lock_file)
+        todo_list = read_todo(todo_file)
         if status:
-            todoList[cfgno][index] = step+"X"
+            todo_list[cfgno][index] = step+"X"
             print("Job step", step, "is COMPLETE")
         else:
-            todoList[cfgno][index] = step+"XXfix"
+            todo_list[cfgno][index] = step+"XXfix"
             print("Marking todo entry XXfix.  Fix before rerunning.")
-        writeTodo(todoFile, todoList)
-        removeTodoLock(lockFile)
+        write_todo(todo_file, todo_list)
+        remove_todo_lock(lock_file)
 
         # Take a cat nap (avoids hammering the login node)
         subprocess.check_call(["sleep", "1"])
@@ -452,7 +452,7 @@ def main():
 
     YAML = "params.yaml"
 
-    checkPendingJobs(YAML)
+    check_pending_jobs(YAML)
 
 
 ############################################################

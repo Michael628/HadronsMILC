@@ -1,38 +1,22 @@
 #! /usr/bin/env python3
-import gc
-import os
-import sys
-import itertools
-
+import os, sys, logging, itertools
 import numpy as np
 import cupy as cp
+import opt_einsum as oe
 cpnp = cp
 
-import h5py
-import pickle
+import h5py, pickle, yaml
+
 from time import perf_counter
-from sympy.utilities.iterables import multiset_permutations
-import opt_einsum as oe
-import logging
-from multiprocessing import Process, Pool, Lock, Manager
-import concurrent.futures
-import copy
-from mpi4py import MPI
 from dataclasses import dataclass
-import yaml
+from sympy.utilities.iterables import multiset_permutations
 from string import Formatter
-from processing_utils import build_format_dict
 
-def loadParam(file):
-    """Read the YAML parameter file"""
+from mpi4py import MPI
+#from multiprocessing import Process, Pool, Lock, Manager
 
-    try:
-        param = yaml.safe_load(open(file,'r'))
-    except:
-        print("WARNING: loadParam failed")
-        sys.exit(1)
-
-    return param
+from processingutils import build_format_dict
+from todo_utils import load_param
 
 def convert_to_numpy(corr):
     return corr if type(corr) is np.ndarray else cp.asnumpy(corr)
@@ -84,7 +68,7 @@ def time_average(cij,average=True,open_indices=(0,-1)):
 
 @dataclass
 class MesonLoader:
-    """Iterable object that loads MesonFields for processing by a Contractor
+    """Iterable object that loads meson fields for processing by a Contractor
     Parameters
     ----------
     file : str
@@ -133,7 +117,7 @@ class MesonLoader:
 
         # mat[:] = np.multiply(mat,eval_scaling[np.newaxis,np.newaxis,:])
 
-    def loadMeson(self, file, time: slice=slice(None)):
+    def load_meson(self, file, time: slice=slice(None)):
         """Reads 3-dim array from hdf5 file. 
 
         Parameters
@@ -193,7 +177,7 @@ class MesonLoader:
 
                 except ValueError:
                     print(f"Loading {time} from {file}")
-                    self.mesonlist[i] = (time,self.loadMeson(file,time)) # Load new file
+                    self.mesonlist[i] = (time,self.load_meson(file,time)) # Load new file
 
             self.iter_count += 1
             return tuple(self.mesonlist)
@@ -411,18 +395,15 @@ class Contractor:
         corr = dict(zip(self.subdiagrams,[{seedkey:dict(zip(gammas,
                                                          [{}]*len(gammas)))}]*len(self.subdiagrams)))
 
-        #matg1 = [cp.asnumpy(self.loadMeson(seedlist[0],seedlist[1],gamma)) for gamma in gammas]
-        matg1 = [self.loadMeson(seedlist[0],seedlist[1],gamma) for gamma in gammas]
+        matg1 = [self.load_meson(seedlist[0],seedlist[1],gamma) for gamma in gammas]
         matg2_photex = []
         matg2_selfen = []
 
         for gamma in gammas:
             if "photex" in self.subdiagrams:
-                #matg2_photex.append(cp.asnumpy(self.loadMeson(seedlist[4],seedlist[5],gamma)))
-                matg2_photex.append(self.loadMeson(seedlist[4],seedlist[5],gamma))
+                matg2_photex.append(self.load_meson(seedlist[4],seedlist[5],gamma))
             if "selfen" in self.subdiagrams:
-                #matg2_selfen.append(cp.asnumpy(self.loadMeson(seedlist[6],seedlist[7],gamma)))
-                matg2_selfen.append(self.loadMeson(seedlist[6],seedlist[7],gamma))
+                matg2_selfen.append(self.load_meson(seedlist[6],seedlist[7],gamma))
 
         for i in range(self.Nem):
 
@@ -431,11 +412,11 @@ class Contractor:
             selfen_p2_key = seedlist[4]+seedlist[5]+emlabel
             photex_p2_key = seedlist[6]+seedlist[7]+emlabel
 
-            matp1 = self.loadMeson(seedlist[2],seedlist[3],emlabel)
+            matp1 = self.load_meson(seedlist[2],seedlist[3],emlabel)
             if "selfen" in self.subdiagrams:
-                matp2_selfen = self.loadMeson(seedlist[4],seedlist[5],emlabel)
+                matp2_selfen = self.load_meson(seedlist[4],seedlist[5],emlabel)
             if "photex" in self.subdiagrams:
-                matp2_photex = self.loadMeson(seedlist[6],seedlist[7],emlabel)
+                matp2_photex = self.load_meson(seedlist[6],seedlist[7],emlabel)
 
             for j,gamma in enumerate(gammas):
                 selfen_g2_key = seedlist[6]+seedlist[7]+gamma
@@ -508,7 +489,7 @@ def main():
     series,cfg = sys.argv[1].split('.')
     processes = 1
 
-    params = loadParam('params.yaml')
+    params = load_param('params.yaml')
 
     if 'hardware' in params['contract'] and params['contract']['hardware'] == 'cpu':
         globals()['cpnp'] = np

@@ -1,10 +1,10 @@
 import copy
 
-def generateTemplates():
-    moduleTemplates = {}
+def generate_templates():
+    module_templates = {}
 
     # Loads gauge fields from ILDG file
-    moduleTemplates["loadGauge"] = {
+    module_templates["load_gauge"] = {
         "id":{
             "name":"",
             "type": "MIO::LoadIldg"
@@ -15,7 +15,7 @@ def generateTemplates():
     }
     
     # Recasts double precision gauge field to single
-    moduleTemplates["castGauge"] = {
+    module_templates["cast_gauge"] = {
         "id":{
             "name":"",
             "type": "MUtilities::GaugeSinglePrecisionCast"
@@ -26,7 +26,7 @@ def generateTemplates():
     }
 
     # Creates Dirac Matrix
-    moduleTemplates["action"] = {
+    module_templates["action"] = {
         "id":{
             "name":"",
             "type":"MAction::ImprovedStaggeredMILC"
@@ -45,10 +45,10 @@ def generateTemplates():
     }
 
     # Creates single precision Dirac Matrix
-    moduleTemplates["actionF"] = copy.deepcopy(moduleTemplates["action"])
-    moduleTemplates["actionF"]["id"]["type"] = "MAction::ImprovedStaggeredMILCF"
+    module_templates["action_float"] = copy.deepcopy(module_templates["action"])
+    module_templates["action_float"]["id"]["type"] = "MAction::ImprovedStaggeredMILCF"
 
-    moduleTemplates["op"] = {
+    module_templates["op"] = {
         "id":{
             "name":"",
             "type":"MFermion::StagOperators"
@@ -58,7 +58,7 @@ def generateTemplates():
         }
     }
 
-    moduleTemplates["IRL"] = {
+    module_templates["IRL"] = {
         "id":{
             "name":"",
             "type":"MSolver::StagFermionIRL"
@@ -87,7 +87,7 @@ def generateTemplates():
     }
         
     # Loads eigenvector pack
-    moduleTemplates["epackLoad"] = {
+    module_templates["epack_load"] = {
         "id":{
             "name":"",
             "type":"MIO::StagLoadFermionEigenPack"
@@ -102,7 +102,7 @@ def generateTemplates():
     }
 
     # Write eigenvalues into separate XML file
-    moduleTemplates["evalSave"] = {
+    module_templates["eval_save"] = {
         "id":{
             "name":"",
             "type":"MUtilities::EigenPackExtractEvals"
@@ -114,7 +114,7 @@ def generateTemplates():
     }
 
     # Shift eigenvalues of eigenpack by a mass value
-    moduleTemplates["epackModify"] = {
+    module_templates["epack_modify"] = {
         "id":{
             "name":"",
             "type":"MUtilities::ModifyEigenPackMILC"
@@ -128,7 +128,7 @@ def generateTemplates():
     }
 
     # Create operator to apply spin taste to fields
-    moduleTemplates["spinTaste"] = {
+    module_templates["spin_taste"] = {
         "id":{
             "name":"",
             "type":"MFermion::SpinTaste"
@@ -136,7 +136,7 @@ def generateTemplates():
     }
 
     # Creates function that spacially ties up field with chosen momentum phase
-    moduleTemplates["sink"] = {
+    module_templates["sink"] = {
         "id":{
             "name":"",
             "type":"MSink::ScalarPoint"
@@ -146,8 +146,8 @@ def generateTemplates():
         }
     }
 
-    # Creates Z4 random wall at every tStep time slices starting at t0
-    moduleTemplates["noiseRW"] = {
+    # Creates Z4 random wall at every time step time slices starting at t0
+    module_templates["noise_rw"] = {
         "id":{
         "name":"",
             "type":"MSource::StagRandomWall"
@@ -160,7 +160,7 @@ def generateTemplates():
         },
     }
 
-    moduleTemplates["timeDilutedNoise"] = {
+    module_templates["time_diluted_noise"] = {
         "id":{
         "name":"",
             "type":"MNoise::StagTimeDilutedSpinColorDiagonal"
@@ -172,7 +172,7 @@ def generateTemplates():
     }
 
     # Creates new vector of fields from given indices of chosen source vector
-    moduleTemplates["splitVec"] = {
+    module_templates["split_vec"] = {
         "id":{
         "name":"",
             "type":"MUtilities::StagSourcePickIndices"
@@ -184,7 +184,7 @@ def generateTemplates():
     }
     
     # Creates mixed precision CG solver
-    moduleTemplates["cgMP"] = {
+    module_templates["mixed_precision_cg"] = {
         "id":{
             "name":"",
             "type":"MSolver::StagMixedPrecisionCG"
@@ -200,7 +200,7 @@ def generateTemplates():
     }
 
     # Projects chosen source onto low mode subspace of Dirac Matrix
-    moduleTemplates["lmaProj"] = {
+    module_templates["lma_solver"] = {
 	"id":{
             "name":"",
             "type":"MSolver::StagLMA",
@@ -215,7 +215,7 @@ def generateTemplates():
     }
 
     # Applies chosen solver to sources
-    moduleTemplates["quarkProp"] = {
+    module_templates["quark_prop"] = {
         "id":{
             "name":"",
             "type":"MFermion::StagGaugeProp",
@@ -232,7 +232,7 @@ def generateTemplates():
     }
 
     # Contracts chosen quark propagators (q1, q2) to form correlator
-    moduleTemplates["propContract"] = {
+    module_templates["prop_contract"] = {
         "id":{
             "name":"",
             "type":"MContraction::StagMeson",
@@ -252,7 +252,7 @@ def generateTemplates():
     }
 
     # Builds A2A meson field
-    moduleTemplates["mesonField"] = {
+    module_templates["meson_field"] = {
         "id":{
             "name":"",
             "type":"MContraction::StagA2AMesonField",
@@ -275,7 +275,7 @@ def generateTemplates():
     }
 
     # Builds A2A Aslash meson field
-    moduleTemplates["qedMesonField"] = {
+    module_templates["qed_meson_field"] = {
         "id":{
             "name":"",
             "type":"MContraction::StagA2AASlashMesonField",
@@ -296,4 +296,4 @@ def generateTemplates():
         },
     }
 
-    return moduleTemplates
+    return module_templates

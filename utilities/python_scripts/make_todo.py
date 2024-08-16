@@ -16,9 +16,9 @@ def main():
 
     ( series, cfglow, cfghi, cfgstep ) = sys.argv[1:5]
 
-    cfgnoRange = range(int(cfglow),int(cfghi),int(cfgstep))
+    cfgno_range = range(int(cfglow),int(cfghi),int(cfgstep))
 
-    for cfgno in cfgnoRange:
+    for cfgno in cfgno_range:
         print("{0:s}.{1:d} S 0 E 0".format(series, cfgno))
 
 ######################################################################

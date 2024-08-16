@@ -52,39 +52,39 @@ def build_traversal_list(input_dict: dict):
 
     return input_dict.keys(), list(itertools.product(*input_dict.values()))
 
-def dictToCorrHelper(index, corrOut, corrDict):
+def dict_to_corr_helper(index, corr_out, corr_dict):
     
     # If we've reached the lowest level of the dictionary, copy contents and increment counter
-    if type(corrDict) is not dict:
-        corrOut[index,:] = corrDict
+    if type(corr_dict) is not dict:
+        corr_out[index,:] = corr_dict
         index += 1
         return index
     
     # Otherwise recurse over next lower level in dictionary
-    for k,v in sorted(corrDict.items()):
-        index = dictToCorrHelper(index,corrOut,corrDict[k])
+    for k,v in sorted(corr_dict.items()):
+        index = dict_to_corr_helper(index,corr_out,corr_dict[k])
     return index
 
 # Recursively traverses a dictionary,
 # creating a multidimensional numpy array
-def dictToCorr(corrDict):
-    dictShape = tuple()
+def dict_to_corr(corr_dict):
+    dict_shape = tuple()
 
     # Determine shape of correlator based on number of keys in each nested dictionary
-    d = corrDict
+    d = corr_dict
     while type(d) is dict:
-        dictShape = dictShape + (len(d.keys()),)
+        dict_shape = dict_shape + (len(d.keys()),)
         d = list(d.values())[0]
-    innerShape = d.shape
+    inner_shape = d.shape
     
-    dictSize = np.prod(dictShape)
-    corrOut = np.empty((dictSize,)+innerShape,dtype=np.complex128)
+    dict_size = np.prod(dict_shape)
+    corr_out = np.empty((dict_size,)+inner_shape,dtype=np.complex128)
 
     # Recursively fill correlator with nested dictionary entries
     index = 0
-    for v in corrDict.values():
-        index = dictToCorrHelper(index,corrOut,v)
+    for v in corr_dict.values():
+        index = dict_to_corr_helper(index,corr_out,v)
     
     # Reshape to multidimensional structure
-    corrOut = np.reshape(corrOut,dictShape+innerShape)
-    return corrOut
+    corr_out = np.reshape(corr_out,dict_shape+inner_shape)
+    return corr_out

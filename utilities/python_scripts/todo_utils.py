@@ -6,64 +6,64 @@
 import sys, os, yaml, subprocess, time
 
 ######################################################################
-def lockFileName(todoFile):
+def lock_file_name(todo_file):
     """Directory entry"""
-    return todoFile + ".lock"
+    return todo_file + ".lock"
 
 ######################################################################
-def waitSetTodoLock(lockFile):
+def wait_set_todo_lock(lock_file):
     """Set lock file"""
 
-    while os.access(lockFile, os.R_OK):
+    while os.access(lock_file, os.R_OK):
         print("Lock file present. Sleeping.")
         sys.stdout.flush()
         time.sleep(600)
 
-    subprocess.call(["touch", lockFile])
+    subprocess.call(["touch", lock_file])
     
 ######################################################################
-def removeTodoLock(lockFile):
+def remove_todo_lock(lock_file):
     """Remove lock file"""
-    subprocess.call(["rm", lockFile])
+    subprocess.call(["rm", lock_file])
 
 
 ############################################################
-def updateParam(param, paramUpdate):
-    """Update the param dictionary according to terms in paramUpdate"""
+def update_param(param, param_update):
+    """Update the param dictionary according to terms in param_update"""
 
     # Updating is recursive in the tree so we can update selected branches
     # leaving the remainder untouched
-    for b in paramUpdate.keys():
+    for b in param_update.keys():
         try:
-            k = paramUpdate[b].keys()
+            k = param_update[b].keys()
             n = len(k)
         except AttributeError:
             n = 0
 
         if b in param.keys() and n > 0:
             # Keep descending until we run out of branches
-            updateParam(param[b], paramUpdate[b])
+            update_param(param[b], param_update[b])
         else:
             # Then stop, replacing just the last branch or creating a new one
-            param[b] = paramUpdate[b]
+            param[b] = param_update[b]
 
     return param
 
 ######################################################################
-def loadParam(file):
+def load_param(file):
     """Read the YAML parameter file"""
 
     try:
         param = yaml.safe_load(open(file,'r'))
     except subprocess.CalledProcessError as e:
-        print("WARNING: loadParam failed for", e.cmd)
+        print("WARNING: load_param failed for", e.cmd)
         print("return code", e.returncode)
         sys.exit(1)
 
     return param
 
 ############################################################
-def loadParamsJoin(YAMLEns, YAMLAll):
+def load_params_join(YAMLEns, YAMLAll):
     """Concatenate two YAML parameter files and load
     We need this because YAMLEns defines a reference needed
     by YAMLAll"""
@@ -80,18 +80,18 @@ def loadParamsJoin(YAMLEns, YAMLAll):
     return param
 
 ######################################################################
-def readTodo(todoFile):
+def read_todo(todo_file):
     """Read the todo file"""
     
-    todoList = dict()
+    todo_list = dict()
     try:
-        with open(todoFile) as todo:
-            todoLines = todo.readlines()
+        with open(todo_file) as todo:
+            todo_lines = todo.readlines()
     except IOError:
-        print("Can't open", todoFile)
+        print("Can't open", todo_file)
         sys.exit(1)
 
-    for line in todoLines:
+    for line in todo_lines:
         if len(line) == 1:
             continue
         a = line.split()
@@ -99,20 +99,20 @@ def readTodo(todoFile):
             if type(a[i]) is bytes:
                 a[i] = a[i].decode('ASCII')
         key = a[0]
-        todoList[key] = a
+        todo_list[key] = a
 
     todo.close()
-    return todoList
+    return todo_list
 
 ######################################################################
-def keyToDoEntries(td):
+def key_todo_entries(td):
     """Sort key for todo entries with format x.nnnn"""
 
     (stream, cfg) = td.split(".")
     return "{0:s}{1:010d}".format(stream, int(cfg))
 
 ######################################################################
-def cmpToDoEntries(td1, td2):
+def cmp_todo_entries(td1, td2):
     """Compare todo entries with format x.nnnn"""
     # Python 2.7 only
 
@@ -127,27 +127,27 @@ def cmpToDoEntries(td1, td2):
     return order
 
 ######################################################################
-def writeTodo(todoFile, todoList):
+def write_todo(todo_file, todo_list):
     """Write the todo file"""
 
     # Back up the files
-    subprocess.call(["mv", todoFile, todoFile + ".bak"])
+    subprocess.call(["mv", todo_file, todo_file + ".bak"])
 
     try:
-        todo = open(todoFile, "w")
+        todo = open(todo_file, "w")
 
     except IOError:
-        print("Can't open", todoFile, "for writing")
+        print("Can't open", todo_file, "for writing")
         sys.exit(1)
             
-    for line in sorted(todoList, key=keyToDoEntries):
-        print(" ".join(todoList[line]), file=todo)
+    for line in sorted(todo_list, key=key_todo_entries):
+        print(" ".join(todo_list[line]), file=todo)
 
     todo.close()
 
         
 ######################################################################
-def findNextUnfinishedTask(a):
+def find_next_unfinished_task(a):
     """Examine todo line "a" to see if more needs to be done"""
 
     # Format
@@ -174,7 +174,7 @@ def findNextUnfinishedTask(a):
     return index, cfgno, step
 
 ######################################################################
-def findNextQueuedTask(a):
+def find_next_queued_task(a):
     """Examine todo line "a" to see if more needs to be done"""
 
     # Format
