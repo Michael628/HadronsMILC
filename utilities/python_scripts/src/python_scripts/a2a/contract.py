@@ -1,21 +1,27 @@
 #! /usr/bin/env python3
-import os, sys, logging, itertools
+import os
+import sys
+import logging
+import itertools
 import numpy as np
 import cupy as cp
 import opt_einsum as oe
-cpnp = cp
-
-import h5py, pickle, yaml, re
+import h5py
+import pickle
+import yaml
+import re
 
 from time import perf_counter
 from dataclasses import dataclass
 from sympy.utilities.iterables import multiset_permutations
 
 from mpi4py import MPI
-#from multiprocessing import Process, Pool, Lock, Manager
+# from multiprocessing import Process, Pool, Lock, Manager
 
-from processingutils import formatdict
-from todo_utils import load_param
+from python_scripts.processing import procutils
+from python_scripts.nanny import todo_utils
+
+cpnp = cp
 
 def convert_to_numpy(corr):
     """Converts a cupy array to a numpy array"""
@@ -318,7 +324,7 @@ class Contractor:
 
         times = self.generate_time_sets(self.symmetric)
 
-        mesonfile_replacements = formatdict(self.mesonfile,self.__dict__)
+        mesonfile_replacements = procutils.formatdict(self.mesonfile,self.__dict__)
 
         for gamma in self.gammas:
 
@@ -487,7 +493,7 @@ def main():
 
     series,cfg = sys.argv[1].split('.')
 
-    params = load_param('params.yaml')
+    params = todo_utils.load_param('params.yaml')
 
     if 'logging_level' in params['contract'] and comm.Get_rank() == 0:
         logging_level = params['contract']['logging_level']

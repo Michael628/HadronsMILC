@@ -3,8 +3,8 @@ import sys
 import os
 import yaml
 import pickle
-import nanny.todo_utils as todo_utils
-import processing.utils as utils
+from python_scripts.nanny import todo_utils
+from python_scripts.processing import utils
 import numpy as np
 from string import Formatter
 import re
