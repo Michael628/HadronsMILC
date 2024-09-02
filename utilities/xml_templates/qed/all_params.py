@@ -33,7 +33,7 @@ def build_params(**module_templates):
                     "mutationRate":"0.1",
                 },
                 "graphFile":"",
-                "schedule_file":schedule_file,
+                "scheduleFile":schedule_file,
                 "saveSchedule":"false",
                 "parallelWriteMaxRetry":"-1",
             },

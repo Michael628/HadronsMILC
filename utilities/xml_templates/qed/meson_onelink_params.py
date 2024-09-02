@@ -19,7 +19,7 @@ def build_params(**module_templates):
                      "mutationRate":"0.1",
                  },
                  "graphFile":"",
-                  f"schedule_file":"",
+                  f"scheduleFile":"",
                  "saveSchedule":"false",
                  "parallelWriteMaxRetry":"-1",
              },
@@ -31,22 +31,22 @@ def build_params(**module_templates):
 
      module = copy.deepcopy(module_templates["load_gauge"])
      module["id"]["name"] = "gauge"
-     module["options"]["file"] = "configs/lENSSERIES.ildg"
+     module["options"]["file"] = "lat/scidac/lENSSERIES.ildg"
      modules.append(module)
 
      module = copy.deepcopy(module_templates["load_gauge"])
      module["id"]["name"] = "gauge_fat"
-     module["options"]["file"] = "configs/fatENSSERIES.ildg"
+     module["options"]["file"] = "lat/scidac/fatENSSERIES.ildg"
      modules.append(module)
 
      module = copy.deepcopy(module_templates["load_gauge"])
      module["id"]["name"] = "gauge_long"
-     module["options"]["file"] = "configs/lngENSSERIES.ildg"
+     module["options"]["file"] = "lat/scidac/lngENSSERIES.ildg"
      modules.append(module)
 
      module = copy.deepcopy(module_templates["epack_load"])
      module["id"]["name"] = "epack_l"
-     module["options"]["filestem"] = "eigenpacks/eigENSnvSOURCEEIGSSERIES"
+     module["options"]["filestem"] = "eigen/eigENSnvSOURCEEIGSSERIES"
      module["options"]["size"] = "EIGS"
      modules.append(module)
 

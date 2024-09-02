@@ -32,7 +32,7 @@ def build_params(**module_templates):
                      "mutationRate":"0.1",
                  },
                  "graphFile":"",
-                f"schedule_file":"",
+                f"scheduleFile":"",
                 "saveSchedule":"false",
                 "parallelWriteMaxRetry":"-1",
             },
@@ -44,7 +44,7 @@ def build_params(**module_templates):
 
     module = copy.deepcopy(module_templates["epack_load"])
     module["id"]["name"] = "epack"
-    module["options"]["filestem"] = f"eigs/eig{env['ENS']}nv{env['SOURCEEIGS']}{env['SERIES']}"
+    module["options"]["filestem"] = f"eigen/eig{env['ENS']}nv{env['SOURCEEIGS']}{env['SERIES']}"
     module["options"]["size"] = env['EIGS']
     module["options"]["multiFile"] = "false"
     modules.append(module)
@@ -52,7 +52,7 @@ def build_params(**module_templates):
     module = copy.deepcopy(module_templates["eval_save"])
     module["id"]["name"] = "evals"
     module["options"]["eigenPack"] = "epack"
-    module["options"]["output"] = f"eigs/evals/evalmassless{env['ENS']}nv{env['SOURCEEIGS']}{env['SERIES']}"
+    module["options"]["output"] = f"eigen/evals/evalmassless{env['ENS']}nv{env['SOURCEEIGS']}{env['SERIES']}"
     modules.append(module)
 
     params["grid"]["modules"] = {"module":modules}

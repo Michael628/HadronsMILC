@@ -26,7 +26,7 @@ def build_params(**module_templates):
                      "mutationRate":"0.1",
                  },
                  "graphFile":"",
-                 "schedule_file":"",
+                 "scheduleFile":"",
                  "saveSchedule":"false",
                  "parallelWriteMaxRetry":"-1",
              },
@@ -38,17 +38,17 @@ def build_params(**module_templates):
 
      module = copy.deepcopy(module_templates["load_gauge"])
      module["id"]["name"] = "gauge"
-     module["options"]["file"] = f'configs/l{env["ENS"]}{env["SERIES"]}.ildg'
+     module["options"]["file"] = f'lat/scidac/l{env["ENS"]}{env["SERIES"]}.ildg'
      modules.append(module)
 
      module = copy.deepcopy(module_templates["load_gauge"])
      module["id"]["name"] = "gauge_fat"
-     module["options"]["file"] = f'configs/fat{env["ENS"]}{env["SERIES"]}.ildg'
+     module["options"]["file"] = f'lat/scidac/fat{env["ENS"]}{env["SERIES"]}.ildg'
      modules.append(module)
 
      module = copy.deepcopy(module_templates["load_gauge"])
      module["id"]["name"] = "gauge_long"
-     module["options"]["file"] = f'configs/lng{env["ENS"]}{env["SERIES"]}.ildg'
+     module["options"]["file"] = f'lat/scidac/lng{env["ENS"]}{env["SERIES"]}.ildg'
      modules.append(module)
 
      module = copy.deepcopy(module_templates["epack_load"])

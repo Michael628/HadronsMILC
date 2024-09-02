@@ -20,7 +20,7 @@ def build_params(**module_templates):
                      "mutationRate":"0.1",
                  },
                  "graphFile":"",
-                 "schedule_file":"",
+                 "scheduleFile":"",
                  "saveSchedule":"false",
                  "parallelWriteMaxRetry":"-1",
              },
@@ -32,12 +32,12 @@ def build_params(**module_templates):
 
      module = copy.deepcopy(module_templates["load_gauge"])
      module["id"]["name"] = "gauge_fat"
-     module["options"]["file"] = f"configs/fat{env['ENS']}{env['SERIES']}.ildg"
+     module["options"]["file"] = f"lat/scidac/fat{env['ENS']}{env['SERIES']}.ildg"
      modules.append(module)
 
      module = copy.deepcopy(module_templates["load_gauge"])
      module["id"]["name"] = "gauge_long"
-     module["options"]["file"] = f"configs/lng{env['ENS']}{env['SERIES']}.ildg"
+     module["options"]["file"] = f"lat/scidac/lng{env['ENS']}{env['SERIES']}.ildg"
      modules.append(module)
 
      module = copy.deepcopy(module_templates["action"])
@@ -62,7 +62,7 @@ def build_params(**module_templates):
      module["options"]["lanczosParams"]["Nstop"] = "1000"
      module["options"]["lanczosParams"]["Nk"] = "1050"
      module["options"]["lanczosParams"]["Nm"] = "1300"
-     module["options"]["output"] = f"eigs/local/eig{env['ENS']}nv2000er8_grid_{env['SERIES']}"
+     module["options"]["output"] = f"eigen/local/eig{env['ENS']}nv2000er8_grid_{env['SERIES']}"
      module["options"]["multiFile"] = "false"
      modules.append(module)
 

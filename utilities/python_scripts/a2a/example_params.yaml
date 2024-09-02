@@ -1,0 +1,147 @@
+######  Contracting A2A Meson Fields ########
+contract:
+  hardware: 'gpu'
+  diagrams:
+  - 'vec_onelink'
+  #- 'vec_local_up_new'
+  #- 'vec_local_down_new'
+  #- 'pion_local_up_new'
+  #- 'pion_local_down_new'
+  #- 'vec_local_up_old'
+  #- 'vec_local_down_old'
+  #- 'pion_local_up_old'
+  #- 'pion_local_down_old'
+
+  vec_onelink:
+    contraction_type: 'conn_2pt'
+    symmetric: True
+    overwrite: True
+    #evalfilestem: ''
+    mesonfile: 'e2000n1dt1/mesons/m001907/mf_{series}.{cfg}/{gamma}_0_0_0.h5'
+    gammas:
+    - 'GX_G1'
+    - 'GY_G1'
+    - 'GZ_G1'
+    low_label: 'e2000'
+    mass: '001907'
+    outfile: 'a2a_corrs/{diagram}/m{mass}/corr_{diagram}_{permkey}_{series}.{cfg}.p'
+
+  vec_local_up_new:
+    contraction_type: 'conn_2pt'
+    symmetric: True
+    overwrite: True
+    evalfilestem: 'eigen/evals/evalmassless4864f211b600m001907m05252m6382nv2000{series}.{cfg}.h5'
+    mesonfile: 'e2000n1dt1/mesons/m001907/mf_{series}.{cfg}/{gamma}_0_0_0.h5'
+    outfile: 'a2a_corrs/{diagram_label}/m{newmass}/corr_{diagram_label}_{permkey}_{series}.{cfg}.p'
+    low_label: 'e2000'
+    diagram_label: 'vec_local'
+    mass: '001907'
+    newmass: '00119'
+    gammas:
+    - 'GX_GX'
+    - 'GY_GY'
+    - 'GZ_GZ'
+
+  pion_local_up_new:
+    contraction_type: 'conn_2pt'
+    symmetric: True
+    overwrite: True
+    evalfilestem: 'eigen/evals/evalmassless4864f211b600m001907m05252m6382nv2000{series}.{cfg}.h5'
+    mesonfile: 'e2000n1dt1/mesons/m001907/mf_{series}.{cfg}/{gamma}_0_0_0.h5'
+    outfile: 'a2a_corrs/{diagram_label}/m{newmass}/corr_{diagram_label}_{permkey}_{series}.{cfg}.p'
+    diagram_label: 'pion_local'
+    low_label: 'e2000'
+    mass: '001907'
+    newmass: '00119'
+    gammas:
+    - 'G5_G5'
+        
+  vec_local_down_new:
+    contraction_type: 'conn_2pt'
+    symmetric: True
+    overwrite: True
+    evalfilestem: 'eigen/evals/evalmassless4864f211b600m001907m05252m6382nv2000{series}.{cfg}.h5'
+    mesonfile: 'e2000n1dt1/mesons/m001907/mf_{series}.{cfg}/{gamma}_0_0_0.h5'
+    outfile: 'a2a_corrs/{diagram_label}/m{newmass}/corr_{diagram_label}_{permkey}_{series}.{cfg}.p'
+    low_label: 'e2000'
+    diagram_label: 'vec_local'
+    mass: '001907'
+    newmass: '002625'
+    gammas:
+    - 'GX_GX'
+    - 'GY_GY'
+    - 'GZ_GZ'
+
+  pion_local_down_new:
+    contraction_type: 'conn_2pt'
+    symmetric: True
+    overwrite: True
+    evalfilestem: 'eigen/evals/evalmassless4864f211b600m001907m05252m6382nv2000{series}.{cfg}.h5'
+    mesonfile: 'e2000n1dt1/mesons/m001907/mf_{series}.{cfg}/{gamma}_0_0_0.h5'
+    outfile: 'a2a_corrs/{diagram_label}/m{newmass}/corr_{diagram_label}_{permkey}_{series}.{cfg}.p'
+    diagram_label: 'pion_local'
+    low_label: 'e2000'
+    mass: '001907'
+    newmass: '002625'
+    gammas:
+    - 'G5_G5'
+    
+  vec_local_up_old:
+    contraction_type: 'conn_2pt'
+    symmetric: True
+    overwrite: True
+    evalfilestem: 'eigen/evals/evalmassless4864f211b600m001907m05252m6382nv2000{series}.{cfg}.h5'
+    mesonfile: 'e2000n1dt1/mesons/m001907/mf_{series}.{cfg}/{gamma}_0_0_0.h5'
+    outfile: 'a2a_corrs/{diagram_label}/m{newmass}/corr_{diagram_label}_{permkey}_{series}.{cfg}.p'
+    low_label: 'e2000'
+    diagram_label: 'vec_local'
+    mass: '001907'
+    newmass: '00119'
+    gammas:
+    - 'GammaX'
+    - 'GammaY'
+    - 'GammaZ'
+    
+  pion_local_up_old:
+    contraction_type: 'conn_2pt'
+    symmetric: True
+    overwrite: True
+    evalfilestem: 'eigen/evals/evalmassless4864f211b600m001907m05252m6382nv2000{series}.{cfg}.h5'
+    mesonfile: 'e2000n1dt1/mesons/m001907/mf_{series}.{cfg}/{gamma}_0_0_0.h5'
+    outfile: 'a2a_corrs/{diagram_label}/m{newmass}/corr_{diagram_label}_{permkey}_{series}.{cfg}.p'
+    diagram_label: 'pion_local'
+    low_label: 'e2000'
+    mass: '001907'
+    newmass: '00119'
+    gammas:
+    - 'Gamma5'
+    
+  vec_local_down_old:
+    contraction_type: 'conn_2pt'
+    symmetric: True
+    overwrite: True
+    evalfilestem: 'eigen/evals/evalmassless4864f211b600m001907m05252m6382nv2000{series}.{cfg}.h5'
+    mesonfile: 'e2000n1dt1/mesons/m001907/mf_{series}.{cfg}/{gamma}_0_0_0.h5'
+    outfile: 'a2a_corrs/{diagram_label}/m{newmass}/corr_{diagram_label}_{permkey}_{series}.{cfg}.p'
+    low_label: 'e2000'
+    diagram_label: 'vec_local'
+    mass: '001907'
+    newmass: '002625'
+    gammas:
+    - 'GammaX'
+    - 'GammaY'
+    - 'GammaZ'
+    
+  pion_local_down_old:
+    contraction_type: 'conn_2pt'
+    symmetric: True
+    overwrite: True
+    evalfilestem: 'eigen/evals/evalmassless4864f211b600m001907m05252m6382nv2000{series}.{cfg}.h5'
+    mesonfile: 'e2000n1dt1/mesons/m001907/mf_{series}.{cfg}/{gamma}_0_0_0.h5'
+    outfile: 'a2a_corrs/{diagram_label}/m{newmass}/corr_{diagram_label}_{permkey}_{series}.{cfg}.p'
+    diagram_label: 'pion_local'
+    low_label: 'e2000'
+    mass: '001907'
+    newmass: '002625'
+    gammas:
+    - 'Gamma5'

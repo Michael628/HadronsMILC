@@ -35,7 +35,7 @@ def build_params(**module_templates):
                      "mutationRate":"0.1",
                  },
                  "graphFile":"",
-                f"schedule_file":schedule_file,
+                f"scheduleFile":schedule_file,
                 "saveSchedule":"false",
                 "parallelWriteMaxRetry":"-1",
             },
@@ -79,7 +79,7 @@ def build_params(**module_templates):
     module["id"]["name"] = "epack"
     module["options"]["filestem"] = f"eigen/eig{env['ENS']}nv{env['SOURCEEIGS']}er8_grid_{env['SERIES']}"
     module["options"]["size"] = env['EIGS']
-    module["options"]["multiFile"] = "true"
+    module["options"]["multiFile"] = env['MULTIFILE'] if 'MULTIFILE' in env else module["options"]["multiFile"]
     modules.append(module)
 
     time = int(env["TIME"])
