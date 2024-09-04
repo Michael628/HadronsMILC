@@ -3,7 +3,7 @@ processing:
   #logging_level: 'DEBUG'
   run:
   #- 'vec_onelink_high'
-  - test
+  - 'test'
   default:
     overwrite: True
     noise: '1'
@@ -13,9 +13,10 @@ processing:
     data:
     - 'ama'
     - 'ranLL'
-    output:
-      numpy: 'e{eigs}n{noise}dt{dt}/correlators/python/m{mass}/{diagram}/{data}/corr_{diagram}_{data}_m{mass}_numpy.p'
-      dict:  'e{eigs}n{noise}dt{dt}/correlators/python/m{mass}/{diagram}/{data}/corr_{diagram}_{data}_m{mass}.p'
+    output: 'e{eigs}n{noise}dt{dt}/correlators/python/m{mass}/{diagram}/{data}/corr_{diagram}_{data}_m{mass}'
+    output_types:
+      - 'dict'
+      - 'numpy'
     key_order:
     - 'series'
     - 'cfg'
@@ -24,77 +25,6 @@ processing:
       series: '[a-z]'
       cfg: '[0-9]+'
       time: '[0-9]+'
-  vec_onelink_high:
-    diagram: 'vec_onelink'
-    input:
-      filestem: 'e{eigs}n{noise}dt{dt}/correlators/m{mass}/{diagram}/{data}/corr_{diagram}_{data}_m{mass}_t{time}_{series}.{cfg}.h5'
-      datapaths:
-      - 'meson/meson_0/corr'
-      - 'meson/meson_1/corr'
-      - 'meson/meson_2/corr'
-    output: 'default'
-  vec_onelink_a2aLL:
-    diagram: 'vec_onelink'
-    data: 'a2aLL'
-    input:
-      filestem: a2a_corrs/{diagram}/m{mass}/corr_{diagram}_LLLL_{series}.{cfg}.p
-    output: 'default'
-
-  vec_local_high:
-    diagram: 'vec_local'
-    input: 'vec_onelink_high'
-    output: 'default'
-  vec_local_a2aLL:
-    diagram: 'vec_local'
-    data: 'a2aLL'
-    input: 'vec_onelink_a2aLL'
-    output: 'default'
-
-  pion_local_high:
-    diagram: 'pion_local'
-    input:
-      filestem: 'e{eigs}n{noise}dt{dt}/correlators/m{mass}/{diagram}/{dset}/corr_{diagram}_{dset}_m{mass}_t{time}_{series}.{cfg}.h5'
-      datapaths:
-      - 'meson/meson_0/corr'
-    output: 'default'
-  pion_local_a2aLL:
-    diagram: 'pion_local'
-    data: 'a2aLL'
-    input:
-      filestem: a2a_corrs/{diagram}/m{mass}/corr_{diagram}_LLLL_{series}.{cfg}.p
-    output: 'default'
-
-  sib_vec_local_high:
-    diagram: 'vec_local'
-    mass:
-    - '00119'
-    - '002625'
-    input: 'vec_onelink_high'
-    output: 'default'
-  sib_vec_local_a2aLL:
-    diagram: 'vec_local'
-    data: 'a2aLL'
-    mass:
-    - '00119'
-    - '002625'
-    input: 'vec_onelink_a2aLL'
-    output: 'default'
-
-  sib_pion_local_high:
-    diagram: 'pion_local'
-    mass:
-    - '00119'
-    - '002625'
-    input: 'pion_local_high'
-    output: 'default'
-  sib_pion_local_a2aLL:
-    diagram: 'pion_local'
-    data: 'a2aLL'
-    mass:
-    - '00119'
-    - '002625'
-    input: 'pion_local_a2aLL'
-    output: 'default'
   test:
     diagram: 'vec_local'
     overwrite: True

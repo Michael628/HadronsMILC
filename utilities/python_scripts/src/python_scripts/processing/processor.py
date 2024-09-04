@@ -5,6 +5,7 @@ import yaml
 import pickle
 from python_scripts.nanny import todo_utils
 from python_scripts.processing import utils
+
 import numpy as np
 from string import Formatter
 import re
@@ -14,226 +15,171 @@ import copy
 
 
 @dataclass
-class FilestemFormatParser:
-    filestem: str
-    params: dict = field(default_factory=dict)
-    keysort: callable = None
-
-    def __post_init__(self):
-        self.filekeys = utils.formatkeys(self.filestem, key_sort=self.keysort)
-
-    @property
-    def keys(self):
-        return self.filekeys
-
-    def filestem_keyorder(self, filename_only: bool = False) -> dict:
-        """Returns a list of keys in the order they are found in `filestem`
-
-        Parameters
-        ----------
-        filename_only : bool, optional
-            If true, `filestem` is first split using `os.path.basename`
-            to get only the filename.
-        """
-        if filename_only:
-            filestr = os.path.basename(self.filestem)
-        else:
-            filestr = self.filestem
-
-        order = [
-            k
-            for k in self.filekeys
-            if k in filestr
-        ]
-        order.sort(key=filestr.index)
-
-        return order
-
-    def format(self, repl: dict) -> str:
-        return self.filestem.format(**repl)
-
-    def traverse_replacements(self) -> (str, dict):
-        _, val_iter = utils.format_iter(
-            self.filestem,
-            self.params,
-            self.keysort
-        )
-
-        for vals in val_iter:
-            repl = dict(zip(self.filekeys, vals))
-            yield self.format(repl), repl
-
-
-@dataclass
 class RawDataProcessor:
+    """Combines data in separated files into single
+    nested dictionary pickle file
+
+    Attributes
+    ----------
+    input : dict
+        Holds `input['filestem']` and, optionally, `input['datapaths']
+        used to load data from files. `filstem` can hold keyword replacements
+        and `datapaths` is required for hdf5 files, providing the datapath
+        to be traversed when the file is loaded
+    outfilestem : str
+        The output file version of `input['filestem']`
+    replacements : dict
+        keyword replacements that will be traversed when searching for input
+        files and writing to output files
+    regex : dict, optional
+        regex expressions used as keyword replacements in `input['filestem']`
+        to match when searching through file system
+    overwrite : bool, optional
+        When false and an existing output file is found, skips input files
+        that correspond to data already in existing output file
+    """
     input: dict
-    outfiles: dict
-    params: dict
+    outfilestem: dict
+    replacements: dict
     regex: dict = field(default_factory=dict)
     overwrite: bool = False
-    keysort: callable = None
 
     def __post_init__(self):
 
-        self.check_output_keys()
+        # Process `replacements` down to keys needed by
+        # input and output filestems
+        repl_temp: dict = {}
+        repl_keyset: set = {
+            k
+            for k in utils.formatkeys(self.input['filestem'])
+        }
+        repl_keyset.union({k for k in utils.formatkeys(self.outfilestem)})
+        repl_temp: dict = {
+            k: copy.deepcopy(v)
+            for k, v in self.replacements.items()
+            if k in repl_keyset
+        }
+        self.replacements = repl_temp
 
-        # self.output_parsers = {
-        #     key: FilestemFormatParser(val, self.params)
-        #     for key, val in self.output.items()
-        # }
+        def keysort(x):
+            try:
+                return ['series', 'cfg', 'time'].index(x)
+            except ValueError:
+                return -1
 
-        input_params = copy.deepcopy(self.params)
-
-        # Add parentheses to regex elements if not already present
-        for key, val in self.regex.items():
-            if val[0] != '(' or val[-1] != ')':
-                self.regex[key] = f"({val})"
-
-        input_params.update(self.regex)
-
-        self.input_parser = FilestemFormatParser(
-            self.input['filestem'],
-            input_params,
-            self.keysort
+        self.input_parser = utils.FilestemFormatParser(
+            filestem=self.input['filestem'],
+            params=self.replacements,
+            regex=self.regex,
+            keysort=keysort
         )
 
-        output_keys = utils.formatkeys(next(iter(self.outfiles.values())))
-        input_keys = self.input_parser.keys
+    @property
+    def writefilestem(self):
+        return f"{self.outfilestem}_raw.p"
 
-        self.data_keys = [k for k in input_keys if k not in output_keys]
+    def loadfile(self, replacements: dict = field(default_factory=dict)):
 
-        if any(k not in self.regex for k in self.data_keys):
-            raise KeyError(
-                "Expecting regex replacements for keys: {}".format(
-                    ", ".join(self.data_keys)
-                )
+        corr = {}
+
+        writefile: str = self.writefilestem.format(
+            **dict(replacements)
+        )
+
+        if os.path.exists(writefile):
+
+            logging.info(
+                f"Loading existing output file: {writefile}"
             )
 
-    def check_output_keys(self) -> None:
-        """Ensure that all format strings in `output` have
-        the same replacement variables
-        """
+            with open(writefile, 'rb') as f:
+                corr = pickle.load(f)
+        else:
+            logging.warning(
+                f"No existing output file found at: {writefile}"
+            )
+            corr = {}
 
-        key_set = {
-            " ".join(utils.formatkeys(val))
-            for val in self.outfiles.values()
-        }
+        return corr
 
-        if len(key_set) != 1:
-            raise ValueError(" ".join((
-                "All output string replacements",
-                "must be the same.")))
+    # Overwritten by subclass
+    def postprocess(self, corr):
+        pass
 
-    # def postprocess(self, corr: np.ndarray) -> None:
-    #     if 'time' in index_dict:
-    #         time = int(re_match[index_dict['time']])
-    #         temp = utils.extractdata(
-    #             f"{directory}/{file}",
-    #             datapaths
-    #         )
+    def writefile(self, file_reps: dict,
+                  corr: np.ndarray, ext: str = '') -> None:
 
-    #         if seriescfg not in corr:
-    #             corr[seriescfg] = np.zeros((temp.shape[-1],)+temp.shape,dtype=np.complex128)
+        outfile = self.writefilestem.format(**file_reps)
 
-    #         corr[seriescfg][time] = temp
-    #     else:
-    #         corr[seriescfg] = utils.extractdata(f"{directory.format(**file_reps)}/{file}",datapaths)
+        if not os.path.exists(os.path.dirname(outfile)):
+            os.makedirs(os.path.dirname(outfile))
 
-    def writefile(self, file_reps: dict, corr: np.ndarray) -> None:
+        logging.info(f"Saving file: {outfile}")
 
-        # self.postprocess(corr)
+        with open(outfile, 'wb') as f:
+            pickle.dump(corr, f)
 
-        for outtype, outfilestem in self.outfiles.items():
-            outfile = outfilestem.format(**file_reps)
-
-            print(outtype,outfile)
-
-            if not os.path.exists(os.path.dirname(outfile)):
-                os.makedirs(os.path.dirname(outfile))
-
-            logging.info(f"Writing file: {outfile}")
-            with open(outfile,'wb') as f:
-                if outtype == 'numpy':
-                    pickle.dump(utils.dict_to_corr(corr), f)
-                elif outtype == 'dict':
-                    pickle.dump(corr, f)
-
-    def readdata(self, corr: np.ndarray, file: str, regex_repl: dict,
+    def readdata(self, corr: dict, file: str, corr_repl: dict,
                  datapaths: list[str] = None, overwrite: bool = False) -> None:
         utils.setdictval(
             corr,
-            list(regex_repl.values()),
+            list(corr_repl.values()),
             value=utils.extractdata(file, datapaths),
             overwrite=overwrite)
 
     def process(self):
 
-        replacements: dict = {}
+        for (outfile_repl, _path) in self.input_parser.traverse_replacements():
 
-        for infile_path, infile_repl in self.input_parser.traverse_replacements():
+            corr = self.loadfile(outfile_repl)
 
-            print(f"infile_path:{infile_path}")
-            file_complete: bool = len(replacements) == 0 or any(
-                replacements[k] != infile_repl[k]
-                for k in replacements.keys()
-            )
+            for regex_repl, infile in self.input_parser.traverse_regex():
 
-            if file_complete:
-                print("file complete")
-                if len(replacements) != 0:
-                    print("writing file!")
-                    self.writefile(replacements, corr)
+                logging.debug(f"Processing file: {infile}")
 
-                print(f"replacements: {replacements}")
-                replacements: dict = infile_repl
-                corr: dict = {}
+                datapaths = self.input.get('datapaths', None)
 
-                # Check for existing output file
-                if 'dict' in self.outfiles:
-                    dict_outfile: str = self.outfiles['dict'].format(
-                        **infile_repl
-                        )
+                self.readdata(
+                    corr,
+                    infile,
+                    regex_repl,
+                    datapaths,
+                    self.overwrite
+                )
 
-                    if os.path.exists(dict_outfile) and not self.overwrite:
+            if len(corr) != 0:
+                self.postprocess(corr)
+                self.writefile(outfile_repl, corr)
 
-                        logging.info(
-                            f"Loading existing dictionary: {dict_outfile}"
-                        )
 
-                        with open(dict_outfile, 'rb') as f:
-                            corr = pickle.load(f)
+class DefaultDataProcessor(RawDataProcessor):
 
-            # FIX ME: Assumes all regex matches occur in file name,
-            # not in the directory path.
-            infile_directory, infile_match = os.path.split(infile_path)
+    @property
+    def writefilestem(self):
+        return self.outfilestem + "_dict.p"
 
-            pattern = re.compile(infile_match)
+    def postprocess(self, corr):
 
-            files: list[str] = os.listdir(infile_directory)
+        for key, val in corr.items():
+            if isinstance(corr[key], dict):
+                corr[key] = utils.dict_to_corr(corr[key])
 
-            regex_keyorder = self.input_parser.filestem_keyorder(True)
+    def readdata(self, corr: dict, file: str, corr_repl: dict,
+                 datapaths: list[str] = None, overwrite: bool = False) -> None:
 
-            _ = [
-                regex_keyorder.remove(k)
-                for k in regex_keyorder
-                if k not in self.data_keys
-            ]
+        series_cfg = "{series}.{cfg}".format(**corr_repl)
 
-            for file in files:
-                re_match = pattern.match(file)
-
-                if re_match is not None:
-
-                    logging.debug(f"Processing file: {file}")
-
-                    regex_repl = dict(
-                        (k, re_match[regex_keyorder.index(k)])
-                        for k in self.data_keys)
-
-                    datapaths = self.input.get('datapaths', None)
-
-                    self.readdata(corr, f"{infile_directory}/{file}", regex_repl,
-                                  datapaths, self.overwrite)
+        if 'time' not in corr_repl:
+            if series_cfg not in corr or self.overwrite:
+                corr[series_cfg] = utils.extractdata(file, datapaths)
+        else:
+            time = int(corr_repl['time'])
+            if series_cfg in corr and isinstance(corr[series_cfg], dict):
+                corr[series_cfg][time] = utils.extractdata(file, datapaths)
+            elif series_cfg not in corr or self.overwrite:
+                corr[series_cfg] = {
+                    time: utils.extractdata(file, datapaths)
+                }
 
 
 def main():
@@ -244,38 +190,31 @@ def main():
         input_param = params['processing'][run_key]['input']
         output_param = params['processing'][run_key]['output']
 
+        proc_param = {}
         try:
-            proc_param = params['processing']['default']
+            for k, v in params['processing']['default'].items():
+                proc_param[k] = copy.deepcopy(v)
         except KeyError:
             proc_param = {}
 
         # Grab input/output params from other run keys if requested
         if isinstance(input_param, str):
             input_param = params['processing'][input_param]['input']
-        if isinstance(output_param, str):
+
+        if output_param in params['processing']:
             output_param = params['processing'][output_param]['output']
 
         proc_param.update(params['processing'][run_key])
 
-        def keysort(val):
-            if 'key_order' in proc_param and val in proc_param['key_order']:
-                return proc_param['key_order'].index(val)
-            else:
-                return -1
-
-        rawdata_proc = RawDataProcessor(
+        data_proc: RawDataProcessor = DefaultDataProcessor(
             input=input_param,
-            outfiles=output_param,
+            outfilestem=output_param,
+            replacements=proc_param,
             regex=proc_param['regex'],
-            overwrite='overwrite' in params and params['overwrite'],
-            keysort=keysort,
-            params=proc_param
+            overwrite=params.get('overwrite', False)
         )
 
-        if 'logging_level' in params['processing']:
-            logging_level = params['processing']['logging_level']
-        else:
-            logging_level = logging.INFO
+        logging_level = params['processing'].get('logging_level', logging.INFO)
 
         logging.basicConfig(
             format="%(asctime)s - %(levelname)-5s - %(message)s",
@@ -287,7 +226,7 @@ def main():
             ]
         )
 
-        rawdata_proc.process()
+        data_proc.process()
 
 
 if __name__ == "__main__":
