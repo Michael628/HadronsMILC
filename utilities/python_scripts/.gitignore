@@ -1,0 +1,3 @@
+/src/python_scripts/tests/data
+__pycache__/
+.pytest_cache/

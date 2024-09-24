@@ -1,233 +1,194 @@
 #! /usr/bin/env python3
 import sys
-import os
-import yaml
-import pickle
-from python_scripts.nanny import todo_utils
-from python_scripts.processing import utils
-
-import numpy as np
-from string import Formatter
-import re
 import logging
-from dataclasses import dataclass, field
 import copy
+from dataclasses import dataclass, field
+import pandas as pd
+import numpy as np
+import gvar as gv
+import gvar.dataset as ds
+
+from python_scripts.nanny import todo_utils
+
+ACTION_ORDER = ['remove', 'fold', 'average',
+                'build_high', 'build_lmi', 'normalize', 'gvar']
 
 
 @dataclass
-class RawDataProcessor:
-    """Combines data in separated files into single
-    nested dictionary pickle file
+class DataProcess:
 
-    Attributes
-    ----------
-    input : dict
-        Holds `input['filestem']` and, optionally, `input['datapaths']
-        used to load data from files. `filstem` can hold keyword replacements
-        and `datapaths` is required for hdf5 files, providing the datapath
-        to be traversed when the file is loaded
-    outfilestem : str
-        The output file version of `input['filestem']`
-    replacements : dict
-        keyword replacements that will be traversed when searching for input
-        files and writing to output files
-    regex : dict, optional
-        regex expressions used as keyword replacements in `input['filestem']`
-        to match when searching through file system
-    overwrite : bool, optional
-        When false and an existing output file is found, skips input files
-        that correspond to data already in existing output file
-    """
-    input: dict
-    outfilestem: dict
-    replacements: dict
-    regex: dict = field(default_factory=dict)
-    overwrite: bool = False
+    _actions: dict = field(init=False, repr=False)
 
     def __post_init__(self):
-
-        # Process `replacements` down to keys needed by
-        # input and output filestems
-        repl_temp: dict = {}
-        repl_keyset: set = {
-            k
-            for k in utils.formatkeys(self.input['filestem'])
-        }
-        repl_keyset.union({k for k in utils.formatkeys(self.outfilestem)})
-        repl_temp: dict = {
-            k: copy.deepcopy(v)
-            for k, v in self.replacements.items()
-            if k in repl_keyset
-        }
-        self.replacements = repl_temp
-
-        def keysort(x):
-            try:
-                return ['series', 'cfg', 'time'].index(x)
-            except ValueError:
-                return -1
-
-        self.input_parser = utils.FilestemFormatParser(
-            filestem=self.input['filestem'],
-            params=self.replacements,
-            regex=self.regex,
-            keysort=keysort
-        )
+        self._df = None
 
     @property
-    def writefilestem(self):
-        return f"{self.outfilestem}_raw.p"
+    def actions(self) -> dict:
+        return self._actions
 
-    def loadfile(self, replacements: dict = field(default_factory=dict)):
-
-        corr = {}
-
-        writefile: str = self.writefilestem.format(
-            **dict(replacements)
-        )
-
-        if os.path.exists(writefile):
-
-            logging.info(
-                f"Loading existing output file: {writefile}"
-            )
-
-            with open(writefile, 'rb') as f:
-                corr = pickle.load(f)
+    @actions.setter
+    def actions(self, actions: dict) -> None:
+        if isinstance(actions, dict):
+            self._actions = actions
         else:
-            logging.warning(
-                f"No existing output file found at: {writefile}"
-            )
-            corr = {}
+            raise ValueError("actions must be assigned a dictionary.")
 
-        return corr
-
-    # Overwritten by subclass
-    def postprocess(self, corr):
-        pass
-
-    def writefile(self, file_reps: dict,
-                  corr: np.ndarray, ext: str = '') -> None:
-
-        outfile = self.writefilestem.format(**file_reps)
-
-        if not os.path.exists(os.path.dirname(outfile)):
-            os.makedirs(os.path.dirname(outfile))
-
-        logging.info(f"Saving file: {outfile}")
-
-        with open(outfile, 'wb') as f:
-            pickle.dump(corr, f)
-
-    def readdata(self, corr: dict, file: str, corr_repl: dict,
-                 datapaths: list[str] = None, overwrite: bool = False) -> None:
-        utils.setdictval(
-            corr,
-            list(corr_repl.values()),
-            value=utils.extractdata(file, datapaths),
-            overwrite=overwrite)
-
-    def process(self):
-
-        for (outfile_repl, _path) in self.input_parser.traverse_replacements():
-
-            corr = self.loadfile(outfile_repl)
-
-            for regex_repl, infile in self.input_parser.traverse_regex():
-
-                logging.debug(f"Processing file: {infile}")
-
-                datapaths = self.input.get('datapaths', None)
-
-                self.readdata(
-                    corr,
-                    infile,
-                    regex_repl,
-                    datapaths,
-                    self.overwrite
-                )
-
-            if len(corr) != 0:
-                self.postprocess(corr)
-                self.writefile(outfile_repl, corr)
-
-
-class DefaultDataProcessor(RawDataProcessor):
-
-    @property
-    def writefilestem(self):
-        return self.outfilestem + "_dict.p"
-
-    def postprocess(self, corr):
-
-        for key, val in corr.items():
-            if isinstance(corr[key], dict):
-                corr[key] = utils.dict_to_corr(corr[key])
-
-    def readdata(self, corr: dict, file: str, corr_repl: dict,
-                 datapaths: list[str] = None, overwrite: bool = False) -> None:
-
-        series_cfg = "{series}.{cfg}".format(**corr_repl)
-
-        if 'time' not in corr_repl:
-            if series_cfg not in corr or self.overwrite:
-                corr[series_cfg] = utils.extractdata(file, datapaths)
-        else:
-            time = int(corr_repl['time'])
-            if series_cfg in corr and isinstance(corr[series_cfg], dict):
-                corr[series_cfg][time] = utils.extractdata(file, datapaths)
-            elif series_cfg not in corr or self.overwrite:
-                corr[series_cfg] = {
-                    time: utils.extractdata(file, datapaths)
-                }
-
-
-def main():
-    params = todo_utils.load_param('params.yaml')
-
-    for run_key in params['processing']['run']:
-
-        input_param = params['processing'][run_key]['input']
-        output_param = params['processing'][run_key]['output']
-
-        proc_param = {}
+    def remove(self, columns, *args, **kwargs):
+        if isinstance(columns, str):
+            columns = [columns]
         try:
-            for k, v in params['processing']['default'].items():
-                proc_param[k] = copy.deepcopy(v)
-        except KeyError:
-            proc_param = {}
+            self._df = self._df.drop(columns=columns)
+        except KeyError as e:
+            logging.info(e)
 
-        # Grab input/output params from other run keys if requested
-        if isinstance(input_param, str):
-            input_param = params['processing'][input_param]['input']
+    def fold(self, *args, **kwargs):
 
-        if output_param in params['processing']:
-            output_param = params['processing'][output_param]['output']
+        data = self._df.pop('data')
+        size = len(data)
 
-        proc_param.update(params['processing'][run_key])
+        data = np.concatenate(data.to_numpy()).reshape((size, -1))
 
-        data_proc: RawDataProcessor = DefaultDataProcessor(
-            input=input_param,
-            outfilestem=output_param,
-            replacements=proc_param,
-            regex=proc_param['regex'],
-            overwrite=params.get('overwrite', False)
-        )
+        halftime = int(data.shape[-1]/2)
 
-        logging_level = params['processing'].get('logging_level', logging.INFO)
+        corr_out = np.zeros((size, halftime+1,), dtype=data.dtype)
 
-        logging.basicConfig(
-            format="%(asctime)s - %(levelname)-5s - %(message)s",
-            style="%",
-            datefmt="%Y-%m-%d %H:%M:%S",
-            level=logging_level,
-            handlers=[
-                logging.StreamHandler(sys.stdout)
-            ]
-        )
+        for i in range(1, halftime):
+            corr_out[..., i] = (data[..., i]+data[..., -i])/2
+        corr_out[..., 0] = data[..., 0]
+        corr_out[..., halftime] = data[..., halftime]
 
-        data_proc.process()
+        self._df['data'] = [corr_out[index] for index in range(size)]
 
+    def stdjackknife(self, corr):
+        # This generates an array of standard deviations,
+        # which you can take the mean and standard deviation
+        # from for the error and the error on the error
+        corr_jackknife_std = []
+        Ncf = len(corr)
+        for i in range(Ncf):
+            b = np.delete(corr, i, axis=0)
+            jknife_std = np.nanstd(b, axis=0)/np.sqrt(Ncf-1)
+            corr_jackknife_std.append(jknife_std)
+        return np.array(corr_jackknife_std)
 
-if __name__ == "__main__":
-    main()
+    def gvar(self, scaleVar):
+
+        def to_gvar(data):
+            corr = np.concatenate(data).reshape((-1, len(data[0])))
+
+            Ncfgs = float(len(corr))
+
+            j_knife = self.stdjackknife(corr)*np.sqrt(scaleVar)
+            noise = ds.avg_data(j_knife)/(Ncfgs-1)
+            signal = ds.avg_data(corr)  # , norm=Ncfgs*scaleVar)
+
+            temp = {
+                "gvar_type": pd.Series(['signal', 'noise', 'nts'],
+                                       index=[0, 1, 2]),
+                "data": pd.Series([
+                    signal,
+                    noise,
+                    np.divide(noise, signal)
+                ], index=[0, 1, 2])
+            }
+            temp = pd.DataFrame(
+                temp,
+                columns=list(self._df.columns) +
+                ['gvar_type']
+            )
+            return temp
+
+        # Shaun example code for dicts:
+        # dset = gv.BufferDict()
+        # dset['local'] = localArray
+        # dset['onelink'] = onelinkArray
+        # dsetGvar = ds.avg_data(dset)
+        # localMinusOnelink = dsetGvar['local'] - dsetGvar['onelink']
+
+        try:
+            scaleVar = float(scaleVar)
+        except TypeError as e:
+            scaleVar = 1.0
+
+        self._df = \
+            self._df.groupby(
+                [
+                    x for x in self._df
+                    if x not in ['series', 'cfg', 'data']
+                ],
+                dropna=False
+            )['data'].apply(np.stack).reset_index()
+
+        result = None
+        for index, row in self._df.iterrows():
+            new_data = to_gvar(row['data'])
+            if result is None:
+                result = new_data
+            else:
+                result = pd.concat([result, new_data], ignore_index=True)
+            result = result.fillna(
+                row[[x for x in row.index if x != 'data']])
+
+        # result.drop(columns=['series', 'cfg'])
+        self._df = result
+
+    def build_lmi(self, *args, **kwargs):
+        self._df = self._df.sort_values(by=[
+            x for x in self._df.columns if x != 'data'])
+        result = self._df[self._df['dset'] == 'high'].copy()
+        sum_data = result['data'].to_numpy() + \
+            self._df[self._df['dset'] == 'a2aLL']['data'].to_numpy()
+
+        result['data'] = sum_data
+        result['dset'] = 'lmi'
+
+        self._df = pd.concat([self._df, result],
+                             ignore_index=True)
+
+    def build_high(self, *args, **kwargs):
+        self._df = self._df.sort_values(by=[
+            x for x in self._df.columns if x != 'data'])
+        result = self._df[self._df['dset'] == 'ama'].copy()
+        diff_data = result['data'].to_numpy() - \
+            self._df[self._df['dset'] == 'ranLL']['data'].to_numpy()
+
+        result['data'] = diff_data
+        result['dset'] = 'high'
+
+        self._df = pd.concat([self._df, result],
+                             ignore_index=True)
+
+    def normalize(self, divisor, *args, **kwargs):
+        self._df['data'] = self._df['data'].apply(
+            lambda x: x.real/float(divisor))
+
+    def average(self, indices: list[str]) -> None:
+        """Averages `df` attribute over columns specified in `indices`
+        """
+        if len(indices) != 0:
+            self._df = self._df.groupby(  # group rows for averaging
+                [
+                    x
+                    for x in self._df
+                    if x not in indices+['data']
+                ],
+                dropna=False
+            )['data'].apply(  # average over 'data' column
+                lambda x: np.mean(np.stack(x), axis=0)
+            ).reset_index()
+
+    def call(self, method_name, *args, **kwargs):
+        method = getattr(self, method_name, None)
+        if callable(method):
+            return method(*args, **kwargs)
+        else:
+            raise AttributeError(
+                f"Method '{method_name}' not found or is not callable.")
+
+    def execute(self, df) -> dict:
+
+        self._df = df.copy()
+        for key in sorted(self.actions.keys(), key=ACTION_ORDER.index):
+            param = self.actions[key]
+            self.call(key, param)
+        return self._df
