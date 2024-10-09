@@ -37,6 +37,7 @@ class DataLoad:
     data_keys: list[str]
     data_labels: dict = field(default_factory=dict)
     datapaths: dict = field(default_factory=dict)
+    preprocess: callable = None
 
     @classmethod
     def traverse_dict(cls, result, source: dict | np.ndarray, key_labels: list,
@@ -71,7 +72,8 @@ class DataLoad:
 
     @classmethod
     def extractdata(cls, filename: str,  key_labels: list[str],
-                    datapaths: dict = None, data_labels: dict = None):
+                    datapaths: dict = None, data_labels: dict = None,
+                    preprocess=None):
         """Pull data from file (pickle or hdf5)
 
         Parameters
@@ -128,8 +130,18 @@ class DataLoad:
             ]
 
             file_data = result.pop('data')
-            file_data = np.concatenate(
-                [x.reshape((-1, x.shape[-1])) for x in file_data])
+
+            if not all([len(inner_vals[i]) == file_data[0].shape[i]
+                        for i in range(len(inner_vals))]):
+                raise ValueError(
+                    "data_labels dimensions do not match file data.")
+
+            if preprocess is not None:
+                file_data = map(preprocess, file_data)
+
+            file_data = np.concatenate([x[np.newaxis] for x in file_data])
+            data_shape = file_data.shape[len(inner_vals)+1:]
+            file_data = file_data.reshape((-1,)+data_shape)
 
             # Postrocessing keys
             if 'series.cfg' in result:
@@ -190,10 +202,13 @@ class DataLoad:
         for i, (file_repl, infile) in \
                 enumerate(self._input_parser.traverse_files()):
 
+            logging.debug(f"Processing file: {infile}")
+
             for new_data in self.extractdata(infile,
                                              datapaths=self.datapaths,
                                              key_labels=self.data_keys,
-                                             data_labels=self.data_labels):
+                                             data_labels=self.data_labels,
+                                             preprocess=self.preprocess):
 
                 if self._df is None:
                     self._df = pd.DataFrame(columns=list(
@@ -201,8 +216,6 @@ class DataLoad:
 
                 self._df = pd.concat([self._df, new_data], ignore_index=True)
                 self._df.fillna(file_repl, inplace=True)
-
-            logging.debug(f"Processing file: {infile}")
 
         intkeys = [k for k in self._df.columns if k in DF_INTEGER_KEYS]
         self._df[intkeys] = self._df[intkeys].apply(pd.to_numeric)

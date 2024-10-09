@@ -8,8 +8,6 @@ import numpy as np
 import gvar as gv
 import gvar.dataset as ds
 
-from python_scripts.nanny import todo_utils
-
 ACTION_ORDER = ['remove', 'fold', 'average',
                 'build_high', 'build_lmi', 'normalize', 'gvar']
 
@@ -110,14 +108,21 @@ class DataProcess:
         except TypeError as e:
             scaleVar = 1.0
 
-        self._df = \
-            self._df.groupby(
-                [
-                    x for x in self._df
-                    if x not in ['series', 'cfg', 'data']
-                ],
-                dropna=False
-            )['data'].apply(np.stack).reset_index()
+        group = [
+            x for x in self._df
+            if x not in ['series', 'cfg', 'data']
+        ]
+
+        if len(group) != 0:
+            self._df = \
+                self._df.groupby(
+                    group,
+                    dropna=False
+                )
+
+        self._df = self._df['data'].apply(np.stack)
+
+        return 
 
         result = None
         for index, row in self._df.iterrows():
