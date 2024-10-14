@@ -2,16 +2,15 @@ import itertools
 import re
 
 from python_scripts.nanny.todo_utils import load_param
-from python_scripts.nanny.xml_templates import (
-    gauge, eig, meson, highmodes, wrapper
-)
 from python_scripts.nanny.xml_templates.hadrons_templates \
     import deep_copy_dict
+from python_scripts.nanny.xml_templates.components import (
+    gauge, eig, meson, highmodes, wrapper
+)
+import typing as t
 
 
-def build_gauges_and_actions(params: dict):
-
-    modules = []
+def append_gauges_and_actions(modules: t.List, params: dict) -> None:
 
     modules += gauge.gauge_dp_params(
         ens=params['ENS'],
@@ -48,12 +47,8 @@ def build_gauges_and_actions(params: dict):
             single_precision=True
         )
 
-    return modules
 
-
-def build_epacks(params: dict):
-
-    modules = []
+def append_epacks(modules: t.List, params: dict) -> None:
 
     modules += gauge.op_params('stag_op', 'stag_e')
 
@@ -78,41 +73,36 @@ def build_epacks(params: dict):
             mass=mass
         )
 
-    return modules
 
-
-def build_mesons(params: dict):
-
-    modules = []
+def append_mesons(modules: t.List,
+                  operators: t.List[str], params: dict) -> None:
 
     mass_label = f"m{params['MASSES'][0]}"
 
-    modules += meson.meson_local_params(
-        name=f"mf_ll_wv_local_{mass_label}",
-        action=f"stag_{mass_label}",
-        block=params['BLOCKSIZE'],
-        lowmodes=f"evecs_{mass_label}",
-        output=(f"e{params['EIGS']}n{params['NOISE']}dt{params['DT']}/"
-                f"mesons/{mass_label}/mf_{params['SERIES']}"),
-        include_pion=True
-    )
+    if 'local' in operators:
+        modules += meson.meson_local_params(
+            name=f"mf_ll_wv_local_{mass_label}",
+            action=f"stag_{mass_label}",
+            block=params['BLOCKSIZE'],
+            lowmodes=f"evecs_{mass_label}",
+            output=(f"e{params['EIGS']}n{params['NOISE']}dt{params['DT']}/"
+                    f"mesons/{mass_label}/mf_{params['SERIES']}"),
+            include_pion=True
+        )
 
-    modules += meson.meson_onelink_params(
-        name=f"mf_ll_wv_onelink_{mass_label}",
-        action=f"stag_{mass_label}",
-        block=params['BLOCKSIZE'],
-        lowmodes=f"evecs_{mass_label}",
-        gauge='gauge',
-        output=(f"e{params['EIGS']}n{params['NOISE']}dt{params['DT']}/"
-                f"mesons/{mass_label}/mf_{params['SERIES']}")
-    )
+    if 'onelink' in operators:
+        modules += meson.meson_onelink_params(
+            name=f"mf_ll_wv_onelink_{mass_label}",
+            action=f"stag_{mass_label}",
+            block=params['BLOCKSIZE'],
+            lowmodes=f"evecs_{mass_label}",
+            gauge='gauge',
+            output=(f"e{params['EIGS']}n{params['NOISE']}dt{params['DT']}/"
+                    f"mesons/{mass_label}/mf_{params['SERIES']}")
+        )
 
-    return modules
 
-
-def build_solvers(params: dict):
-
-    modules = []
+def append_solvers(modules: t.List, params: dict) -> None:
 
     for mass_label in params['mass_dict'].keys():
 
@@ -129,12 +119,8 @@ def build_solvers(params: dict):
             lowmodes=f"evecs_{mass_label}"
         )
 
-    return modules
 
-
-def build_sources_and_quarks(params: dict):
-
-    modules = []
+def append_sources_and_quarks(modules: t.List, params: dict) -> None:
 
     for tslice in params['time_range']:
         modules += highmodes.source_params(
@@ -170,12 +156,8 @@ def build_sources_and_quarks(params: dict):
 
         modules += module_builder(**kwargs)
 
-    return modules
 
-
-def build_contractors(params: dict):
-
-    modules = []
+def append_contractors(modules: t.List, params: dict) -> None:
 
     modules += highmodes.sink_params()
 
@@ -206,8 +188,6 @@ def build_contractors(params: dict):
             kwargs['gauge'] = "gauge"
 
         modules += module_builder(**kwargs)
-
-    return modules
 
 
 def build_schedule(module_info, params):
@@ -263,7 +243,7 @@ def build_schedule(module_info, params):
         return -1
 
     def mixed_mass_last(x):
-        return len(re.findall(r'_m(\d+)',x['name']))
+        return len(re.findall(r'_m(\d+)', x['name']))
 
     def tslice_order(x):
         time = re.findall(r'_t(\d+)', x['name'])
@@ -282,16 +262,16 @@ def build_schedule(module_info, params):
     return [m['name'] for m in sorted_modules]
 
 
-def build_params(**params):
+def build_params(tasks: t.Dict, **kwargs):
 
     modules = []
 
-    params = deep_copy_dict(params)
+    params = deep_copy_dict(kwargs)
 
     xml_params = wrapper(
         runid=(f"LMI-RW-series-{params['SERIES']}"
                f"-{params['EIGS']}-eigs-{params['NOISE']}-noise"),
-        sched=params.get('schedule',''),
+        sched=params.get('schedule', ''),
         cfg=params['CFG']
     )
 
@@ -317,12 +297,16 @@ def build_params(**params):
         mass_labels
     ))
 
-    modules += build_gauges_and_actions(params)
-    modules += build_epacks(params)
-    modules += build_mesons(params)
-    modules += build_solvers(params)
-    modules += build_sources_and_quarks(params)
-    modules += build_contractors(params)
+    append_gauges_and_actions(modules, params)
+    append_epacks(modules, params)
+
+    meson_operators = tasks.get('meson', [])
+    append_mesons(modules, meson_operators, params)
+
+    if 'high_modes' in tasks:
+        append_solvers(modules, params)
+        append_sources_and_quarks(modules, params)
+        append_contractors(modules, params)
 
     xml_params['grid']["modules"] = {"module": modules}
 

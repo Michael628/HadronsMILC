@@ -22,8 +22,8 @@ def mixed_precision_solver_params(name: str, outer_action: str,
 
     module = deep_copy_dict(module_templates["mixed_precision_cg"])
     module["id"]["name"] = name
-    module["options"]["outerAction"] = inner_action
-    module["options"]["innerAction"] = outer_action
+    module["options"]["outerAction"] = outer_action
+    module["options"]["innerAction"] = inner_action
     module["options"]["residual"] = residual
 
     return [module]

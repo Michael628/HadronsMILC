@@ -7,12 +7,11 @@ import os
 import yaml
 import re
 import subprocess
-from todo_utils import *
+from python_scripts.nanny.todo_utils import *
 from functools import reduce
 
 from dict2xml import dict2xml as dxml
 import importlib
-import hadrons_templates
 
 sys.path.append("../templates")
 
@@ -204,30 +203,31 @@ def make_inputs(param, step, cfgno_steps):
             io_stem = sub_iOTemplate(param, io_stem_template)
             input_xml = f"{io_stem}-{cfgno_series}.xml"
 
-            if 'params' in param['job_setup'][step]:
+            if 'param_file' in param['job_setup'][step]:
                 # String naming one of the files in ../templates without .py
-                param_module = f"{param['job_setup'][step]['params']}_params"
+                param_module = f"python_scripts.nanny.xml_templates."
+                param_module += f"{param['job_setup'][step]['param_file']}"
+
+                tasks = param['job_setup'][step].get('tasks', {})
 
                 # import paramModule as pm
                 pm = importlib.import_module(param_module)
-
-                # Template dictionary for the input XML
-                templates = hadrons_templates.generate_templates()
 
                 sched_file = f"schedules/{io_stem}-{cfgno_series}.sched"
 
                 # Generate the input XML file
                 xml_dict, schedule = pm.build_params(
-                    **param['lmi_param'], 
+                    tasks=tasks,
+                    schedule=sched_file,
                     CFG=cfgno, SERIES=series,
-                    schedule=sched_file
+                    **param['lmi_param'],
                 )
 
                 with open("in/" + input_xml, "w") as f:
                     print(dxml(xml_dict), file=f)
 
                 with open(sched_file, 'w') as f:
-                    f.write(str(len(moduleList))+"\n"+"\n".join(schedule))
+                    f.write(str(len(schedule))+"\n"+"\n".join(schedule))
 
             INPUTXMLLIST = INPUTXMLLIST + " " + input_xml
 
@@ -474,4 +474,5 @@ def main():
 
 
 ############################################################
-main()
+if __name__ == '__main__':
+    main()
