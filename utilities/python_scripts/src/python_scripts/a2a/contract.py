@@ -522,7 +522,7 @@ class Contractor:
             logging.debug(f"Rank {self.rank} is using gpu device {my_device}")
             cp.cuda.Device(my_device).use()
 
-        logging.info(f"Processing mode: {", ".join(contraction)}")
+        logging.info(f"Processing mode: {', '.join(contraction)}")
 
         return self.run_contract(contraction)
 

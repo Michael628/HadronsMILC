@@ -17,6 +17,7 @@ src/python_scripts/processing/__init__.py
 src/python_scripts/processing/hdf5_to_pickle.py
 src/python_scripts/processing/processor.py
 src/python_scripts/processing/utils.py
+src/python_scripts/utils/__init__.py
 src/python_scripts/tests/__init__.py
 src/python_scripts/tests/processing/__init__.py
 src/python_scripts/tests/processing/test_processor.py

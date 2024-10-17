@@ -2,8 +2,7 @@ import itertools
 import re
 
 from python_scripts.nanny.todo_utils import load_param
-from python_scripts.nanny.xml_templates.hadrons_templates \
-    import deep_copy_dict
+from python_scripts.utils import deep_copy_dict
 from python_scripts.nanny.xml_templates.components import (
     gauge, eig, meson, highmodes, wrapper
 )
@@ -181,8 +180,9 @@ def append_contractors(modules: t.List, params: dict) -> None:
             'sink': quark2,
             'source_shift': f"noise_t{tslice}_shift",
             'output': (f"e{params['EIGS']}n{params['NOISE']}dt{params['DT']}/"
-                       f"{mass_label}/{glabel}/{slabel}/corr_{glabel}"
-                       f"_{slabel}_{mass_label}_t{tslice}_{params['SERIES']}")
+                       f"correlators/{mass_label}/{glabel}/{slabel}/"
+                       f"corr_{glabel}_{slabel}_{mass_label}_t{tslice}"
+                       f"_{params['SERIES']}")
         }
         if 'local' not in glabel:
             kwargs['gauge'] = "gauge"

@@ -1,7 +1,6 @@
-from python_scripts.nanny.xml_templates.hadrons_templates import (
-    module_templates,
-    deep_copy_dict
-)
+from python_scripts.nanny.xml_templates.hadrons_templates import \
+    module_templates
+from python_scripts.utils import deep_copy_dict
 
 
 def meson_params(name: str, action: str, block: str,
