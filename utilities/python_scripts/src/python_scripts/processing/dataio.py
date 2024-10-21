@@ -1,4 +1,3 @@
-from inspect import Attribute
 import os
 import pickle
 import logging
@@ -10,12 +9,10 @@ from string import Formatter
 import numpy as np
 import pandas as pd
 import h5py
-from python_scripts.processing.format \
-    import FilestemFormatParser as FormatParser
+import python_scripts.processing.processor as processor
 import typing as t
 from python_scripts.nanny.todo_utils import load_param
-from dataclasses import dataclass, field
-
+from python_scripts.utils import deep_copy_dict
 DF_INTEGER_KEYS = ['cfg', 'time', 'dt']
 
 
@@ -130,7 +127,7 @@ def ndarray_to_frame(
 def load_pickle(
         filename: str,
         data_order: t.List[str] = [],
-        **kwargs) -> t.Any:  # t.Tuple[t.Any, t.Any]:
+        **kwargs) -> t.Any:
 
     def do_nothing(x):
         return x
@@ -147,12 +144,14 @@ def load_pickle(
             return list(range(*range_input))
         else:
             raise ValueError(
-                "`array_labels` must be lists or strings of the form `<min>..<max>`.")
+                ("`array_labels` must be lists or "
+                    "strings of the form `<min>..<max>`."))
 
     def entry_gen(
-            nested: t.Dict,
-            _index: t.List = [],
-            **kwargs) -> t.Generator[t.Tuple[t.Tuple, pd.DataFrame], None, None]:
+        nested: t.Dict,
+        _index: t.List = [],
+        **kwargs) \
+            -> t.Generator[t.Tuple[t.Tuple, pd.DataFrame], None, None]:
         """Depth first search of nested dictionaries building
         list of indices from dictionary keys.
         """
@@ -225,29 +224,75 @@ def load_file(filename: str, **kwargs):
 
 
 def load_input(config: t.Dict, **kwargs):
+    params: t.Dict = deep_copy_dict(kwargs)
+
     repl_keys: t.List[str] = formatkeys(config['filestem'])
-    replacements: t.Dict = config.get("replacements", {})
+    str_repl: t.Dict = config.get("replacements", {})
 
-    regex: t.Dict = config.get('regex', {})
+    regex_repl: t.Dict = config.get('regex', {})
 
-    assert len(repl_keys) == len(replacements) + len(regex)
+    assert len(repl_keys) == len(str_repl) + len(regex_repl)
     assert all((
-        (k in replacements or k in regex)
+        (k in str_repl or k in regex_repl)
         for k in repl_keys
     ))
 
     df = None
 
-    for _, repl_filename in string_replacement_gen(
-            config['filestem'], replacements):
-        for _, regex_filename in file_regex_gen(
-                repl_filename, regex):
-            new_data = load_pickle(
+    actions: t.Dict = params.pop('process', {})
+    proc = functools.partial(processor.execute, actions=actions)
+
+    for str_reps, repl_filename in string_replacement_gen(
+            config['filestem'], str_repl):
+        for reg_reps, regex_filename in file_regex_gen(
+                repl_filename, regex_repl):
+
+            new_data: pd.DataFrame = proc(load_pickle(
                 filename=regex_filename,
-                **kwargs)
+                **params))
+
+            if len(str_reps) != 0:
+                new_data[list(str_reps.keys())] = tuple(str_reps.values())
+            if len(reg_reps) != 0:
+                new_data[list(reg_reps.keys())] = tuple(reg_reps.values())
+
             if df is None:
                 df = new_data
             else:
                 df = pd.concat([df, new_data])
 
+    assert isinstance(df, pd.DataFrame)
+
+    if len(repl_keys) != 0:
+        df.set_index(repl_keys, append=True, inplace=True)
+
     return df
+
+
+def write_frame(df: pd.DataFrame, filename: str,
+                col_to_repl: t.Optional[t.List[str]] = None):
+    """Write DataFrame to `filename`. Searches for elements of `col_to_repl`
+    in the DataFrame index. Uses first entry of DataFrame for
+    keyword replacement in `filename`
+    """
+    if repl_keys := formatkeys(filename):
+        assert len(df) != 0
+        assert isinstance(col_to_repl, t.List)
+        assert all([k in col_to_repl for k in repl_keys])
+        assert all([k in df.index.names for k in repl_keys])
+
+        indices = [
+            df.index.names.index(k)
+            for k in repl_keys
+        ]
+
+        repl = {
+            df.index.names[i]: df.iloc[0].name[i]
+            for i in indices
+        }
+        df.reset_index(
+            level=indices, drop=True
+        ).to_hdf(filename.format(**repl), key='corr')
+
+    else:
+        df.to_hdf(filename, key='corr')

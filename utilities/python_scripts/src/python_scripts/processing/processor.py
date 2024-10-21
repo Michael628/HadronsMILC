@@ -1,8 +1,5 @@
 #! /usr/bin/env python3
-import sys
 import logging
-import copy
-from dataclasses import dataclass, field
 import pandas as pd
 import numpy as np
 import gvar as gv
@@ -156,40 +153,40 @@ def normalize(df, divisor, *args, **kwargs):
         lambda x: x.real/float(divisor))
 
 
-def average(df, indices: list[str]) -> None:
+def average(df: pd.DataFrame, avg_indices: t.List[str]) -> pd.DataFrame:
     """Averages `df` attribute over columns specified in `indices`
     """
-    if len(indices) != 0:
-        df = df.groupby(  # group rows for averaging
-            [
-                x
-                for x in df
-                if x not in indices+['data']
-            ],
-            dropna=False
-        )['data'].apply(  # average over 'data' column
-            lambda x: np.mean(np.stack(x), axis=0)
-        ).reset_index()
+    assert all([i in df.index.names for i in avg_indices])
+    assert len(df.columns) == 1
+
+    df_group_keys = [k for k in df.index.names if k not in avg_indices]
+
+    df_out = df.reset_index().set_index(df_group_keys)['corr'].groupby(
+        df_group_keys).transform('mean').to_frame('corr').drop_duplicates()
+
+    return df_out
 
 
-def call(df, method_name, *args, **kwargs):
-    method = getattr(method_name, None)
-    if callable(method):
-        return method(df, *args, **kwargs)
+def call(df, func_name, *args, **kwargs):
+    func = globals().get(func_name, None)
+    if callable(func):
+        return func(df, *args, **kwargs)
     else:
         raise AttributeError(
-            f"Method '{method_name}' not found or is not callable.")
+            f"Function '{func_name}' not found or is not callable.")
 
 
-def execute(df, actions) -> dict:
+def execute(df, actions: t.Dict):
 
+    df_out = df
     for key in sorted(actions.keys(), key=ACTION_ORDER.index):
+        assert key in ACTION_ORDER
         param = actions[key]
         if isinstance(param, t.Dict):
-            call(df, key, **param)
+            df_out = call(df_out, key, **param)
         elif isinstance(param, t.List):
-            call(df, key, *param)
+            df_out = call(df_out, key, *param)
         else:
-            call(df, key)
+            df_out = call(df_out, key)
 
-    return df
+    return df_out
