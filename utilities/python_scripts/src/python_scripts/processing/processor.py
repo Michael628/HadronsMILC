@@ -6,76 +6,27 @@ import gvar as gv
 import gvar.dataset as ds
 import typing as t
 
-ACTION_ORDER = ['remove', 'fold', 'average',
+ACTION_ORDER = ['fold', 'stdjackknife', 'average',
                 'build_high', 'build_lmi', 'normalize', 'gvar']
 
-
-def remove(df: pd.DataFrame, columns: t.List[str]) -> None:
-    if isinstance(columns, str):
-        columns = [columns]
-
-    df = df.drop(columns=columns)
+GROUPED_ACTIONS = {
+    'fold':['dt'],
+    'stdjackknife':['series','cfg']
+}
 
 
-def fold(df: pd.DataFrame, time_col: str, data_col: str) -> None:
+def gvar(df: pd.DataFrame):
 
-    data = pd.concat([df.pop(time_col), df.pop(data_col)])
-
-    df.drop_duplicates(inplace=True)
-
-    data = np.concatenate(data.to_numpy()).reshape((size, -1))
-
-    halftime = int(data.shape[-1]/2)
-
-    corr_out = np.zeros((size, halftime+1,), dtype=data.dtype)
-
-    for i in range(1, halftime):
-        corr_out[..., i] = (data[..., i]+data[..., -i])/2
-    corr_out[..., 0] = data[..., 0]
-    corr_out[..., halftime] = data[..., halftime]
-
-    df['data'] = [corr_out[index] for index in range(size)]
-
-
-def stdjackknife(df, corr):
-    # This generates an array of standard deviations,
-    # which you can take the mean and standard deviation
-    # from for the error and the error on the error
-    corr_jackknife_std = []
-    Ncf = len(corr)
-    for i in range(Ncf):
-        b = np.delete(corr, i, axis=0)
-        jknife_std = np.nanstd(b, axis=0)/np.sqrt(Ncf-1)
-        corr_jackknife_std.append(jknife_std)
-    return np.array(corr_jackknife_std)
-
-
-def gvar(df, scale):
-
-    def to_gvar(data):
-        corr = np.concatenate(data).reshape((-1, len(data[0])))
-
-        Ncfgs = float(len(corr))
-
-        j_knife = self.stdjackknife(corr)*np.sqrt(scale)
-        noise = ds.avg_data(j_knife)/(Ncfgs-1)
-        signal = ds.avg_data(corr)  # , norm=Ncfgs*scaleVar)
-
-        temp = {
-            "gvar_type": pd.Series(['signal', 'noise', 'nts'],
-                                   index=[0, 1, 2]),
-            "data": pd.Series([
-                signal,
-                noise,
-                np.divide(noise, signal)
-            ], index=[0, 1, 2])
-        }
-        temp = pd.DataFrame(
-            temp,
-            columns=list(df.columns) +
-            ['gvar_type']
-        )
-        return temp
+    cfgs = len(df)
+    j_knife = group_apply(df,stdjackknife, ['series','cfg'])
+    def ds_avg(series: pd.Series, scale: float=1.0) -> pd.Series:
+        array = ds.avg_data(series.to_numpy())/scale
+        return pd.Series(array, index=series.index.droplevel(['series','cfg']).drop_duplicates())
+    df_out = group_apply(j_knife,lambda x: ds_avg(x,float(cfgs-1)),['series','cfg'])
+    df_out['noise'] = df_out.pop('corr')
+    df_out['signal'] = group_apply(df, ds_avg,['series','cfg'])['corr']
+    df_out['nts'] = np.divide(df_out['noise'],df_out['signal'])
+    return df_out
 
     # Shaun example code for dicts:
     # dset = gv.BufferDict()
@@ -83,41 +34,6 @@ def gvar(df, scale):
     # dset['onelink'] = onelinkArray
     # dsetGvar = ds.avg_data(dset)
     # localMinusOnelink = dsetGvar['local'] - dsetGvar['onelink']
-
-    try:
-        scale = float(scale)
-    except TypeError as e:
-        scale = 1.0
-
-    group = [
-        x for x in df
-        if x not in ['series', 'cfg', 'data']
-    ]
-
-    # if len(group) != 0:
-    # df = \
-    # df.groupby(
-    # group,
-    # dropna=False
-    # )
-
-    # df = pd.DataFrame(df['data'].apply(np.stack))
-    # df = df['data'].apply(to_gvar)
-    return
-    # df = df.reset_index()[group+['data', 'gvar_type']]
-
-    # result = None
-    # for index, row in df.iterrows():
-    #     new_data = to_gvar(row['data'])
-    #     if result is None:
-    #         result = new_data
-    #     else:
-    #         result = pd.concat([result, new_data], ignore_index=True)
-    #     result = result.fillna(
-    #         row[[x for x in row.index if x != 'data']])
-
-    # # result.drop(columns=['series', 'cfg'])
-    # df = result
 
 
 def build_lmi(df: pd.DataFrame) -> None:
@@ -149,13 +65,14 @@ def build_high(df: pd.DataFrame) -> None:
 
 
 def normalize(df, divisor, *args, **kwargs):
-    df['data'] = df['data'].apply(
-        lambda x: x.real/float(divisor))
+    return df['corr'].apply(lambda x: x.real/float(divisor)).to_frame()
 
 
 def average(df: pd.DataFrame, avg_indices: t.List[str]) -> pd.DataFrame:
     """Averages `df` attribute over columns specified in `indices`
     """
+    logging.debug(df.index.names)
+    logging.debug(avg_indices)
     assert all([i in df.index.names for i in avg_indices])
     assert len(df.columns) == 1
 
@@ -167,16 +84,51 @@ def average(df: pd.DataFrame, avg_indices: t.List[str]) -> pd.DataFrame:
     return df_out
 
 
+def fold(series: pd.Series) -> pd.Series:
+    array = series.to_numpy()
+    nt = len(array)
+    array[1:nt // 2] = (array[1:nt // 2] + array[-1:nt // 2:-1]) / 2.0
+    return pd.Series(array[:nt // 2 + 1], index=series[series.index.get_level_values('dt') < (nt // 2 + 1)].index)
+
+
+def stdjackknife(series: pd.Series) -> pd.Series:
+    """Builds an array of standard deviations,
+    which you can take the mean and standard deviation
+    from for the error and the error on the error
+    """
+    marray = np.ma.array(series.to_numpy(), mask=False)
+    array_out = np.empty_like(marray)
+
+    marray.mask[0] = True
+    for i in range(len(array_out)):
+        marray.mask[:] = False
+        marray.mask[i] = True
+        array_out[i] = marray.std()
+
+    return pd.Series(array_out, index=series.index)
+
+
+def group_apply(df: pd.DataFrame, func: t.Callable, ungrouped_cols: t.List) -> pd.DataFrame:
+
+    assert 'dt' in df.index.names
+    assert 'corr' in df
+    index_names = [x for x in df.index.names if x not in ungrouped_cols]
+
+    return df['corr'].groupby(level=index_names,group_keys=False).apply(func).to_frame()
+
 def call(df, func_name, *args, **kwargs):
     func = globals().get(func_name, None)
     if callable(func):
-        return func(df, *args, **kwargs)
+        if func_name in GROUPED_ACTIONS:
+            return group_apply(df, func, GROUPED_ACTIONS[func_name], *args, **kwargs)
+        else:
+            return func(df, *args, **kwargs)
     else:
         raise AttributeError(
             f"Function '{func_name}' not found or is not callable.")
 
 
-def execute(df, actions: t.Dict):
+def execute(df: pd.DataFrame, actions: t.Dict):
 
     df_out = df
     for key in sorted(actions.keys(), key=ACTION_ORDER.index):
