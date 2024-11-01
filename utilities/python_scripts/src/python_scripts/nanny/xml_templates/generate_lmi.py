@@ -47,22 +47,31 @@ def append_gauges_and_actions(modules: t.List, params: dict) -> None:
         )
 
 
-def append_epacks(modules: t.List, params: dict) -> None:
+def append_epacks(modules: t.List, load: bool, params: dict) -> None:
 
     modules += gauge.op_params('stag_op', 'stag_e')
 
-    modules += eig.irl_params(
-        name='epack',
-        operator='stag_op_schur',
-        lanczos_params={
-            'alpha': params['ALPHA'],
-            'beta': params['BETA'],
-            'npoly': params['NPOLY'],
-            'nstop': params['NSTOP'],
-            'nk': params['NK'],
-            'nm': params['NM']
-        }
-    )
+    if load:
+        modules += eig.epack_load_params(
+            name='epack',
+            filestem=f"eigen/eig{params['ENS']}nv{params['SOURCEEIGS']}{params['SERIES']}",
+            eigs=params['EIGS'],
+            multifile=params['MULTIFILE']
+        )
+    else:
+        modules += eig.irl_params(
+            name='epack',
+            operator='stag_op_schur',
+            lanczos_params={
+                'alpha': params['ALPHA'],
+                'beta': params['BETA'],
+                'npoly': params['NPOLY'],
+                'nstop': params['NSTOP'],
+                'nk': params['NK'],
+                'nm': params['NM']
+            }
+        )
+
 
     for mass_label, mass in params['mass_dict'].items():
 
@@ -298,7 +307,7 @@ def build_params(tasks: t.Dict, **kwargs):
     ))
 
     append_gauges_and_actions(modules, params)
-    append_epacks(modules, params)
+    append_epacks(modules, load=tasks['epack']['load'], params=params)
 
     meson_operators = tasks.get('meson', [])
     append_mesons(modules, meson_operators, params)

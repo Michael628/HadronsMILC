@@ -3,6 +3,17 @@ from python_scripts.nanny.xml_templates.hadrons_templates import \
 from python_scripts.utils import deep_copy_dict
 
 
+def epack_load_params(name: str, filestem: str, eigs: str,
+                      multifile: str = 'false') -> list:
+
+    module = deep_copy_dict(module_templates["epack_load"])
+    module["id"]["name"] = "epack"
+    module["options"]["filestem"] = filestem
+    module["options"]["size"] = str(eigs)
+    module["options"]["multiFile"] = multifile
+
+    return [module]
+
 def irl_params(name: str, operator: str, lanczos_params: dict,
                output: str = '', multifile: str = 'false',
                residual: str = '') -> list:
