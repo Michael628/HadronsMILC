@@ -2,7 +2,7 @@ import os
 import pickle
 import logging
 import itertools
-import functools
+from functools import partial
 import re
 from string import Formatter
 import numpy as np
@@ -10,21 +10,62 @@ import pandas as pd
 import h5py
 import python_scripts.processing.processor as processor
 import typing as t
-from python_scripts.utils import deep_copy_dict
-
-DF_INTEGER_KEYS = ['cfg', 'time', 'dt']
 
 
+# ------ Types and config classes ------ #
 class ArrayParams(t.TypedDict):
+    """Parameters providing index names and values to convert ndarray
+    into a DataFrame.
+
+    Properties
+    ----------
+        order: list
+            A list of names given to each dimension of a
+            multidimensional ndarray in the order of the array's shape
+        labels: dict(str, Union(str, list))
+            labels for each index of multidimensional array. Dictionary
+            keys should match entries in `order`. Dictionary values
+            should either be lists with length matching corresponding
+            dimension of ndarray, or a string range in the format 'start..stop'
+            where start-stop = length of array for the given dimension,
+            (note: stop is inclusive).
+    """
     order: t.List
-    labels: t.Dict[str,t.Union[str,t.List]]
+    labels: t.Dict[str, t.Union[str, t.List]]
 
 
-class HdfParams(t.TypedDict):
+class H5Params(t.TypedDict):
+    """Parameters providing index names and values to convert hdf5 datasets
+    into a DataFrame.
+
+    Properties
+    ----------
+        name: str
+            The name to give the datasets provided in `datasets`
+        datasets: dict(str, str)
+            Dictionary keys will correspond to DataFrame index labels.
+            Dictionary values are hdf5 file paths to access corresponding data.
+    """
     name: str
-    datasets: t.Dict[str,t.List[str]]
+    datasets: t.Dict[str, str]
 
 
+class DataioConfig(t.TypedDict):
+    filestem: str
+    replacements: t.Dict[str, t.Union[str, t.List[str]]]
+    regex: t.Dict[str, str]
+    h5_params: H5Params
+    array_params: t.Union[ArrayParams, t.Dict[str, ArrayParams]]
+    dict_labels: t.List[str]
+    actions: t.Dict[str, t.Any]
+
+
+dataFrameFn = t.Callable[[np.ndarray], pd.DataFrame]
+loadFn = t.Callable[[str], pd.DataFrame]
+# ------ End types and config classes ------ #
+
+
+# ------ IO Functions ------ #
 def parse_ranges(val: t.Union[t.List, str]) -> t.List:
     """Does nothing to `val` parameters of type list, but converts
     strings to number ranges.
@@ -41,9 +82,8 @@ def parse_ranges(val: t.Union[t.List, str]) -> t.List:
              "strings of the form `<min>..<max>`."))
 
 
-def formatkeys(
-        format_string: str,
-        keysort: t.Optional[t.Callable] = None) -> t.List[str]:
+def formatkeys(format_string: str) -> t.List[str]:
+    """Get formatting variables found in `format_string`"""
 
     key_list = list(
         {
@@ -53,16 +93,25 @@ def formatkeys(
         }
     )
 
-    if keysort is not None:
-        key_list.sort(key=keysort)
-
     return key_list
 
 
 def file_regex_gen(
-        filestem: functools.partial,
+        filestem: partial,
         regex: t.Dict[str, str]):
+    """Formats `filestem` with replacements from `regex` and performs regex
+    search on system files.
 
+    Yields
+    ------
+    (replacements, filename)
+        replacements: dict
+            The matched values in the regex pattern corresponding to the
+            formatting keys in `filestem`
+
+        filename: str
+            The file name that matched the regex search
+    """
     if len(regex) == 0:
         yield {}, filestem()
     else:
@@ -98,12 +147,14 @@ def string_replacement_gen(
         `repl` : dict
             The replacement dictionary
             which can be passed to str.format() as kwargs
-        `repl_string` : str
-            The `repl_string` string formatted by `replacements`
+        `repl_string` : functools.partial
+            The `fstring` partially formatted by `repl`. If
+            no other replacements are needed then repl_string() will
+            return the desired string
     """
 
     if len(replacements) == 0:
-        yield {}, functools.partial(fstring.format)
+        yield {}, partial(fstring.format)
     else:
         keys, repls = zip(*(
             (k, map(str, r))
@@ -114,7 +165,7 @@ def string_replacement_gen(
 
         for r in itertools.product(*repls):
             repl: t.Dict = dict(zip(keys, r))
-            string_repl: functools.partial = functools.partial(
+            string_repl: partial = partial(
                 fstring.format, **repl)
 
             yield repl, string_repl
@@ -123,10 +174,8 @@ def string_replacement_gen(
 def ndarray_to_frame(
         array: np.ndarray,
         array_params: ArrayParams) -> pd.DataFrame:
-    """Converts ndarray into a pandas.Series object indexed by the values of
-    `array_labels`, with indices named by the keys of `array_labels.
-    `label_order` provides the ordering of the labels in the multidimensional
-    ndarray.
+    """Converts ndarray into a pandas DataFrame object indexed by the values in
+    `array_params`. See `ArrayParams` class for details.
     """
 
     if len(array_params["order"]) == 1 and array_params["order"][0] == 'dt':
@@ -148,12 +197,31 @@ def ndarray_to_frame(
     ).to_frame()
 
 
-def h5_to_df(file: h5py.File,
-             h5_params: HdfParams,
-             array_params: t.Dict[str,ArrayParams]) -> pd.DataFrame:
+def h5_to_frame(file: h5py.File,
+                data_to_frame: t.Dict[str, dataFrameFn],
+                h5_params: H5Params) -> pd.DataFrame:
+    """Converts hdf5 format `file` to pandas DataFrame based on dataset info
+    provided by `h5_params`. See H5Params class for details.
+
+    Parameters
+    ----------
+    file: h5py.File
+        hdf5 file, the contents of which will be converted into a pandas
+        DataFrame.
+
+    data_to_frame: Dict[str, dataFrameFn]
+        A dictionary of functions that convert ndarrays to DataFrames (usually,
+        these are partially evaluated instances of the ndarray_to_frame
+        function). The dictionary keys should match the keys of
+        `h5_params['datasetes'].
+
+    h5_params: H5Params
+        Parameters that map keys to datasets in `file`."""
+    assert all(k in data_to_frame.keys() for k in h5_params['datasets'].keys())
+
     df = []
-    for k,v in h5_params["datasets"].items():
-        frame = ndarray_to_frame(file[v][:].view(np.complex128), array_params[k])
+    for k, v in h5_params["datasets"].items():
+        frame = data_to_frame[k](file[v][:].view(np.complex128))
         if len(h5_params["datasets"]) > 1:
             frame[h5_params["name"]] = k
         df.append(frame)
@@ -165,16 +233,53 @@ def h5_to_df(file: h5py.File,
 
     return df
 
-def dict_to_df(
-        data: t.Union[t.Dict, np.ndarray],
-        data_order: t.Tuple[str] = (),
-        **kwargs) -> pd.DataFrame:
 
-    def entry_gen(nested: t.Dict, _index: t.Tuple = (),
-        preprocess: t.Optional[t.Callable] = None) \
+def dict_to_frame(
+        data: t.Union[t.Dict, np.ndarray],
+        data_to_frame: dataFrameFn,
+        dict_labels: t.Tuple[str] = ()) -> pd.DataFrame:
+    """Converts nested dictionary `data` to pandas DataFrame.
+
+    Parameters
+    ----------
+    data: Union[dict, ndarray]
+        Possibly nested dictionary in which leaves of dictionary tree
+        are ndarrays
+
+    data_to_frame: dataFrameFn
+        A function that converts ndarrays to DataFrames (usually,
+        this is a partially evaluated instance of the ndarray_to_frame
+        function)
+
+    dict_labels: tuple(str)
+        Labels for each nested dictionary layer. Labels will become names of
+        index levels in DataFrame and keys will become index values
+        for each entry.
+    """
+
+    def entry_gen(nested: t.Dict, _index: t.Tuple = ()) \
             -> t.Generator[t.Tuple[t.Tuple, np.ndarray], None, None]:
-        """Depth first search of nested dictionaries building
+        """Recursive Depth first search of nested dictionaries building
         list of indices from dictionary keys.
+
+
+        Parameters
+        ----------
+            nested: dict
+                The current sub-dictionary from traversing path `_index`
+            _index: tuple(str)
+                The sequence of keys traversed thus far in the original
+                dictionary
+
+        Yields
+        ------
+        (path, data)
+            path: tuple(str)
+                The sequence of keys traversed to get to `data` in
+                the nested dictionary.
+            data: ndarray
+                The data that was found in `nested` by traversing indices
+                in `path`.
         """
 
         if isinstance(next(iter(nested.values())),
@@ -185,82 +290,35 @@ def dict_to_df(
             ))
 
             for key, val in nested.items():
-                yield (
-                    _index+(key,),
-                    preprocess(val) if preprocess else val
-                )
+                yield (_index + (key,), val)
         else:
             for key in nested.keys():
-                yield from entry_gen(nested[key], _index+(key,), preprocess)
-
-    preproc = kwargs.get('preprocess', None)
-
-    array_labels = kwargs.get('array_labels', {})
-    array_params: ArrayParams = {
-        "order": [k for k in data_order if k in array_labels],
-        "labels": {
-            k: parse_ranges(v)
-            for k, v in array_labels.items()
-        }
-    }
-
-    dict_order = [k for k in data_order if k not in array_labels]
+                yield from entry_gen(nested[key], _index + (key,))
 
     if isinstance(data, np.ndarray):
-        return ndarray_to_frame(
-            preproc(data) if preproc else data,
-            array_params)
+        return data_to_frame(data)
     else:
         assert isinstance(data, t.Dict)
-        assert len(array_labels) > 0
 
-        indices, data_to_concat = zip(*(
-            (index,array)
-            for index, array in entry_gen(data, preprocess=preproc)
+        indices, concat_data = zip(*(
+            (index, array) for index, array in entry_gen(data)
         ))
-        data_to_concat = [ndarray_to_frame(x,array_params) for x in data_to_concat]
+        concat_data = [data_to_frame(x) for x in concat_data]
 
-        for index, frame in zip(indices,data_to_concat):
-            frame[dict_order] = list(index)
+        for index, frame in zip(indices, concat_data):
+            frame[list(dict_labels)] = list(index)
 
-        df = pd.concat(data_to_concat)
+        df = pd.concat(concat_data)
 
-        df.set_index(dict_order, append=True, inplace=True)
+        df.set_index(list(dict_labels), append=True, inplace=True)
 
     return df
 
 
-def load_file(filename: str, **kwargs):
-
-    if filename.endswith(".p"):
-
-        with open(filename, "rb") as f:
-            data = pickle.load(f)
-
-        if isinstance(data, pd.DataFrame):
-            return data
-        elif isinstance(data, t.Dict):
-            return dict_to_df(data, **kwargs)
-        else:
-            raise ValueError(
-                (f"Contents of {filename} is of type {type(data)}."
-                 "Expecting dictionary or pandas DataFrame."))
-
-    elif filename.endswith(".h5"):
-        try:
-            return pd.read_hdf(filename)
-        except ValueError:
-            file = h5py.File(filename)
-            return h5_to_df(file, **kwargs)
-        raise NotImplementedError("hdf5 not yet implemented")
-    else:
-        raise ValueError("File must have extension '.p' or '.h5'")
-
-
-def load_input(filestem: str, replacements: t.Optional[t.Dict] = None,
-               regex: t.Optional[t.Dict] = None, **kwargs):
-    params: t.Dict = deep_copy_dict(kwargs)
-
+def load_files(filestem: str, file_loader: loadFn,
+               replacements: t.Optional[t.Dict] = None,
+               regex: t.Optional[t.Dict] = None):
+    """"""
     repl_keys: t.List[str] = formatkeys(filestem)
 
     str_repl: t.Dict = replacements if replacements else {}
@@ -274,17 +332,12 @@ def load_input(filestem: str, replacements: t.Optional[t.Dict] = None,
 
     df = []
 
-    actions: t.Dict = params.pop('process', {})
-    proc = functools.partial(processor.execute, actions=actions)
-
     for str_reps, repl_filename in string_replacement_gen(
             filestem, str_repl):
         for reg_reps, regex_filename in file_regex_gen(
                 repl_filename, regex_repl):
             logging.debug(f"Loading file: {regex_filename}")
-            new_data: pd.DataFrame = proc(load_file(
-                filename=regex_filename,
-                **params))
+            new_data: pd.DataFrame = file_loader(regex_filename)
 
             if len(str_reps) != 0:
                 new_data[list(str_reps.keys())] = tuple(str_reps.values())
@@ -301,30 +354,80 @@ def load_input(filestem: str, replacements: t.Optional[t.Dict] = None,
     return df
 
 
-def write_frame(df: pd.DataFrame, filename: str,
-                col_to_repl: t.Optional[t.List[str]] = None):
-    """Write DataFrame to `filename`. Searches for elements of `col_to_repl`
-    in the DataFrame index. Uses first entry of DataFrame for
-    keyword replacement in `filename`
+def write_frame(df: pd.DataFrame, filestem: str) -> None:
+    """Write DataFrame to `filestem`. If `filestem` contains format keys,
+    expects columns in `df` with names matching the format keys.
+    Corresponding columns will be removed from `df` and values will
+    be used to format `filestem`.
     """
-    if repl_keys := formatkeys(filename):
+    if repl_keys := formatkeys(filestem):
         assert len(df) != 0
-        assert isinstance(col_to_repl, t.List)
-        assert all([k in col_to_repl for k in repl_keys])
         assert all([k in df.index.names for k in repl_keys])
 
-        indices = [
-            df.index.names.index(k)
-            for k in repl_keys
-        ]
+        for group, df_group in df.groupby(level=repl_keys):
+            repl = dict(zip(repl_keys, group))
 
-        repl = {
-            df.index.names[i]: df.iloc[0].name[i]
-            for i in indices
-        }
-        df.reset_index(
-            level=indices, drop=True
-        ).to_hdf(filename.format(**repl), key='corr')
+            df_group.reset_index(repl_keys, drop=True
+                                 ).to_hdf(filestem.format(**repl), key='corr')
 
     else:
-        df.to_hdf(filename, key='corr')
+        df.to_hdf(filestem, key='corr')
+
+
+def load(config: DataioConfig) -> pd.DataFrame:
+
+    def pickle_loader(filename: str):
+
+        dict_labels: t.Tuple = tuple(config.get("dict_labels", []))
+
+        array_params: ArrayParams = config.get("array_params", ArrayParams())
+        data_to_frame = partial(ndarray_to_frame, array_params=array_params)
+
+        with open(filename, "rb") as f:
+            data = pickle.load(f)
+
+        if isinstance(data, pd.DataFrame):
+            return data
+        elif isinstance(data, t.Dict):
+            return dict_to_frame(data,
+                                 data_to_frame=data_to_frame,
+                                 dict_labels=dict_labels)
+        else:
+            raise ValueError(
+                (f"Contents of {filestem} is of type {type(data)}."
+                 "Expecting dictionary or pandas DataFrame."))
+
+    def h5_loader(filename: str):
+        try:
+            return pd.read_hdf(filename)
+        except ValueError:
+            h5_params: H5Params = config.get("h5_params")
+            array_params: t.Dict[str, ArrayParams] = config.get("array_params")
+            data_to_frame = {
+                k: partial(ndarray_to_frame, array_params=array_params[k])
+                for k in array_params.keys()
+            }
+
+            file = h5py.File(filename)
+
+            return h5_to_frame(file, data_to_frame, h5_params)
+
+    replacements: t.Dict = config.get("replacements", {})
+    regex: t.Dict = config.get("regex", {})
+
+    filestem: str = config.get("filestem")
+
+    if filestem.endswith(".p"):
+        file_loader = pickle_loader
+    elif filestem.endswith(".h5"):
+        file_loader = h5_loader
+    else:
+        raise ValueError("File must have extension '.p' or '.h5'")
+
+    df = load_files(filestem, file_loader, replacements, regex)
+
+    actions = config.get("actions", {})
+
+    return processor.execute(df, actions=actions)
+
+# ------ End IO functions ------ #
