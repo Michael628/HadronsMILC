@@ -71,7 +71,7 @@ def parse_ranges(array_params: ArrayParams) -> None:
     strings to number ranges.
     """
     if labels := array_params.get('labels', {}):
-        for key, val in labels:
+        for key, val in labels.items():
 
             if isinstance(val, t.List):
                 pass
