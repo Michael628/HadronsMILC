@@ -65,21 +65,24 @@ loadFn = t.Callable[[str], pd.DataFrame]
 # ------ End types and config classes ------ #
 
 
-# ------ IO Functions ------ #
-def parse_ranges(val: t.Union[t.List, str]) -> t.List:
+# ------ Helper Functions ------ #
+def parse_ranges(array_params: ArrayParams) -> None:
     """Does nothing to `val` parameters of type list, but converts
     strings to number ranges.
     """
-    if isinstance(val, t.List):
-        return val
-    elif '..' in val:
-        range_input = list(map(int, val.split("..")))
-        range_input[1] += 1
-        return list(range(*range_input))
-    else:
-        raise ValueError(
-            ("`array_labels` must be lists or "
-             "strings of the form `<min>..<max>`."))
+    if labels := array_params.get('labels', {}):
+        for key, val in labels:
+
+            if isinstance(val, t.List):
+                pass
+            elif '..' in val:
+                range_input = list(map(int, val.split("..")))
+                range_input[1] += 1
+                array_params['labels'][key] = list(range(*range_input))
+            else:
+                raise ValueError(
+                    ("`array_labels` must be lists or "
+                     "strings of the form `<min>..<max>`."))
 
 
 def formatkeys(format_string: str) -> t.List[str]:
@@ -169,8 +172,10 @@ def string_replacement_gen(
                 fstring.format, **repl)
 
             yield repl, string_repl
+# ------ End Helper Functions ------ #
 
 
+# ------ IO Functions ------ #
 def ndarray_to_frame(
         array: np.ndarray,
         array_params: ArrayParams) -> pd.DataFrame:
@@ -381,6 +386,7 @@ def load(config: DataioConfig) -> pd.DataFrame:
         dict_labels: t.Tuple = tuple(config.get("dict_labels", []))
 
         array_params: ArrayParams = config.get("array_params", ArrayParams())
+        parse_ranges(array_params)
         data_to_frame = partial(ndarray_to_frame, array_params=array_params)
 
         with open(filename, "rb") as f:
@@ -403,6 +409,7 @@ def load(config: DataioConfig) -> pd.DataFrame:
         except ValueError:
             h5_params: H5Params = config.get("h5_params")
             array_params: t.Dict[str, ArrayParams] = config.get("array_params")
+            parse_ranges(array_params)
             data_to_frame = {
                 k: partial(ndarray_to_frame, array_params=array_params[k])
                 for k in array_params.keys()
