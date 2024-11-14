@@ -57,7 +57,8 @@ def build_lmi(df: pd.DataFrame) -> None:
 
 def build_high(df: pd.DataFrame) -> pd.DataFrame:
 
-    high = df.xs('ama', level='dset')['corr'] - df.xs('ranLL', level='dset')['corr']
+    high = df.xs('ama', level='dset').sort_index()['corr'] \
+        - df.xs('ranLL', level='dset').sort_index()['corr']
     high = high.to_frame('corr')
     high['dset'] = 'high'
     high.set_index('dset', append=True, inplace=True)
@@ -80,8 +81,7 @@ def average(df: pd.DataFrame, *avg_indices) -> pd.DataFrame:
 
     df_group_keys = [k for k in df.index.names if k not in avg_indices]
 
-    df_out = df.reset_index().set_index(df_group_keys)['corr'].groupby(
-        df_group_keys).transform('mean').to_frame('corr').drop_duplicates()
+    df_out = df.groupby(level=df_group_keys).mean()
 
     return df_out
 

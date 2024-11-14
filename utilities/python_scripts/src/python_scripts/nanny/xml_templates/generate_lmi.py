@@ -72,7 +72,6 @@ def append_epacks(modules: t.List, load: bool, params: dict) -> None:
             }
         )
 
-
     for mass_label, mass in params['mass_dict'].items():
 
         modules += eig.epack_modify_params(
@@ -110,7 +109,7 @@ def append_mesons(modules: t.List,
         )
 
 
-def append_solvers(modules: t.List, params: dict) -> None:
+def append_solvers(modules: t.List, eigs: bool, params: dict) -> None:
 
     for mass_label in params['mass_dict'].keys():
 
@@ -121,14 +120,16 @@ def append_solvers(modules: t.List, params: dict) -> None:
             residual='1e-8'
         )
 
-        modules += highmodes.ranLL_solver_params(
-            name=f"stag_ranLL_{mass_label}",
-            action=f"stag_{mass_label}",
-            lowmodes=f"evecs_{mass_label}"
-        )
+        if eigs:
+            modules += highmodes.ranLL_solver_params(
+                name=f"stag_ranLL_{mass_label}",
+                action=f"stag_{mass_label}",
+                lowmodes=f"evecs_{mass_label}"
+            )
 
 
-def append_sources_and_quarks(modules: t.List, params: dict) -> None:
+def append_sources_and_quarks(modules: t.List, eigs: bool, params: dict) \
+        -> None:
 
     for tslice in params['time_range']:
         modules += highmodes.source_params(
@@ -147,7 +148,7 @@ def append_sources_and_quarks(modules: t.List, params: dict) -> None:
         quark = f"quark_{slabel}_{glabel}_{mlabel}_t{tslice}"
         source = f"noise_t{tslice}"
         solver = f"stag_{slabel}_{mlabel}"
-        if slabel == "ama":
+        if slabel == "ama" and eigs:
             guess = f"quark_ranLL_{glabel}_{mlabel}_t{tslice}"
         else:
             guess = ""
@@ -235,8 +236,8 @@ def build_schedule(module_info, params):
         lambda x: "_m" not in x['name'] and "_t" not in x['name']
     )
 
-    sorted_modules = dp_gauges+indep_mass_tslice
-    sorted_modules += meson_field_inputs+meson_fields
+    sorted_modules = dp_gauges + indep_mass_tslice
+    sorted_modules += meson_field_inputs + meson_fields
     sorted_modules += sp_gauges
 
     def gamma_order(x):
@@ -284,9 +285,12 @@ def build_params(tasks: t.Dict, **kwargs):
         cfg=params['CFG']
     )
 
+    epack = tasks.get('epack', None)
+    has_eigs = epack is not None
+
     time = int(params["TIME"])
     t_start = int(params["TSTART"])
-    t_stop = int(params["TSTOP"])+1
+    t_stop = int(params["TSTOP"]) + 1
     t_step = int(params["DT"])
     params['time_range'] = list(range(t_start, t_stop, t_step))
 
@@ -297,7 +301,7 @@ def build_params(tasks: t.Dict, **kwargs):
     params['mass_dict'] = dict(zip(mass_labels, masses))
 
     gamma_labels = ['pion_local', 'vec_local', 'vec_onelink']
-    solver_labels = ["ranLL", "ama"]
+    solver_labels = ["ranLL", "ama"] if epack else ['ama']
     params['quark_iter'] = list(itertools.product(
         params['time_range'],
         gamma_labels,
@@ -307,14 +311,16 @@ def build_params(tasks: t.Dict, **kwargs):
     ))
 
     append_gauges_and_actions(modules, params)
-    append_epacks(modules, load=tasks['epack']['load'], params=params)
+
+    if has_eigs:
+        append_epacks(modules, load=epack['load'], params=params)
 
     meson_operators = tasks.get('meson', [])
     append_mesons(modules, meson_operators, params)
 
     if 'high_modes' in tasks:
-        append_solvers(modules, params)
-        append_sources_and_quarks(modules, params)
+        append_solvers(modules, has_eigs, params)
+        append_sources_and_quarks(modules, has_eigs, params)
         append_contractors(modules, params)
 
     xml_params['grid']["modules"] = {"module": modules}

@@ -175,7 +175,7 @@ def string_replacement_gen(
 # ------ End Helper Functions ------ #
 
 
-# ------ IO Functions ------ #
+# ------ Data structure Functions ------ #
 def ndarray_to_frame(
         array: np.ndarray,
         array_params: ArrayParams) -> pd.DataFrame:
@@ -237,6 +237,36 @@ def h5_to_frame(file: h5py.File,
         df.set_index(h5_params["name"], append=True, inplace=True)
 
     return df
+
+
+def frame_to_dict(df: pd.DataFrame, dict_depth: int) \
+        -> t.Union[t.Dict, np.ndarray]:
+    num_indices = len(df.index.names)
+    assert dict_depth >= 0
+    assert dict_depth <= num_indices
+
+    shape = [
+        len(df.index.get_level_values(i).drop_duplicates())
+        for i in range(dict_depth, num_indices)
+    ]
+    shape = tuple([-1] + shape) if dict_depth != 0 else tuple(shape)
+
+    keys = [
+        df.sort_index().index.get_level_values(i).drop_duplicates().to_list()
+        for i in range(dict_depth)
+    ]
+
+    def join_str_fn(x):
+        return ".".join(map(str, x))
+
+    keys = list(map(join_str_fn, list(itertools.product(*keys))))
+
+    array = df.sort_index()['corr'].to_numpy().reshape(shape)
+
+    if dict_depth == 0:
+        return array
+    else:
+        return {k: array[i] for k, i in zip(keys, range(len(array)))}
 
 
 def dict_to_frame(
@@ -319,7 +349,10 @@ def dict_to_frame(
 
     return df
 
+# ------ End data structure functions ------ #
 
+
+# ------ Input functions ------ #
 def load_files(filestem: str, file_loader: loadFn,
                replacements: t.Optional[t.Dict] = None,
                regex: t.Optional[t.Dict] = None):
@@ -359,26 +392,6 @@ def load_files(filestem: str, file_loader: loadFn,
     return df
 
 
-def write_frame(df: pd.DataFrame, filestem: str) -> None:
-    """Write DataFrame to `filestem`. If `filestem` contains format keys,
-    expects columns in `df` with names matching the format keys.
-    Corresponding columns will be removed from `df` and values will
-    be used to format `filestem`.
-    """
-    if repl_keys := formatkeys(filestem):
-        assert len(df) != 0
-        assert all([k in df.index.names for k in repl_keys])
-
-        for group, df_group in df.groupby(level=repl_keys):
-            repl = dict(zip(repl_keys, group))
-
-            df_group.reset_index(repl_keys, drop=True
-                                 ).to_hdf(filestem.format(**repl), key='corr')
-
-    else:
-        df.to_hdf(filestem, key='corr')
-
-
 def load(config: DataioConfig) -> pd.DataFrame:
 
     def pickle_loader(filename: str):
@@ -389,8 +402,9 @@ def load(config: DataioConfig) -> pd.DataFrame:
         parse_ranges(array_params)
         data_to_frame = partial(ndarray_to_frame, array_params=array_params)
 
-        with open(filename, "rb") as f:
-            data = pickle.load(f)
+        data = np.load(filename, allow_pickle=True)
+        if isinstance(data, np.ndarray) and len(data.shape) == 0:
+            data = data.item()
 
         if isinstance(data, pd.DataFrame):
             return data
@@ -424,7 +438,7 @@ def load(config: DataioConfig) -> pd.DataFrame:
 
     filestem: str = config.get("filestem")
 
-    if filestem.endswith(".p"):
+    if filestem.endswith(".p") or filestem.endswith(".npy"):
         file_loader = pickle_loader
     elif filestem.endswith(".h5"):
         file_loader = h5_loader
@@ -436,5 +450,62 @@ def load(config: DataioConfig) -> pd.DataFrame:
     actions = config.get("actions", {})
 
     return processor.execute(df, actions=actions)
+# ------ End Input functions ------ #
 
-# ------ End IO functions ------ #
+
+# ------ Input functions ------ #
+def write_data(df: pd.DataFrame, filestem: str,
+               write_fn: t.Callable[[pd.DataFrame, str], None]) -> None:
+    """Write DataFrame to `filestem`. If `filestem` contains format keys,
+    expects columns in `df` with names matching the format keys.
+    Corresponding columns will be removed from `df` and values will
+    be used to format `filestem`.
+
+    Parameters
+    ----------
+    write_fn: Callable[df, filename]
+        The function used to write `df` into the desired format
+    """
+    if repl_keys := formatkeys(filestem):
+        assert len(df) != 0
+        assert all([k in df.index.names for k in repl_keys])
+
+        for group, df_group in df.groupby(level=repl_keys):
+            repl_vals = (group,) if isinstance(group, str) else group
+            repl = dict(zip(repl_keys, repl_vals))
+
+            write_fn(
+                df_group.reset_index(repl_keys, drop=True),
+                filestem.format(**repl)
+            )
+
+    else:
+        write_fn(df, filestem)
+
+
+def write_dict(df: pd.DataFrame, filestem: str, dict_depth: int) -> None:
+    """Convert DataFrame `df` to dictionary and write to file
+    based on `filestem` (see `write_data` function for details).
+
+    Parameters
+    ----------
+    dict_depth: int
+        If equal to 0, returns multidim ndarray with dimensions in order of df
+        index levels. For `dict_depth` > 0, index levels from 0 to `dict_depth`
+        are converted to dictionary keys. The remaining levels are made into
+        multidim arrays.
+    """
+    def writeconvert(data, fname):
+        np.save(fname, frame_to_dict(data, dict_depth))
+
+    write_data(df, filestem, write_fn=writeconvert)
+
+
+def write_frame(df: pd.DataFrame, filestem: str) -> None:
+    """Write DataFrame `df` to hdf5 file based on `filestem`
+    (see `write_data` function for details).
+    """
+    write_data(df, filestem,
+               write_fn=lambda data, fname: data.to_hdf(fname, key='corr'))
+
+# ------ End Output functions ------ #
