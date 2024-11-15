@@ -4,10 +4,10 @@
 
 import sys
 import os
-import yaml
 import re
 import subprocess
-from python_scripts.nanny.todo_utils import *
+import todo_utils
+import python_scripts.utils as utils
 from functools import reduce
 
 from dict2xml import dict2xml as dxml
@@ -49,29 +49,28 @@ sys.path.append("../templates")
 # Requires Todo_utils.py and params-launch.yaml with definitions
 # of variables needed here
 
+
 ######################################################################
-
-
-def count_queue(scheduler,  myjob_name_pfx):
+def count_queue(scheduler, myjob_name_pfx):
     """Count my jobs in the queue"""
 
     user = os.environ['USER']
 
     if scheduler == 'LSF':
         cmd = ' '.join(["bjobs -u", user, "| grep", user,
-                       "| grep ", myjob_name_pfx, "| wc -l"])
+                        "| grep ", myjob_name_pfx, "| wc -l"])
     elif scheduler == 'PBS':
         cmd = ' '.join(["qstat -u", user, "| grep", user,
-                       "| grep ", myjob_name_pfx, "| wc -l"])
+                        "| grep ", myjob_name_pfx, "| wc -l"])
     elif scheduler == 'SLURM':
         cmd = ' '.join(["squeue -u", user, "| grep", user,
-                       "| grep ", myjob_name_pfx, "| wc -l"])
+                        "| grep ", myjob_name_pfx, "| wc -l"])
     elif scheduler == 'INTERACTIVE':
         cmd = ' '.join(["squeue -u", user, "| grep", user,
-                       "| grep ", myjob_name_pfx, "| wc -l"])
+                        "| grep ", myjob_name_pfx, "| wc -l"])
     elif scheduler == 'Cobalt':
         cmd = ' '.join(["qstat -fu", user, "| grep", user,
-                       "| grep ", myjob_name_pfx, "| wc -l"])
+                        "| grep ", myjob_name_pfx, "| wc -l"])
     else:
         print("Don't recognize scheduler", scheduler)
         print("Quitting")
@@ -81,9 +80,8 @@ def count_queue(scheduler,  myjob_name_pfx):
 
     return nqueued
 
+
 ######################################################################
-
-
 def next_cfgno_steps(max_cases, todo_list):
     """Get next sets of cfgnos / job steps from the todo file"""
 
@@ -92,14 +90,14 @@ def next_cfgno_steps(max_cases, todo_list):
 
     step = "none"
     cfgno_steps = []
-    for line in sorted(todo_list, key=key_todo_entries):
+    for line in sorted(todo_list, key=todo_utils.key_todo_entries):
         a = todo_list[line]
         if len(a) < 2:
             print("ERROR: bad todo line format")
             print(a)
             sys.exit(1)
 
-        index, cfgno, new_step = find_next_unfinished_task(a)
+        index, cfgno, new_step = todo_utils.find_next_unfinished_task(a)
         if index > 0:
             if step == "none":
                 step = new_step
@@ -122,9 +120,8 @@ def next_cfgno_steps(max_cases, todo_list):
 
     return step, cfgno_steps
 
+
 ######################################################################
-
-
 def sub_iOTemplate(param, io_stem_template):
     """Replace keys with values in io_stem
        e.g. converts lma-eEIGS-nNOISE to lma-e2000-n1"""
@@ -132,13 +129,12 @@ def sub_iOTemplate(param, io_stem_template):
     s = io_stem_template
 
     for k in param["lmi_param"].keys():
-        s = re.sub(k,  param['lmi_param'][k],  s)
+        s = re.sub(k, param['lmi_param'][k], s)
 
     return s
 
+
 ######################################################################
-
-
 def set_env(param, series, cfgno):
     """Set environment variables"""
 
@@ -157,13 +153,13 @@ def set_env(param, series, cfgno):
     cfg0 = int(param['precess']['loose']['cfg0'])  # Base configuration
     dcfg = int(param['precess']['loose']['dcfg'])  # Interval between cfgnos
     tstep = int(param['precess']['loose']['tstep'])  # Precession interval
-    t0loose = ((int(cfgno) - cfg0)//dcfg * tstep) % dt  # Starting time
+    t0loose = ((int(cfgno) - cfg0) // dcfg * tstep) % dt  # Starting time
 
     cfg0 = int(param['precess']['fine']['cfg0'])
     dcfg = int(param['precess']['fine']['dcfg'])
     tstep = int(param['precess']['fine']['tstep'])
     nt = int(param['precess']['fine']['nt'])
-    t0fine = (t0loose + (int(cfgno) - cfg0)//dcfg * tstep * dt) % nt
+    t0fine = (t0loose + (int(cfgno) - cfg0) // dcfg * tstep * dt) % nt
 
     os.environ['T0LOOSE'] = str(t0loose)
     os.environ['T0FINE'] = str(t0fine)
@@ -205,7 +201,7 @@ def make_inputs(param, step, cfgno_steps):
 
             if 'param_file' in param['job_setup'][step]:
                 # String naming one of the files in ../templates without .py
-                param_module = f"python_scripts.nanny.xml_templates."
+                param_module = "python_scripts.nanny.xml_templates."
                 param_module += f"{param['job_setup'][step]['param_file']}"
 
                 tasks = param['job_setup'][step].get('tasks', {})
@@ -227,15 +223,14 @@ def make_inputs(param, step, cfgno_steps):
                     print(dxml(xml_dict), file=f)
 
                 with open(sched_file, 'w') as f:
-                    f.write(str(len(schedule))+"\n"+"\n".join(schedule))
+                    f.write(str(len(schedule)) + "\n" + "\n".join(schedule))
 
             INPUTXMLLIST = INPUTXMLLIST + " " + input_xml
 
     os.environ['INPUTXMLLIST'] = INPUTXMLLIST
 
+
 ######################################################################
-
-
 def submit_job(param, step, cfgno_steps, max_cases):
     """Submit the job"""
 
@@ -246,13 +241,13 @@ def submit_job(param, step, cfgno_steps, max_cases):
 
     layout = param['submit']['layout']
     basenodes = layout[step]['nodes']
-    ppj = reduce((lambda x, y: x*y), layout[step]['geom'])
+    ppj = reduce((lambda x, y: x * y), layout[step]['geom'])
     ppn = layout['ppn'] if "ppn" not in layout[step].keys(
     ) else layout[step]['ppn']
-    jpn = int(ppn/ppj)
+    jpn = int(ppn / ppj)
     basetasks = basenodes * ppn if basenodes > 1 or jpn <= 1 else ppj
     nodes = basenodes * \
-        ncases if jpn <= 1 else int((basenodes*ncases + jpn - 1)/jpn)
+        ncases if jpn <= 1 else int((basenodes * ncases + jpn - 1) / jpn)
     NP = str(nodes * ppn)
     geom = ".".join([str(i) for i in layout[step]['geom']])
 
@@ -276,29 +271,26 @@ def submit_job(param, step, cfgno_steps, max_cases):
     # Job submission command depends on locale
     scheduler = param['submit']['scheduler']
     if scheduler == 'LSF':
-        cmd = ["bsub", "-nnodes", str(nodes), "-J", job_name, job_script]
+        cmd = f"bsub -nnodes {str(nodes)} -J {job_name} {job_script}"
     elif scheduler == 'PBS':
-        cmd = ["qsub", "-l",
-               ",".join(["nodes="+str(nodes)]), "-N", job_name, job_script]
+        cmd = f"qsub -l nodes={str(nodes)}] -N {job_name} {job_script}"
     elif scheduler == 'SLURM':
         # NEEDS UPDATING
-        cmd = ["sbatch", "-N", str(nodes), "-n", NP,
-               "-J", job_name, "-t", wall_time, job_script]
+        cmd = (f"sbatch -N {str(nodes)} -n {NP} "
+               f"-J {job_name} -t {wall_time} {job_script}")
     elif scheduler == 'INTERACTIVE':
-        cmd = ["./"+job_script]
+        cmd = f"./ {job_script}"
     elif scheduler == 'Cobalt':
         # NEEDS UPDATING IF WE STILL USE Cobalt
-        cmd = ["qsub", "-n", str(nodes), "--jobname", job_name, archflags,
-               "--mode script",
-               "--env LATS="+LATS+":NCASES="+NCASES+":NP="+NP,
-               job_script]
+        cmd = (f"qsub -n {str(nodes)} --jobname {job_name} {archflags}"
+               f"--mode script --env LATS={LATS}:NCASES={NCASES}"
+               f":NP={NP} {job_script}")
     else:
         print("Don't recognize scheduler", scheduler)
         print("Quitting")
         sys.exit(1)
 
     # Run the job submission command
-    cmd = " ".join(cmd)
     print(cmd)
     reply = ""
     try:
@@ -315,21 +307,21 @@ def submit_job(param, step, cfgno_steps, max_cases):
     if scheduler == 'LSF':
         # a.2100 Q Job <99173> is submitted to default queue <batch>
         jobid = reply[0].split()[1].split("<")[1].split(">")[0]
-        if type(jobid) is bytes:
+        if isinstance(jobid, bytes):
             jobid = jobid.decode('ASCII')
     elif scheduler == 'PBS':
         # 3314170.kaon2.fnal.gov submitted
         jobid = reply[0].split(".")[0]
     elif scheduler == 'SLURM':
         # Submitted batch job 10059729
-        jobid = reply[len(reply)-1].split()[3]
+        jobid = reply[len(reply) - 1].split()[3]
     elif scheduler == 'INTERACTIVE':
         jobid = os.environ['SLURM_JOBID']
     elif scheduler == 'Cobalt':
         # ** Project 'semileptonic'; job rerouted to queue 'prod-short'
         # ['1607897']
         jobid = reply[-1]
-    if type(jobid) is bytes:
+    if isinstance(jobid, bytes):
         jobid = jobid.decode('ASCII')
 
     cfgnos = ""
@@ -340,21 +332,19 @@ def submit_job(param, step, cfgno_steps, max_cases):
 
     return (0, jobid)
 
+
 ######################################################################
-
-
 def mark_queued_todo_entries(step, cfgno_steps, jobid, todo_list):
     """Update the todo_file, change status to "Q" and mark the job number"""
 
     for k in range(len(cfgno_steps)):
         c, i = cfgno_steps[k]
 
-        todo_list[c][i] = step+"Q"
-        todo_list[c][i+1] = jobid
+        todo_list[c][i] = step + "Q"
+        todo_list[c][i + 1] = jobid
+
 
 ######################################################################
-
-
 def check_complete():
     """Check completion of queued jobs and purge scratch files"""
     cmd = "../scripts/check_completed.py"
@@ -373,9 +363,8 @@ def check_complete():
 
     return
 
+
 ######################################################################
-
-
 def nanny_loop(YAML):
     """Check job periodically and submit to the queue"""
 
@@ -385,7 +374,7 @@ def nanny_loop(YAML):
     print(date, "Spawn job process", os.getpid(), "started on", hostname)
     sys.stdout.flush()
 
-    param = load_param(YAML)
+    param = utils.load_param(YAML)
 
     # Keep going until
     #   we see a file called "STOP" OR
@@ -403,16 +392,16 @@ def nanny_loop(YAML):
         job_name_pfx = param['submit']['job_name_pfx']
         scheduler = param['submit']['scheduler']
 
-        lock_file = lock_file_name(todo_file)
+        lock_file = todo_utils.lock_file_name(todo_file)
 
         # Count queued jobs with our job name
         nqueued = count_queue(scheduler, job_name_pfx)
 
         # Submit until we have the desired number of jobs in the queue
         if nqueued < param['nanny']['max_queue']:
-            wait_set_todo_lock(lock_file)
-            todo_list = read_todo(todo_file)
-            remove_todo_lock(lock_file)
+            todo_utils.wait_set_todo_lock(lock_file)
+            todo_list = todo_utils.read_todo(todo_file)
+            todo_utils.remove_todo_lock(lock_file)
 
             # List a set of cfgnos
             step, cfgno_steps = next_cfgno_steps(max_cases, todo_list)
@@ -436,12 +425,12 @@ def nanny_loop(YAML):
                 # Edit the todo_file, marking the lattice queued and
                 # indicating the jobid
                 if status == 0:
-                    wait_set_todo_lock(lock_file)
-                    todo_list = read_todo(todo_file)
+                    todo_utils.wait_set_todo_lock(lock_file)
+                    todo_list = todo_utils.read_todo(todo_file)
                     mark_queued_todo_entries(
                         step, cfgno_steps, jobid, todo_list)
-                    write_todo(todo_file, todo_list)
-                    remove_todo_lock(lock_file)
+                    todo_utils.write_todo(todo_file, todo_list)
+                    todo_utils.remove_todo_lock(lock_file)
                 else:
                     # Job submission failed
                     if status == 1:
@@ -457,11 +446,10 @@ def nanny_loop(YAML):
         check_count -= 1
 
         # Reload parameters in case of hot changes
-        param = load_param(YAML)
+        param = utils.load_param(YAML)
+
 
 ############################################################
-
-
 def main():
 
     # Set permissions

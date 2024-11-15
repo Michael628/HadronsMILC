@@ -8,7 +8,6 @@ import cupy as cp
 import opt_einsum as oe
 import h5py
 import pickle
-import yaml
 import re
 
 from time import perf_counter
@@ -19,7 +18,7 @@ from mpi4py import MPI
 # from multiprocessing import Process, Pool, Lock, Manager
 
 from python_scripts.processing.format import FilestemFormatBase as FSFormat
-from python_scripts.nanny import todo_utils
+import python_scripts.utils as utils
 
 cpnp = cp
 
@@ -53,16 +52,16 @@ def time_average(cij, open_indices=(0, -1)):
     ones = cpnp.ones(cij.shape)
     t_range = cpnp.array(range(nt))
 
-    t_start = [None]*dim
+    t_start = [None] * dim
     t_start[open_indices[0]] = slice(None)
     t_start = tuple(t_start)
 
-    t_end = [None]*dim
+    t_end = [None] * dim
     t_end[open_indices[1]] = slice(None)
     t_end = tuple(t_end)
 
-    t_mask = cpnp.mod(t_range[t_end]*ones -
-                      t_range[t_start]*ones, cpnp.array([nt]))
+    t_mask = cpnp.mod(t_range[t_end] * ones -
+                      t_range[t_start] * ones, cpnp.array([nt]))
 
     time_removed_indices = tuple(
         slice(None) if t_start[i] == t_end[i] else 0 for i in range(dim))
@@ -76,7 +75,7 @@ def time_average(cij, open_indices=(0, -1)):
 
     # print(f"claculation: {t2-t1}")
 
-    return convert_to_numpy(corr/nt)
+    return convert_to_numpy(corr / nt)
 
 
 @dataclass
@@ -127,8 +126,8 @@ class MesonLoader:
 
         mult_factor = 2. if self.milc_mass else 1.
         eval_scaling = cpnp.zeros((len(evals), 2), dtype=cpnp.complex128)
-        eval_scaling[:, 0] = cpnp.divide(mult_factor*self.oldmass+1.j*evals,
-                                         mult_factor*self.newmass+1.j*evals)
+        eval_scaling[:, 0] = cpnp.divide(mult_factor * self.oldmass + 1.j * evals,
+                                         mult_factor * self.newmass + 1.j * evals)
         eval_scaling[:, 1] = cpnp.conjugate(eval_scaling[:, 0])
         eval_scaling = eval_scaling.reshape((-1,))
 
@@ -181,7 +180,7 @@ class MesonLoader:
         return self
 
     def __next__(self):
-        if self.iter_count < len(self.times[0])-1:
+        if self.iter_count < len(self.times[0]) - 1:
 
             self.iter_count += 1
 
@@ -335,16 +334,16 @@ class Contractor:
             slice_indices = list(
                 filter(lambda x: list(x) == sorted(x), slice_indices))
             workload = int(
-                (len(slice_indices)+self.comm_size-1)/self.comm_size)
+                (len(slice_indices) + self.comm_size - 1) / self.comm_size)
 
-        offset = int(self.rank*workload)
+        offset = int(self.rank * workload)
 
-        slice_indices = list(zip(*slice_indices[offset:offset+workload]))
+        slice_indices = list(zip(*slice_indices[offset:offset + workload]))
 
-        tspacing = int(self.nt/self.comm_size)
+        tspacing = int(self.nt / self.comm_size)
 
-        return tuple([slice(int(ti*tspacing),
-                            int((ti+1)*tspacing)) for ti in times]
+        return tuple([slice(int(ti * tspacing),
+                            int((ti + 1) * tspacing)) for ti in times]
                      for times in slice_indices)
 
     def conn_2pt(self, contraction):
@@ -360,7 +359,7 @@ class Contractor:
 
             mesonfiles = tuple(self.mesonfile.format(
                 w=contraction[i],
-                v=contraction[i+1],
+                v=contraction[i + 1],
                 gamma=gamma,
                 **mesonfile_replacements) for i in [0, 2])
 
@@ -408,7 +407,7 @@ class Contractor:
             mesonfiles = tuple(
                 self.mesonfile.format(
                     w=contraction[i],
-                    v=contraction[i+1],
+                    v=contraction[i + 1],
                     gamma=g,
                     **mesonfile_replacements
                 ) for i, g in zip([0, 2, 4], [gamma, "G1_G1", gamma])
@@ -456,8 +455,8 @@ class Contractor:
 
         corr = dict(
             zip(self.subdiagrams, [
-                {seedkey: dict(zip(gammas, [{}]*len(gammas)))}
-            ]*len(self.subdiagrams)))
+                {seedkey: dict(zip(gammas, [{}] * len(gammas)))}
+            ] * len(self.subdiagrams)))
 
         matg1 = [self.load_meson(contraction[0], contraction[1], gamma)
                  for gamma in gammas]
@@ -476,8 +475,8 @@ class Contractor:
 
             emlabel = f"{self.emseedstring}_{i}"
 
-            selfen_p2_key = contraction[4]+contraction[5]+emlabel
-            photex_p2_key = contraction[6]+contraction[7]+emlabel
+            selfen_p2_key = contraction[4] + contraction[5] + emlabel
+            photex_p2_key = contraction[6] + contraction[7] + emlabel
 
             matp1 = self.load_meson(contraction[2], contraction[3], emlabel)
             if "selfen" in self.subdiagrams:
@@ -488,8 +487,8 @@ class Contractor:
                     contraction[6], contraction[7], emlabel)
 
             for j, gamma in enumerate(gammas):
-                selfen_g2_key = contraction[6]+contraction[7]+gamma
-                photex_g2_key = contraction[4]+contraction[5]+gamma
+                selfen_g2_key = contraction[6] + contraction[7] + gamma
+                photex_g2_key = contraction[4] + contraction[5] + gamma
 
                 for d in self.subdiagrams:
 
@@ -549,7 +548,7 @@ def main():
 
     series, cfg = sys.argv[1].split('.')
 
-    params = todo_utils.load_param('params.yaml')
+    params = utils.load_param('params.yaml')
 
     if 'logging_level' in params['contract'] and comm.Get_rank() == 0:
         logging_level = params['contract']['logging_level']
@@ -589,10 +588,10 @@ def main():
         nmesons = contractor.npoint
 
         low_min = 0 if contractor.has_high else nmesons
-        low_max = nmesons+1 if contractor.has_low else 0
+        low_max = nmesons + 1 if contractor.has_low else 0
 
         perms = sum([
-            list(multiset_permutations(['L']*nlow+['H']*(nmesons-nlow)))
+            list(multiset_permutations(['L'] * nlow + ['H'] * (nmesons - nlow)))
             for nlow in range(low_min, low_max)
         ], [])
         perms = list(map("".join, perms))
@@ -605,7 +604,7 @@ def main():
             nlow = perm.count('L')
 
             permkey = "".join(
-                sum(((perm[i], perm[(i+1) % nmesons])
+                sum(((perm[i], perm[(i + 1) % nmesons])
                      for i in range(nmesons)), ())
             )
 
@@ -613,7 +612,7 @@ def main():
                 # Build list of high source indices,
                 # e.g. [[0,1], [0,2], ...]
                 seeds = list(map(list, itertools.combinations(
-                    list(range(contractor.high_count)), nmesons-nlow)))
+                    list(range(contractor.high_count)), nmesons - nlow)))
                 # Fill low-mode indices with None
                 # e.g. [[None,0,1], [None,0,2], ...]
                 _ = [
@@ -643,7 +642,7 @@ def main():
                     contractor.low_label
                     if seed[i] is None else
                     ('w' if i % 2 == 0 else 'v')
-                    + contractor.high_label+s
+                    + contractor.high_label + s
                     for i, s in enumerate(map(str, seed))
                 ]
                 for seed in seeds
