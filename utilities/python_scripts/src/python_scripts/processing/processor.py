@@ -6,7 +6,7 @@ import gvar.dataset as ds
 import typing as t
 
 ACTION_ORDER = ['build_high', 'fold', 'stdjackknife', 'average',
-                'build_lmi', 'normalize', 'gvar']
+                'normalize', 'gvar']
 
 GROUPED_ACTIONS = {
     'fold': ['dt'],
@@ -41,20 +41,6 @@ def gvar(df: pd.DataFrame):
     # localMinusOnelink = dsetGvar['local'] - dsetGvar['onelink']
 
 
-def build_lmi(df: pd.DataFrame) -> None:
-    df = df.sort_values(by=[
-        x for x in df.columns if x != 'data'])
-    result = df[df['dset'] == 'high'].copy()
-    sum_data = result['data'].to_numpy() + \
-        df[df['dset'] == 'a2aLL']['data'].to_numpy()
-
-    result['data'] = sum_data
-    result['dset'] = 'lmi'
-
-    df = pd.concat([df, result],
-                   ignore_index=True)
-
-
 def build_high(df: pd.DataFrame) -> pd.DataFrame:
 
     high = df.xs('ama', level='dset').sort_index()['corr'] \
@@ -62,6 +48,7 @@ def build_high(df: pd.DataFrame) -> pd.DataFrame:
     high = high.to_frame('corr')
     high['dset'] = 'high'
     high.set_index('dset', append=True, inplace=True)
+    high = high.reorder_levels(df.index.names)
 
     return pd.concat([df, high])
 
@@ -70,7 +57,7 @@ def normalize(df, divisor, *args, **kwargs):
     return df['corr'].apply(lambda x: x.real / float(divisor)).to_frame()
 
 
-def average(df: pd.DataFrame, *avg_indices) -> pd.DataFrame:
+def sum(df: pd.DataFrame, average=False, *avg_indices) -> pd.DataFrame:
     """Averages `df` attribute over columns specified in `indices`
     """
     logging.debug(df.index.names)
@@ -81,9 +68,16 @@ def average(df: pd.DataFrame, *avg_indices) -> pd.DataFrame:
 
     df_group_keys = [k for k in df.index.names if k not in avg_indices]
 
-    df_out = df.groupby(level=df_group_keys).mean()
+    if average:
+        df_out = df.groupby(level=df_group_keys).mean()
+    else:
+        df_out = df.groupby(level=df_group_keys).sum()
 
     return df_out
+
+
+def average(df: pd.DataFrame, *avg_indices) -> pd.DataFrame:
+    return sum(df, True, *avg_indices)
 
 
 def fold(series: pd.Series) -> pd.Series:
