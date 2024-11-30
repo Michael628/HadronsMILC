@@ -8,6 +8,7 @@ import re
 import subprocess
 import todo_utils
 import python_scripts.utils as utils
+import python_scripts.nanny.check_completed as check_completed
 from functools import reduce
 
 from dict2xml import dict2xml as dxml
@@ -122,33 +123,20 @@ def next_cfgno_steps(max_cases, todo_list):
 
 
 ######################################################################
-def sub_iOTemplate(param, io_stem_template):
-    """Replace keys with values in io_stem
-       e.g. converts lma-eEIGS-nNOISE to lma-e2000-n1"""
-
-    s = io_stem_template
-
-    for k in param["lmi_param"].keys():
-        s = re.sub(k, param['lmi_param'][k], s)
-
-    return s
-
-
-######################################################################
 def set_env(param, series, cfgno):
     """Set environment variables"""
 
     # Set environment parameters for the job script
     lmi_param = param['lmi_param']
     for key in lmi_param.keys():
-        os.environ[key] = str(lmi_param[key])
+        os.environ[key.upper()] = str(lmi_param[key])
 
     # These will be ignored in the bundled job script
     os.environ['SERIES'] = series
     os.environ['CFG'] = str(cfgno)
 
     # Compute starting time for loose and fine
-    dt = int(lmi_param['DT'])   # Spacing of source times
+    dt = int(lmi_param['dt'])   # Spacing of source times
 
     cfg0 = int(param['precess']['loose']['cfg0'])  # Base configuration
     dcfg = int(param['precess']['loose']['dcfg'])  # Interval between cfgnos
@@ -196,7 +184,7 @@ def make_inputs(param, step, cfgno_steps):
             # Name of the input XML file
             io_stem_template = param['job_setup'][step]['io']
             # Replace variables in io_stem if need be
-            io_stem = sub_iOTemplate(param, io_stem_template)
+            io_stem = io_stem_template.format(**param['lmi_param'])
             input_xml = f"{io_stem}-{cfgno_series}.xml"
 
             if 'param_file' in param['job_setup'][step]:
@@ -215,7 +203,7 @@ def make_inputs(param, step, cfgno_steps):
                 xml_dict, schedule = pm.build_params(
                     tasks=tasks,
                     schedule=sched_file,
-                    CFG=cfgno, SERIES=series,
+                    cfg=cfgno, series=series,
                     **param['lmi_param'],
                 )
 
@@ -351,15 +339,15 @@ def check_complete():
     print(cmd)
     sys.stdout.flush()
     reply = ""
-    try:
-        reply = subprocess.check_output(cmd, shell=True).decode().splitlines()
-    except subprocess.CalledProcessError as e:
-        print("Error checking job completion.  Return code", e.returncode)
-        for line in reply:
-            print(line)
+    # try:
+    #     reply = subprocess.check_output(cmd, shell=True).decode().splitlines()
+    # except subprocess.CalledProcessError as e:
+    #     print("Error checking job completion.  Return code", e.returncode)
+    #     for line in reply:
+    #         print(line)
 
-    for line in reply:
-        print(line)
+    # for line in reply:
+    #     print(line)
 
     return
 
@@ -409,7 +397,7 @@ def nanny_loop(YAML):
 
             # Check completion and purge scratch files for complete jobs
             if check_count == 0:
-                check_complete()
+                #check_complete()
                 check_count = int(param['nanny']['check_interval'])
 
             if ncases > 0:

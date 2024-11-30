@@ -1,10 +1,10 @@
 from python_scripts.nanny.xml_templates.hadrons_templates import \
     module_templates
 from python_scripts.utils import deep_copy_dict
-
+import typing as t
 
 def gauge_dp_params(ens: str, series: str,
-                    include_unsmeared: bool = False) -> list:
+                    include_unsmeared: bool = False) -> t.List:
 
     module_names = ["gauge_fat", "gauge_long"]
     file_prefixes = ['fat', 'lng']
@@ -33,7 +33,7 @@ def gauge_dp_params(ens: str, series: str,
     return modules
 
 
-def gauge_sp_params(field_names: list[str]) -> list:
+def gauge_sp_params(field_names: t.List[str]) -> t.List:
 
     modules = []
 
@@ -47,7 +47,7 @@ def gauge_sp_params(field_names: list[str]) -> list:
 
 
 def action_params(name: str, mass: str, fat_label: str,
-                  long_label: str, single_precision=False) -> list:
+                  long_label: str, single_precision=False) -> t.List:
 
     if single_precision:
         template_name = 'action_float'
@@ -63,7 +63,7 @@ def action_params(name: str, mass: str, fat_label: str,
     return [module]
 
 
-def op_params(name: str, action: str) -> list:
+def op_params(name: str, action: str) -> t.List:
     module = deep_copy_dict(module_templates['op'])
     module["id"]["name"] = name
     module["options"]["action"] = action

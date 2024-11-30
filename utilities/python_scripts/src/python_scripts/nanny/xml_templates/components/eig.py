@@ -14,6 +14,16 @@ def epack_load_params(name: str, filestem: str, eigs: str,
 
     return [module]
 
+
+def eval_save_params(output: str) -> list:
+    module = deep_copy_dict(module_templates["eval_save"])
+    module["id"]["name"] = "eval_save"
+    module["options"]["eigenPack"] = 'epack'
+    module["options"]["output"] = output
+
+    return [module]
+
+
 def irl_params(name: str, operator: str, lanczos_params: dict,
                output: str = '', multifile: str = 'false',
                residual: str = '') -> list:

@@ -68,22 +68,6 @@ def key_todo_entries(td):
 
 
 ######################################################################
-def cmp_todo_entries(td1, td2):
-    """Compare todo entries with format x.nnnn"""
-    # Python 2.7 only
-
-    (stream1, cfg1) = td1.split(".")
-    (stream2, cfg2) = td2.split(".")
-
-    # Sort first on stream, then on cfg
-    order = cmp(stream1, stream2)
-    if order == 0:
-        order = cmp(int(cfg1), int(cfg2))
-
-    return order
-
-
-######################################################################
 def write_todo(todo_file, todo_list):
     """Write the todo file"""
 
@@ -116,8 +100,8 @@ def find_next_unfinished_task(a):
 
     for i in range(1, len(a), 2):
         if ('Q' in a[i]) or ('C' in a[i]) or ('fix' in a[i]):
-            # If any entry for this cfg has a Q, we don't try to run a subsequent step
-            # because of dependencies.
+            # If any entry for this cfg has a Q, we don't try to run
+            # a subsequent step because of dependencies.
             # If it is being checked, (marked 'C'),  we also skip it.
             # If it is marked 'fix', we also skip it.
             break

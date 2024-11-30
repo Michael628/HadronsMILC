@@ -8,20 +8,8 @@ import re
 import subprocess
 import todo_utils
 import python_scripts.utils as utils
-# Check job completion.  For any completed jobs, mark the todo list
-# C. DeTar
-
-# Usage
-
-# From the ensemble directory containing the todo file
-# ../../scripts/check_completed.py
-
-# Requires a todo file with a list of configurations to be processed
-# In addition to the modules imported above, requires the following YAML files:
-# ../scripts/params-allHISQ-plus5.yaml
-# ../scripts/params-launch.yaml
-# params-machine.yaml
-# params-ens.yaml
+import typing as t
+from python_scripts.param_types import ConfigFactory, Config
 
 
 ######################################################################
@@ -117,127 +105,10 @@ def mark_checking_todo_entry(series_cfg, prec_tsrc, todo_list):
     todo_list[key] = [series_cfg, prec_tsrc, "C"]
 
 
-#######################################################################
-def decode_series_cfg(series_cfg):
-    """Decode series, cfg, as it appeaers in the todo file"""
-    return series_cfg.split(".")
-
-
-#######################################################################
-def decode_prec_tsrc(series_cfg):
-    """Decode prec, tsrc, as it appeaers in the todo file
-       Takes P.nn -> [P, nnn]"""
-    return series_cfg.split(".")
-
-
-######################################################################
-def purge_props(param, series_cfg):
-    """Purge propagators for the specified configuration"""
-
-    print("Purging props for", series_cfg)
-    series, cfg = decode_series_cfg(series_cfg)
-    config_id = code_cfg(series, cfg)
-    prop = param['files']['prop']
-    subdirs = prop['subdirs'] + [config_id]
-    remote_path = os.path.join(*subdirs)
-    cmd = ' '.join(["nohup", "/bin/rm -r", remote_path, "> /dev/null 2> /dev/null &"])
-    print(cmd)
-    try:
-        subprocess.call(cmd, shell=True)
-    except subprocess.CalledProcessError as e:
-        print("ERROR: can't remove props.  Error code", e.returncode, ".")
-
-
-######################################################################
-def purge_rands(param, series_cfg):
-    """Purge random sources for the specified configuration"""
-
-    print("Purging rands for", series_cfg)
-    series, cfg = decode_series_cfg(series_cfg)
-    config_iD = code_cfg(series, cfg)
-    rand = param['files']['rand']
-    subdirs = rand['subdirs'] + [config_iD]
-    remote_path = os.path.join(*subdirs)
-    cmd = ' '.join(["nohup", "/bin/rm -r", remote_path, "> /dev/null 2> /dev/null &"])
-    print(cmd)
-    try:
-        subprocess.call(cmd, shell=True)
-    except subprocess.CalledProcessError as e:
-        print("ERROR: can't remove rands.  Error code", e.returncode, ".")
-
-
 ######################################################################
 def tar_input_path(stream, s06Cfg, prec_tsrc):
     """Where the data and logs are found"""
     return os.path.join(stream, s06Cfg, prec_tsrc)
-
-
-######################################################################
-def purge_sym_links(param, job_case):
-    """Purge symlinks for the specified job_id"""
-
-    (
-        stream,
-        series,
-        cfg,
-        prec,
-        tsrc, s06Cfg, tsrc_id, job_id, job_seq_no) = job_case
-
-    print("Purging symlinks for job", job_id)
-
-    io = param['files']['out']
-    logs_path = os.path.join(
-        tar_input_path(stream, s06Cfg, tsrc_id), io['subdir']
-    )
-    cmd = ' '.join([
-        "find -P",
-        logs_path,
-        "-lname '?*Job'" + job_id + r"'*' -exec /bin/rm '{}' \;"
-    ])
-    print(cmd)
-    try:
-        subprocess.call(cmd, shell=True)
-    except subprocess.CalledProcessError as e:
-        print("ERROR: rmdir exited with code", e.returncode, ".")
-
-
-######################################################################
-def good_logs(param, job_case):
-    """Check that the log files are complete"""
-
-    (stream, series, cfg, prec, tsrc, s06Cfg, tsrc_id, job_id, job_seq_no) = job_case
-    prec_tsrc_config_id = [prec, tsrc, series, cfg]
-
-    for step in range(param['job']['steprange']['high']):
-        expect_file = out_file_name(
-            stream,
-            prec_tsrc_config_id,
-            job_seq_no, '', "step" + str(step)
-        )
-        log_path = os.path.join(stream, s06Cfg, tsrc_id, "logs", expect_file)
-        try:
-            stat = os.stat(log_path)
-        except OSError:
-            print("ERROR: Can't find expected output file", path)
-            return False
-
-        # Check for "RUNNING COMPLETED"
-        entries = count_phrase(log_path, 'RUNNING COMPLETED')
-        if entries < 1:
-            print("ERROR: did not find 'RUNNING COMPLETED' in", log_path)
-            return False
-
-        # Check for nonconvergence, signaled by lines with "NOT"
-        entries = count_phrase(log_path, "NOT")
-        if entries > 0:
-            print((f"WARNING: {entries} lines with"
-                   " 'NOT' suggesting nonconvergence"))
-
-    # Passed these tests
-    print("Output files OK")
-    print("COMPLETE")
-
-    return True
 
 
 ######################################################################
@@ -323,27 +194,15 @@ def good_a2a_local(param, cfgno):
 
 
 ######################################################################
-def good_a2a_onelink(param, cfgno):
+def good_meson(tasks, cfgno, param) -> bool:
     """Check that the A2A output looks OK"""
 
-    return check_path(param, 'a2a_onelink', cfgno, True)
-
-
-######################################################################
-def good_contract_local(param, cfgno):
-    """Check that the contrraction output looks OK"""
-
-    return check_path(param, 'contract_local', cfgno, True)
-
+    check_path(param, 'a2a_onelink', cfgno, True)
+    return
 
 ######################################################################
-def good_contract_onelink(param, cfgno):
-    """Check that the contrraction output looks OK"""
-
-    return check_path(param, 'contract_onelink', cfgno, True)
 
 
-######################################################################
 def good_contract_py(param, cfgno):
     """Check that the contrraction output looks OK"""
 
@@ -351,32 +210,92 @@ def good_contract_py(param, cfgno):
 
 
 ######################################################################
-def move_failed_outputs(job_case):
-    """Move failed output to temporary failure archive"""
+# def get_high_modes_output(tasks: t.Dict, param: t.Dict) -> t.List[OutputCheck]:
 
-    (stream,
-     series,
-     cfg,
-     prec,
-     tsrc,
-     s06Cfg,
-     tsrc_id,
-     job_id,
-     job_seq_no) = job_case
+#     epack_tasks = tasks['epack']
 
-    bad_output_path = tar_input_path(stream, s06Cfg, tsrc_id)
-    fail_path = os.path.join(stream, s06Cfg, "fail", job_id)
+#     generate_eigs: bool
+#     multifile: bool
+#     save_evals: bool
 
-    # Move the failed output
-    cmd = " ".join(["mkdir -p ", fail_path, "; mv", bad_output_path, fail_path])
-    print(cmd)
-    try:
-        subprocess.check_output(cmd, shell=True).decode("ASCII")
-    except subprocess.CalledProcessError as e:
-        status = e.returncode
+#     generate_eigs = not epack_tasks['load']
+#     multifile = epack_tasks.get('multifile', False)
+#     save_evals = generate_eigs or epack_tasks.get('save_evals', False)
 
+#     ret = []
+#     if generate_eigs:
+#         ret.append(files['eigdir' if multifile else 'eig'])
+#     if save_evals:
+#         ret.append(files['eval'])
+
+#     return ret
+
+
+# def get_meson_output(tasks: t.Dict, param: t.Dict) -> t.List[OutputCheck]:
+
+#     meson_tasks = tasks['meson']
+
+#     ret = [
+#         OutputCheck(
+#             filestem=files[meson],
+#             good_size=files['good_size']
+#         )
+#         for meson in meson_tasks
+#     ]
+
+#     return ret
+
+
+def get_epack_output(tasks: Config, param: t.Dict):
+
+    epack_tasks = tasks['epack']
+    file_params = param['files']['epack']
+
+    generate_eigs: bool = not epack_tasks['load']
+
+    multifile: bool
+    multifile = epack_tasks.get('multifile', False)
+
+    save_evals: bool
+    save_evals = generate_eigs or epack_tasks.get('save_evals', False)
+
+    files = []
+    if generate_eigs:
+        eig_key = 'eigdir' if multifile else 'eig'
+        files.append(file_params[eig_key])
+        files.append(file_params['eval'])
+
+        output = dict(files[key].items())
+        if multifile:
+            output['formatting'] = {
+                'eig_index': [str(i) for i in range()]
+            }
+    if save_evals:
+        ret.append(files['eval'])
+
+    return ret
+
+
+def get_task_outputs(task_config: t.List[Config], param: t.Dict) \
+        -> t.List[str]:
+    """Call `get_{task}_output` function for each task in list"""
+
+    outfiles = []
+    for cfg in task_config:
+        if hasattr(cfg, 'output'):
+            if callable(cfg.output):
+                outfiles.append(cfg.output(**param))
+            elif isinstance(cfg.output, t.List):
+                outfiles.append(cfg.output.format(**param))
+            else:
+                raise ValueError(("Expecting output of all tasks to provide"
+                                  "lists of strings to be formatted"))
+
+    return sum(outfiles, [])
 
 ######################################################################
+
+
 def next_finished(param, todo_list, entry_list):
     """Find the next well-formed entry marked "Q" whose job is no longer
     in the queue
@@ -412,9 +331,8 @@ def next_finished(param, todo_list, entry_list):
 
     return index, cfgno, step
 
+
 ######################################################################
-
-
 def check_pending_jobs(YAML):
     """Process all entries marked Q in the todolist"""
 
@@ -434,6 +352,7 @@ def check_pending_jobs(YAML):
     # Run through the entries. The entry_list is static, but the
     # todo file could be changing due to other proceses
     while len(entry_list) > 0:
+        print("HELLO")
         # Reread the todo file (it might have changed)
         todo_utils.wait_set_todo_lock(lock_file)
         todo_list = todo_utils.read_todo(todo_file)
@@ -457,21 +376,22 @@ def check_pending_jobs(YAML):
         status = True
         if step == "S":
             status = status and good_links(param, cfgno)
-        if step == "E":
-            status = status and good_eigs(param, cfgno)
-        if step in ["L", "A", "B", "N", "D"]:
-            status = status and good_lma(param, cfgno)
-        if step in ["L", "A", "M", "M1", "D"]:
-            status = status and good_a2a_onelink(param, cfgno)
-        if step in ["L", "A", "M", "M2"]:
-            status = status and good_a2a_local(param, cfgno)
-        if step == "H":
-            status = status and good_contract_local(param, cfgno)
-        if step == "I":
-            status = status and good_contract_onelink(param, cfgno)
-        if step == "G":
-            status = status and good_contract_py(param, cfgno)
+        else:
+            tasks: t.Dict[str, t.Any]
+            try:
+                tasks = param["job_setup"][step]['tasks']
+                param_file = param["job_setup"][step]['param_file']
+            except KeyError:
+                print(("`tasks` not found in `job_setup` parameters."
+                       f"for step `{step}`"))
 
+            task_config: t.List[Config]
+            task_config = ConfigFactory.create_config(param_file, tasks)
+            get_task_outputs(task_config, param['lmi_param'])
+        # status = all([
+            # call(f"good_{key}", tasks[key], cfgno, param)
+            # for key in tasks.keys()
+        # ])
         sys.stdout.flush()
 
         # Update the entry in the todo file
@@ -489,9 +409,18 @@ def check_pending_jobs(YAML):
         # Take a cat nap (avoids hammering the login node)
         subprocess.check_call(["sleep", "1"])
 
+
 ############################################################
+def call(func_name, *args, **kwargs):
+    func = globals().get(func_name, None)
+    if callable(func):
+        return func(*args, **kwargs)
+    else:
+        raise AttributeError(
+            f"Function '{func_name}' not found or is not callable.")
 
 
+############################################################
 def main():
 
     # Parameter file
@@ -502,4 +431,5 @@ def main():
 
 
 ############################################################
-main()
+if __name__ == '__main__':
+    main()

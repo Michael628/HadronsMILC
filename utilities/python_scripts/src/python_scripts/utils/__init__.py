@@ -1,6 +1,16 @@
 import yaml
 import copy
 from collections.abc import Mapping
+import typing as t
+import logging
+from string import Formatter
+from functools import partial
+import os
+import re
+import itertools
+
+
+procFn = t.Callable[[str, t.Any], t.Any]
 
 
 class ReadOnlyDict(Mapping):
@@ -60,41 +70,143 @@ def load_param(file):
     return param
 
 
-def load_params_join(YAMLEns, YAMLAll):
-    """Concatenate two YAML parameter files and load
-    We need this because YAMLEns defines a reference needed
-    by YAMLAll"""
+# ------ Format/File Search Functions ------ #
+def process_params(**params) -> t.Dict:
+    """Does nothing to `val` parameters of type list, but converts
+    strings to number ranges.
+    """
 
-    # Initial parameter file
-    # try:
-    ens = open(YAMLEns, 'r').readlines()
-    all = open(YAMLAll, 'r').readlines()
-    param = yaml.safe_load("".join(ens + all))
-    # except:
-    # print("ERROR: Error loading the parameter files", YAMLEns, YAMLAll)
-    # sys.exit(1)
+    param_out = deep_copy_dict(params)
 
-    return param
+    for key, val in param_out.items():
+
+        if isinstance(val, str):
+            if '..' in val:
+                range_input = list(map(int, val.split("..")))
+                range_input[1] += 1
+                param_out[key] = list(range(*range_input))
+            else:
+                param_out[key] = [val]
+        elif not isinstance(val, t.List):
+            logging.debug(f'Removing key: {key} from parameters.')
+            param_out.pop(key)
+
+    return param_out
 
 
-############################################################
-def update_param(param, param_update):
-    """Update the param dictionary according to terms in param_update"""
+def formatkeys(format_string: str) -> t.List[str]:
+    """Get formatting variables found in `format_string`"""
 
-    # Updating is recursive in the tree so we can update selected branches
-    # leaving the remainder untouched
-    for b in param_update.keys():
-        try:
-            k = param_update[b].keys()
-            n = len(k)
-        except AttributeError:
-            n = 0
+    key_list = list(
+        {
+            k[1]
+            for k in Formatter().parse(format_string)
+            if k[1] is not None
+        }
+    )
 
-        if b in param.keys() and n > 0:
-            # Keep descending until we run out of branches
-            update_param(param[b], param_update[b])
-        else:
-            # Then stop, replacing just the last branch or creating a new one
-            param[b] = param_update[b]
+    return key_list
 
-    return param
+
+def file_regex_gen(
+        filestem: partial,
+        regex: t.Dict[str, str]):
+    """Formats `filestem` with replacements from `regex` and performs regex
+    search on system files.
+
+    Yields
+    ------
+    (replacements, filename)
+        replacements: dict
+            The matched values in the regex pattern corresponding to the
+            formatting keys in `filestem`
+
+        filename: str
+            The file name that matched the regex search
+    """
+    if len(regex) == 0:
+        yield {}, filestem()
+    else:
+        # Build regex objects to catch each replacement
+        regex_repl = {k: f"(?P<{k}>{val})" for k, val in regex.items()}
+        file_pattern = filestem(**regex_repl)
+
+        # FIX ME: Assumes all regex matches occur in file name,
+        # not in the directory path.
+        directory, match = os.path.split(file_pattern)
+
+        files: t.List[str] = os.listdir(directory)
+
+        regex_pattern: re.Pattern = re.compile(match)
+
+        for file in files:
+            try:
+                regex_repl = next(regex_pattern.finditer(file)).groupdict()
+            except StopIteration:
+                continue
+
+            yield regex_repl, f"{directory}/{file}"
+
+
+def string_replacement_gen(
+        fstring: str,
+        replacements: t.Dict[str, t.Union[str, t.List[str]]]):
+    """Generator for keyword replacements of `fstring`
+
+    Yields
+    ------
+    (repl, repl_string)
+        `repl` : dict
+            The replacement dictionary
+            which can be passed to str.format() as kwargs
+        `repl_string` : functools.partial
+            The `fstring` partially formatted by `repl`. If
+            no other replacements are needed then repl_string() will
+            return the desired string
+    """
+
+    if len(replacements) == 0:
+        yield {}, partial(fstring.format)
+    else:
+        keys, repls = zip(*(
+            (k, map(str, r))
+            if isinstance(r, t.List)
+            else (k, [str(r)])
+            for k, r in replacements.items()
+        ))
+
+        for r in itertools.product(*repls):
+            repl: t.Dict = dict(zip(keys, r))
+            string_repl: partial = partial(
+                fstring.format, **repl)
+
+            yield repl, string_repl
+
+
+def process_files(filestem: str, processor: procFn,
+                  replacements: t.Optional[t.Dict] = None,
+                  regex: t.Optional[t.Dict] = None):
+
+    repl_keys: t.List[str] = formatkeys(filestem)
+
+    str_repl: t.Dict = replacements if replacements else {}
+    regex_repl: t.Dict = regex if regex else {}
+
+    assert len(repl_keys) == len(str_repl) + len(regex_repl)
+    assert all((
+        (k in str_repl or k in regex_repl)
+        for k in repl_keys
+    ))
+
+    collection = []
+
+    for str_reps, repl_filename in string_replacement_gen(
+            filestem, str_repl):
+        for reg_reps, regex_filename in file_regex_gen(
+                repl_filename, regex_repl):
+
+            new_result = processor(regex_filename, **str_reps, **reg_reps)
+            collection.append(new_result)
+
+    return collection
+# ------ End Format/File Search Functions ------ #

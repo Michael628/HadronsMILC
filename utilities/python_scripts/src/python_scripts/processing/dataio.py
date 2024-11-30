@@ -1,178 +1,20 @@
-import os
-import pickle
 import logging
 import itertools
 from functools import partial
-import re
-from string import Formatter
 import numpy as np
 import pandas as pd
 import h5py
 import python_scripts.processing.processor as processor
 import typing as t
-
-
-# ------ Types and config classes ------ #
-class ArrayParams(t.TypedDict):
-    """Parameters providing index names and values to convert ndarray
-    into a DataFrame.
-
-    Properties
-    ----------
-        order: list
-            A list of names given to each dimension of a
-            multidimensional ndarray in the order of the array's shape
-        labels: dict(str, Union(str, list))
-            labels for each index of multidimensional array. Dictionary
-            keys should match entries in `order`. Dictionary values
-            should either be lists with length matching corresponding
-            dimension of ndarray, or a string range in the format 'start..stop'
-            where start-stop = length of array for the given dimension,
-            (note: stop is inclusive).
-    """
-    order: t.List
-    labels: t.Dict[str, t.Union[str, t.List]]
-
-
-class H5Params(t.TypedDict):
-    """Parameters providing index names and values to convert hdf5 datasets
-    into a DataFrame.
-
-    Properties
-    ----------
-        name: str
-            The name to give the datasets provided in `datasets`
-        datasets: dict(str, str)
-            Dictionary keys will correspond to DataFrame index labels.
-            Dictionary values are hdf5 file paths to access corresponding data.
-    """
-    name: str
-    datasets: t.Dict[str, str]
-
-
-class DataioConfig(t.TypedDict):
-    filestem: str
-    replacements: t.Dict[str, t.Union[str, t.List[str]]]
-    regex: t.Dict[str, str]
-    h5_params: H5Params
-    array_params: t.Union[ArrayParams, t.Dict[str, ArrayParams]]
-    dict_labels: t.List[str]
-    actions: t.Dict[str, t.Any]
-
+import python_scripts.utils as utils
+from python_scripts.param_types import (
+    DataioConfig,
+    ArrayParams,
+    H5Params,
+)
 
 dataFrameFn = t.Callable[[np.ndarray], pd.DataFrame]
 loadFn = t.Callable[[str], pd.DataFrame]
-# ------ End types and config classes ------ #
-
-
-# ------ Helper Functions ------ #
-def parse_ranges(array_params: ArrayParams) -> None:
-    """Does nothing to `val` parameters of type list, but converts
-    strings to number ranges.
-    """
-    if labels := array_params.get('labels', {}):
-        for key, val in labels.items():
-
-            if isinstance(val, t.List):
-                pass
-            elif '..' in val:
-                range_input = list(map(int, val.split("..")))
-                range_input[1] += 1
-                array_params['labels'][key] = list(range(*range_input))
-            else:
-                raise ValueError(
-                    ("`array_labels` must be lists or "
-                     "strings of the form `<min>..<max>`."))
-
-
-def formatkeys(format_string: str) -> t.List[str]:
-    """Get formatting variables found in `format_string`"""
-
-    key_list = list(
-        {
-            k[1]
-            for k in Formatter().parse(format_string)
-            if k[1] is not None
-        }
-    )
-
-    return key_list
-
-
-def file_regex_gen(
-        filestem: partial,
-        regex: t.Dict[str, str]):
-    """Formats `filestem` with replacements from `regex` and performs regex
-    search on system files.
-
-    Yields
-    ------
-    (replacements, filename)
-        replacements: dict
-            The matched values in the regex pattern corresponding to the
-            formatting keys in `filestem`
-
-        filename: str
-            The file name that matched the regex search
-    """
-    if len(regex) == 0:
-        yield {}, filestem()
-    else:
-        # Build regex objects to catch each replacement
-        regex_repl = {k: f"(?P<{k}>{val})" for k, val in regex.items()}
-        file_pattern = filestem(**regex_repl)
-
-        # FIX ME: Assumes all regex matches occur in file name,
-        # not in the directory path.
-        directory, match = os.path.split(file_pattern)
-
-        files: t.List[str] = os.listdir(directory)
-
-        regex_pattern: re.Pattern = re.compile(match)
-
-        for file in files:
-            try:
-                regex_repl = next(regex_pattern.finditer(file)).groupdict()
-            except StopIteration:
-                continue
-
-            yield regex_repl, f"{directory}/{file}"
-
-
-def string_replacement_gen(
-        fstring: str,
-        replacements: t.Dict[str, t.Union[str, t.List[str]]]):
-    """Generator for keyword replacements of `fstring`
-
-    Yields
-    ------
-    (repl, repl_string)
-        `repl` : dict
-            The replacement dictionary
-            which can be passed to str.format() as kwargs
-        `repl_string` : functools.partial
-            The `fstring` partially formatted by `repl`. If
-            no other replacements are needed then repl_string() will
-            return the desired string
-    """
-
-    if len(replacements) == 0:
-        yield {}, partial(fstring.format)
-    else:
-        keys, repls = zip(*(
-            (k, map(str, r))
-            if isinstance(r, t.List)
-            else (k, [str(r)])
-            for k, r in replacements.items()
-        ))
-
-        for r in itertools.product(*repls):
-            repl: t.Dict = dict(zip(keys, r))
-            string_repl: partial = partial(
-                fstring.format, **repl)
-
-            yield repl, string_repl
-# ------ End Helper Functions ------ #
 
 
 # ------ Data structure Functions ------ #
@@ -183,16 +25,16 @@ def ndarray_to_frame(
     `array_params`. See `ArrayParams` class for details.
     """
 
-    if len(array_params["order"]) == 1 and array_params["order"][0] == 'dt':
-        array_params["labels"]['dt'] = list(range(np.prod(array.shape)))
+    if len(array_params.order) == 1 and array_params.order[0] == 'dt':
+        array_params.labels['dt'] = list(range(np.prod(array.shape)))
 
-    assert len(array_params["labels"]) == len(array_params["order"])
+    assert len(array_params.labels) == len(array_params.order)
 
-    indices = [array_params["labels"][k] for k in array_params["order"]]
+    indices = [array_params.labels[k] for k in array_params.order]
 
     index: pd.MultiIndex = pd.MultiIndex.from_tuples(
         itertools.product(*indices),
-        names=array_params["order"]
+        names=array_params.order
     )
 
     return pd.Series(
@@ -222,19 +64,19 @@ def h5_to_frame(file: h5py.File,
 
     h5_params: H5Params
         Parameters that map keys to datasets in `file`."""
-    assert all(k in data_to_frame.keys() for k in h5_params['datasets'].keys())
+    assert all(k in data_to_frame.keys() for k in h5_params.datasets.keys())
 
     df = []
-    for k, v in h5_params["datasets"].items():
+    for k, v in h5_params.datasets.items():
         frame = data_to_frame[k](file[v][:].view(np.complex128))
-        if len(h5_params["datasets"]) > 1:
-            frame[h5_params["name"]] = k
+        if len(h5_params.datasets) > 1:
+            frame[h5_params.name] = k
         df.append(frame)
 
     df = pd.concat(df)
 
-    if len(h5_params["datasets"]) > 1:
-        df.set_index(h5_params["name"], append=True, inplace=True)
+    if len(h5_params.datasets) > 1:
+        df.set_index(h5_params.name, append=True, inplace=True)
 
     return df
 
@@ -348,7 +190,6 @@ def dict_to_frame(
         df.set_index(list(dict_labels), append=True, inplace=True)
 
     return df
-
 # ------ End data structure functions ------ #
 
 
@@ -356,50 +197,28 @@ def dict_to_frame(
 def load_files(filestem: str, file_loader: loadFn,
                replacements: t.Optional[t.Dict] = None,
                regex: t.Optional[t.Dict] = None):
-    """"""
-    repl_keys: t.List[str] = formatkeys(filestem)
+    def proc(filename: str, **kwargs) -> pd.DataFrame:
+        logging.debug(f"Loading file: {filename}")
+        new_data: pd.DataFrame = file_loader(filename)
 
-    str_repl: t.Dict = replacements if replacements else {}
-    regex_repl: t.Dict = regex if regex else {}
+        if len(kwargs) != 0:
+            new_data[list(kwargs.keys())] = tuple(kwargs.values())
 
-    assert len(repl_keys) == len(str_repl) + len(regex_repl)
-    assert all((
-        (k in str_repl or k in regex_repl)
-        for k in repl_keys
-    ))
+        return new_data
 
-    df = []
-
-    for str_reps, repl_filename in string_replacement_gen(
-            filestem, str_repl):
-        for reg_reps, regex_filename in file_regex_gen(
-                repl_filename, regex_repl):
-            logging.debug(f"Loading file: {regex_filename}")
-            new_data: pd.DataFrame = file_loader(regex_filename)
-
-            if len(str_reps) != 0:
-                new_data[list(str_reps.keys())] = tuple(str_reps.values())
-            if len(reg_reps) != 0:
-                new_data[list(reg_reps.keys())] = tuple(reg_reps.values())
-
-            df.append(new_data)
-
-    df = pd.concat(df)
-
-    if len(repl_keys) != 0:
-        df.set_index(repl_keys, append=True, inplace=True)
-
-    return df
+    return utils.process_files(filestem, proc, replacements, regex)
 
 
-def load(config: DataioConfig) -> pd.DataFrame:
+def load(config_params: t.Dict, combine: bool = True) -> pd.DataFrame:
+
+    conf: DataioConfig = DataioConfig.from_dict(config_params)
 
     def pickle_loader(filename: str):
 
-        dict_labels: t.Tuple = tuple(config.get("dict_labels", []))
+        dict_labels: t.Tuple = tuple(conf.dict_labels)
 
-        array_params: ArrayParams = config.get("array_params", ArrayParams())
-        parse_ranges(array_params)
+        array_params: ArrayParams = conf.array_params
+
         data_to_frame = partial(ndarray_to_frame, array_params=array_params)
 
         data = np.load(filename, allow_pickle=True)
@@ -421,9 +240,13 @@ def load(config: DataioConfig) -> pd.DataFrame:
         try:
             return pd.read_hdf(filename)
         except ValueError:
-            h5_params: H5Params = config.get("h5_params")
-            array_params: t.Dict[str, ArrayParams] = config.get("array_params")
-            parse_ranges(array_params)
+            assert conf.h5_params is not None
+
+            h5_params: H5Params = conf.h5_params
+
+            array_params: t.Dict[str, ArrayParams]
+            array_params = conf.array_params
+
             data_to_frame = {
                 k: partial(ndarray_to_frame, array_params=array_params[k])
                 for k in array_params.keys()
@@ -433,10 +256,9 @@ def load(config: DataioConfig) -> pd.DataFrame:
 
             return h5_to_frame(file, data_to_frame, h5_params)
 
-    replacements: t.Dict = config.get("replacements", {})
-    regex: t.Dict = config.get("regex", {})
-
-    filestem: str = config.get("filestem")
+    replacements: t.Dict = conf.replacements
+    regex: t.Dict = conf.regex
+    filestem: str = conf.filestem
 
     if filestem.endswith(".p") or filestem.endswith(".npy"):
         file_loader = pickle_loader
@@ -445,11 +267,20 @@ def load(config: DataioConfig) -> pd.DataFrame:
     else:
         raise ValueError("File must have extension '.p' or '.h5'")
 
-    df = load_files(filestem, file_loader, replacements, regex)
+    df: t.List[pd.DataFrame] = load_files(
+        filestem, file_loader, replacements, regex
+    )
 
-    actions = config.get("actions", {})
+    actions: t.Dict = conf.actions
+    _ = [
+        processor.execute(elem, actions=actions)
+        for elem in df
+    ]
 
-    return processor.execute(df, actions=actions)
+    if combine:
+        df = pd.concat(df)
+
+    return df
 # ------ End Input functions ------ #
 
 
@@ -466,7 +297,8 @@ def write_data(df: pd.DataFrame, filestem: str,
     write_fn: Callable[df, filename]
         The function used to write `df` into the desired format
     """
-    if repl_keys := formatkeys(filestem):
+    repl_keys = utils.formatkeys(filestem)
+    if repl_keys:
         assert len(df) != 0
         assert all([k in df.index.names for k in repl_keys])
 

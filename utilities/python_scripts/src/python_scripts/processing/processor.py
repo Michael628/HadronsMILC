@@ -2,6 +2,7 @@
 import logging
 import pandas as pd
 import numpy as np
+import gvar as gv
 import gvar.dataset as ds
 import typing as t
 
@@ -14,7 +15,7 @@ GROUPED_ACTIONS = {
 }
 
 
-def gvar(df: pd.DataFrame):
+def gvar(df: pd.DataFrame) -> pd.DataFrame:
 
     cfgs = len(df)
     j_knife = group_apply(df, stdjackknife, ['series', 'cfg'])
@@ -32,6 +33,27 @@ def gvar(df: pd.DataFrame):
     df_out['signal'] = group_apply(df, ds_avg, ['series', 'cfg'])['corr']
     df_out['nts'] = np.divide(df_out['noise'], df_out['signal'])
     return df_out
+
+
+def buffer(df: pd.DataFrame, key_index: str) -> gv.BufferDict:
+
+    buff = gv.BufferDict()
+
+    nt = df.index.get_level_values('dt').nunique()
+
+    labels_dt_last = sorted(df.index.names,
+                            key=lambda x: 0 if x == 'dt' else -1)
+
+    if key_index in df.columns:
+        group_param = {'by': key_index}
+    else:
+        group_param = {'level': key_index}
+
+    for key, xs in df.groupby(**group_param):
+        buff[key] = xs.reorder_levels(labels_dt_last)['corr'] \
+            .to_numpy().reshape((-1, nt)).real
+
+    return buff
 
     # Shaun example code for dicts:
     # dset = gv.BufferDict()
