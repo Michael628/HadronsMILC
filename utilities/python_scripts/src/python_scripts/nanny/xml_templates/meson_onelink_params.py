@@ -1,0 +1,91 @@
+import copy
+import os
+
+def buildParams(**moduleTemplates):
+
+     env = os.environ
+     
+     params = {
+         "grid":{
+             "parameters":{
+                 "runId":f"LMI-RW-series-{env['SERIES']}-{env['EIGS']}-eigs-{env['NOISE']}-noise",
+                 "trajCounter":{
+                     "start":env["CFG"],
+                     "end":"10000",
+                     "step":"10000",
+                 },
+                 "genetic":{
+                     "popSize":"20",
+                     "maxGen":"1000",
+                     "maxCstGen":"100",
+                     "mutationRate":"0.1",
+                 },
+                 "graphFile":"",
+                  f"scheduleFile":"",
+                 "saveSchedule":"false",
+                 "parallelWriteMaxRetry":"-1",
+             },
+             "modules":{},
+         },
+     }
+
+     modules = []
+
+     module = copy.deepcopy(moduleTemplates["loadGauge"])
+     module["id"]["name"] = "gauge"
+     module["options"]["file"] = f"lat/scidac/l{env['ENS']}{env['SERIES']}.ildg"
+     modules.append(module)
+
+     module = copy.deepcopy(moduleTemplates["loadGauge"])
+     module["id"]["name"] = "gauge_fat"
+     module["options"]["file"] = f"lat/scidac/fat{env['ENS']}{env['SERIES']}.ildg"
+     modules.append(module)
+
+     module = copy.deepcopy(moduleTemplates["loadGauge"])
+     module["id"]["name"] = "gauge_long"
+     module["options"]["file"] = f"lat/scidac/lng{env['ENS']}{env['SERIES']}.ildg"
+     modules.append(module)
+
+     module = copy.deepcopy(moduleTemplates["epackLoad"])
+     module["id"]["name"] = "epack_l"
+     module["options"]["filestem"] = f"eigen/eig{env['ENS']}nv{env['SOURCEEIGS']}{env['SERIES']}"
+     module["options"]["size"] = env['EIGS']
+     module["options"]["multiFile"] = env['MULTIFILE']
+     modules.append(module)
+
+     for i, m in enumerate(env["MASSES"].strip().split(" ")):
+          mass = "0." + m
+          mass_string = "m"+mass[2:]
+          module = copy.deepcopy(moduleTemplates["action"])
+          module["id"]["name"] = f"stag_{i}"
+          module["options"]["mass"] = mass
+          module["options"]["gaugefat"] = "gauge_fat"
+          module["options"]["gaugelong"] = "gauge_long"
+          modules.append(module)
+
+          module = copy.deepcopy(moduleTemplates["epackModify"])
+          module["id"]["name"] = f"evecs_l_{i}"
+          module["options"]["eigenPack"] = "epack_l"
+          module["options"]["mass"] = mass
+          modules.append(module)
+          
+          module = copy.deepcopy(moduleTemplates["mesonField"])
+          module["id"]["name"] = f"mf_ll_wv_{i}"
+          module["options"].update({
+               "action":f"stag_{i}",
+               "block":env['BLOCKSIZE'],
+               "spinTaste":{
+                    "gammas":"(GX G1) (GY G1) (GZ G1)",
+                    "gauge" :"gauge",
+                    "applyG5":"false"
+               },
+               "lowModes":f"evecs_l_{i}",
+               "output":f"e{env['EIGS']}n{env['NOISE']}dt{env['DT']}/mesons/{mass_string}/mf_{env['SERIES']}"
+          })
+          modules.append(module)
+
+          break #only do one mass
+
+     params["grid"]["modules"] = {"module":modules}
+
+     return params
