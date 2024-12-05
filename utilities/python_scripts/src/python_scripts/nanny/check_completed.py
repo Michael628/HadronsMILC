@@ -9,8 +9,8 @@ import subprocess
 import todo_utils
 import python_scripts.utils as utils
 import typing as t
-from python_scripts.param_types import ConfigFactory, Config
-
+import python_scripts.config as config
+import fileoutput
 
 ######################################################################
 def job_still_queued(param, job_id):
@@ -246,7 +246,7 @@ def good_contract_py(param, cfgno):
 #     return ret
 
 
-def get_epack_output(tasks: Config, param: t.Dict):
+def get_epack_output(tasks: config.ConfigBase, param: t.Dict):
 
     epack_tasks = tasks['epack']
     file_params = param['files']['epack']
@@ -276,7 +276,7 @@ def get_epack_output(tasks: Config, param: t.Dict):
     return ret
 
 
-def get_task_outputs(task_config: t.List[Config], param: t.Dict) \
+def get_task_outputs(task_config: t.List[config.ConfigBase], param: t.Dict) \
         -> t.List[str]:
     """Call `get_{task}_output` function for each task in list"""
 
@@ -286,7 +286,8 @@ def get_task_outputs(task_config: t.List[Config], param: t.Dict) \
             if callable(cfg.output):
                 outfiles.append(cfg.output(**param))
             elif isinstance(cfg.output, t.List):
-                outfiles.append(cfg.output.format(**param))
+                for output in cfg.output:
+                    outfiles.append(output.format(**param))
             else:
                 raise ValueError(("Expecting output of all tasks to provide"
                                   "lists of strings to be formatted"))
@@ -352,7 +353,6 @@ def check_pending_jobs(YAML):
     # Run through the entries. The entry_list is static, but the
     # todo file could be changing due to other proceses
     while len(entry_list) > 0:
-        print("HELLO")
         # Reread the todo file (it might have changed)
         todo_utils.wait_set_todo_lock(lock_file)
         todo_list = todo_utils.read_todo(todo_file)
@@ -380,14 +380,17 @@ def check_pending_jobs(YAML):
             tasks: t.Dict[str, t.Any]
             try:
                 tasks = param["job_setup"][step]['tasks']
-                param_file = param["job_setup"][step]['param_file']
             except KeyError:
-                print(("`tasks` not found in `job_setup` parameters."
+                raise KeyError(("`tasks` not found in `job_setup` parameters."
                        f"for step `{step}`"))
 
-            task_config: t.List[Config]
-            task_config = ConfigFactory.create_config(param_file, tasks)
-            get_task_outputs(task_config, param['lmi_param'])
+            task_config: t.Dict[str, config.ConfigBase]
+            task_config = {
+                key: config.get_config(key)(task)
+                for key, task in tasks.items()
+            }
+            run_config = get_config('lmi_param')(param['lmi_param'])
+            output.get_outputs(task_config, param['lmi_param'])
         # status = all([
             # call(f"good_{key}", tasks[key], cfgno, param)
             # for key in tasks.keys()

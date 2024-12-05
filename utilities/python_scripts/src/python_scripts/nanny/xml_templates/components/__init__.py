@@ -1,4 +1,4 @@
-def wrapper(runid: str, sched: str, cfg: str) -> dict:
+def xml_wrapper(runid: str, sched: str, cfg: str) -> dict:
     params = {
         "grid": {
             "parameters": {

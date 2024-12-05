@@ -19,29 +19,38 @@ from mpi4py import MPI
 
 from python_scripts.processing.format import FilestemFormatBase as FSFormat
 import python_scripts.utils as utils
+import typing as t
+
 
 cpnp = cp
+NdType = t.Union[np.ndarray, cp.ndarray]
 
 
-def convert_to_numpy(corr):
+def convert_to_numpy(corr: NdType) -> np.ndarray:
     """Converts a cupy array to a numpy array"""
-    return corr if type(corr) is np.ndarray else cp.asnumpy(corr)
+    return corr if isinstance(corr, np.ndarray) else cp.asnumpy(corr)
 
 
-def time_average(cij, open_indices=(0, -1)):
-    """Takes an n,n array and returns a 1-dim array of length n, where the i-th
-    output element is the sum of all input elements with indices separated by i
+def time_average(cij: NdType, open_indices: t.Tuple = (0, -1)) -> NdType:
+    """Takes an array with dim >= 2 and returns an array of (dim-1) where the
+    i-th element in the last axis of the array is the sum of all input elements
+    separated by i in the axes specified by `open_indices`
 
     Parameters
     ----------
-    cij: ndarray
-        A 2-dim square array
+    cij : ndarray
+        A dim >= 2 array
+
+    open_indices : tuple, optional
+        axis indices to average over. Defaults to first and last index.
+        Assumes both indices have same length
 
     Returns
     -------
     ndarray
-        A 1-dim array with entries that are the average of input entries with
-        equal index separations
+        Array matching `cij` after averaging. Last dimension of output is
+        average over separations in `open_indices` axes
+        using periodic boundary.
     """
 
     cij = cpnp.asarray(cij)  # Remain cp/np agnostic for utility functions
@@ -60,14 +69,14 @@ def time_average(cij, open_indices=(0, -1)):
     t_end[open_indices[1]] = slice(None)
     t_end = tuple(t_end)
 
-    t_mask = cpnp.mod(t_range[t_end] * ones -
-                      t_range[t_start] * ones, cpnp.array([nt]))
+    t_mask = cpnp.mod(t_range[t_end] * ones
+                      - t_range[t_start] * ones, cpnp.array([nt]))
 
     time_removed_indices = tuple(
         slice(None) if t_start[i] == t_end[i] else 0 for i in range(dim))
 
-    corr = cpnp.zeros(cij[time_removed_indices].shape +
-                      (nt,), dtype=np.complex128)
+    corr = cpnp.zeros(cij[time_removed_indices].shape
+                      + (nt,), dtype=np.complex128)
 
     # t1 = perf_counter()
     corr[:] = cpnp.array([cij[t_mask == t].sum() for t in range(nt)])
@@ -81,6 +90,7 @@ def time_average(cij, open_indices=(0, -1)):
 @dataclass
 class MesonLoader:
     """Iterable object that loads meson fields for processing by a Contractor
+
     Parameters
     ----------
     file : str
@@ -102,8 +112,8 @@ class MesonLoader:
     newmass : str, optional
         New mass to use with `evalfile`. Required if `shift_mass` is True.
     """
-    mesonfiles: list[str]
-    times: tuple
+    mesonfiles: t.List[str]
+    times: t.Tuple
     shift_mass: bool = False
     evalfile: str = ""
     oldmass: float = 0
@@ -112,7 +122,11 @@ class MesonLoader:
     wmax_index: int = slice(None)
     milc_mass: bool = True
 
-    def meson_mass_alter(self, mat: cpnp.ndarray):
+    def meson_mass_alter(self, mat: NdType):
+        """Shifts mass of `mat` according to `newmass` and `oldmass`
+        properties. adjusts for MILC mass convention (factor of 2) if
+        `milc_mass` == True.
+        """
 
         with h5py.File(self.evalfile, 'r') as f:
             try:
@@ -168,7 +182,7 @@ class MesonLoader:
             fact = "2*" if self.milc_mass else ""
             logging.info(
                 (f"Shifting mass from {fact}{self.oldmass:f} "
-                    "to {fact}{self.newmass:f}")
+                    f"to {fact}{self.newmass:f}")
             )
             self.meson_mass_alter(temp)
 
@@ -180,6 +194,9 @@ class MesonLoader:
         return self
 
     def __next__(self):
+        """Each iteration returns
+
+        """
         if self.iter_count < len(self.times[0]) - 1:
 
             self.iter_count += 1
@@ -266,8 +283,8 @@ class Contractor:
         self.npoint = int(
             re.match(".*_([0-9])pt.*", self.contraction_type).group(1))
 
-    def contract(self, m1: np.ndarray, m2: np.ndarray, m3: np.ndarray = None,
-                 m4: np.ndarray = None, open_indices: tuple = (0, -1)):
+    def contract(self, m1: NdType, m2: NdType, m3: NdType = None,
+                 m4: NdType = None, open_indices: t.Tuple = (0, -1)):
         """Performs contraction of up to 4 3-dim arrays down to one 2-dim array
 
         Parameters
@@ -537,16 +554,20 @@ class Contractor:
         return con_key
 
 
-def main():
+def main(seriescfg: str = ''):
 
     comm = MPI.COMM_WORLD
 
-    if len(sys.argv) != 2:
-        logging.error(("Must provide sub-ensemble and "
-                       "config data in 'series.ensemble' format"))
-        exit()
+    if not seriescfg and len(sys.argv) != 2:
+        raise ValueError(("Must provide sub-ensemble and "
+                          "config data in 'series.ensemble' format"))
 
-    series, cfg = sys.argv[1].split('.')
+    series: str
+    cfg: str
+    if seriescfg:
+        series, cfg = seriescfg.split('.')
+    else:
+        series, cfg = sys.argv[1].split('.')
 
     params = utils.load_param('params.yaml')
 
@@ -613,20 +634,21 @@ def main():
                 # e.g. [[0,1], [0,2], ...]
                 seeds = list(map(list, itertools.combinations(
                     list(range(contractor.high_count)), nmesons - nlow)))
-                # Fill low-mode indices with None
-                # e.g. [[None,0,1], [None,0,2], ...]
-                _ = [
-                    seed.insert(i, None)
-                    for i in range(len(perm))
-                    if perm[i] == 'L'
-                    for seed in seeds
-                ]
-                # Double indices for <bra | ket> and cycle
-                # e.g. [[None,0,0,1,1,None], [None,0,0,2,2,None], ...]
-                seeds = [list(sum(zip(seed, seed), ())) for seed in seeds]
-                seeds = [seed[1:] + seed[:1] for seed in seeds]
             else:
                 seeds = [[]]
+
+            # Fill low-mode indices with None
+            # e.g. [[None,0,1], [None,0,2], ...]
+            _ = [
+                seed.insert(i, None)
+                for i in range(len(perm))
+                if perm[i] == 'L'
+                for seed in seeds
+            ]
+            # Double indices for <bra | ket> and cycle
+            # e.g. [[None,0,0,1,1,None], [None,0,0,2,2,None], ...]
+            seeds = [list(sum(zip(seed, seed), ())) for seed in seeds]
+            seeds = [seed[1:] + seed[:1] for seed in seeds]
 
             outfile = contractor.outfile.format(
                 permkey=permkey, diagram=diagram, **outfile_replacements)

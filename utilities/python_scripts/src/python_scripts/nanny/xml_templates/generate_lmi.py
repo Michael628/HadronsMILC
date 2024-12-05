@@ -3,7 +3,7 @@ import re
 
 from python_scripts.utils import deep_copy_dict
 from python_scripts.nanny.xml_templates.components import (
-    gauge, eig, meson, highmodes, wrapper
+    gauge, eig, meson, highmodes, xml_wrapper
 )
 import typing as t
 
@@ -52,7 +52,8 @@ def append_gauges_and_actions(modules: t.List, params: dict) -> None:
 def append_epacks(modules: t.List,
                   load: bool,
                   params: dict,
-                  save_evals: bool = False) -> None:
+                  save_evals: bool = False,
+                  save_eigs: bool = False) -> None:
 
     modules += gauge.op_params('stag_op', 'stag_e')
 
@@ -65,6 +66,10 @@ def append_epacks(modules: t.List,
             multifile=params['multifile']
         )
     else:
+        eig_out: str = ""
+        if save_eigs:
+            eig_out = (f"eig{params['ens']}nv{params['sourceeigs']}"
+                       f"{params['series']}")
         modules += eig.irl_params(
             name='epack',
             operator='stag_op_schur',
@@ -299,7 +304,7 @@ def build_params(tasks: t.Dict, **kwargs):
 
     params = deep_copy_dict(kwargs)
 
-    xml_params = wrapper(
+    xml_params = xml_wrapper(
         runid=(f"LMI-RW-series-{params['series']}"
                f"-{params['eigs']}-eigs-{params['noise']}-noise"),
         sched=params.get('schedule', ''),

@@ -7,11 +7,7 @@ import h5py
 import python_scripts.processing.processor as processor
 import typing as t
 import python_scripts.utils as utils
-from python_scripts.param_types import (
-    DataioConfig,
-    ArrayParams,
-    H5Params,
-)
+from python_scripts.processing.config import DataioConfig, LoadArrayConfig, LoadH5Config
 
 dataFrameFn = t.Callable[[np.ndarray], pd.DataFrame]
 loadFn = t.Callable[[str], pd.DataFrame]
@@ -20,7 +16,7 @@ loadFn = t.Callable[[str], pd.DataFrame]
 # ------ Data structure Functions ------ #
 def ndarray_to_frame(
         array: np.ndarray,
-        array_params: ArrayParams) -> pd.DataFrame:
+        array_params: LoadArrayConfig) -> pd.DataFrame:
     """Converts ndarray into a pandas DataFrame object indexed by the values in
     `array_params`. See `ArrayParams` class for details.
     """
@@ -46,7 +42,7 @@ def ndarray_to_frame(
 
 def h5_to_frame(file: h5py.File,
                 data_to_frame: t.Dict[str, dataFrameFn],
-                h5_params: H5Params) -> pd.DataFrame:
+                h5_params: LoadH5Config) -> pd.DataFrame:
     """Converts hdf5 format `file` to pandas DataFrame based on dataset info
     provided by `h5_params`. See H5Params class for details.
 
@@ -62,7 +58,7 @@ def h5_to_frame(file: h5py.File,
         function). The dictionary keys should match the keys of
         `h5_params['datasetes'].
 
-    h5_params: H5Params
+    h5_params: LoadH5Config
         Parameters that map keys to datasets in `file`."""
     assert all(k in data_to_frame.keys() for k in h5_params.datasets.keys())
 
@@ -197,6 +193,7 @@ def dict_to_frame(
 def load_files(filestem: str, file_loader: loadFn,
                replacements: t.Optional[t.Dict] = None,
                regex: t.Optional[t.Dict] = None):
+
     def proc(filename: str, **kwargs) -> pd.DataFrame:
         logging.debug(f"Loading file: {filename}")
         new_data: pd.DataFrame = file_loader(filename)
@@ -209,7 +206,7 @@ def load_files(filestem: str, file_loader: loadFn,
     return utils.process_files(filestem, proc, replacements, regex)
 
 
-def load(config_params: t.Dict, combine: bool = True) -> pd.DataFrame:
+def load(config_params: t.Dict) -> pd.DataFrame:
 
     conf: DataioConfig = DataioConfig.from_dict(config_params)
 
@@ -217,7 +214,7 @@ def load(config_params: t.Dict, combine: bool = True) -> pd.DataFrame:
 
         dict_labels: t.Tuple = tuple(conf.dict_labels)
 
-        array_params: ArrayParams = conf.array_params
+        array_params: LoadArrayConfig = conf.array_params
 
         data_to_frame = partial(ndarray_to_frame, array_params=array_params)
 
@@ -242,9 +239,9 @@ def load(config_params: t.Dict, combine: bool = True) -> pd.DataFrame:
         except ValueError:
             assert conf.h5_params is not None
 
-            h5_params: H5Params = conf.h5_params
+            h5_params: LoadH5Config = conf.h5_params
 
-            array_params: t.Dict[str, ArrayParams]
+            array_params: t.Dict[str, LoadArrayConfig]
             array_params = conf.array_params
 
             data_to_frame = {
@@ -277,8 +274,7 @@ def load(config_params: t.Dict, combine: bool = True) -> pd.DataFrame:
         for elem in df
     ]
 
-    if combine:
-        df = pd.concat(df)
+    df = pd.concat(df)
 
     return df
 # ------ End Input functions ------ #
