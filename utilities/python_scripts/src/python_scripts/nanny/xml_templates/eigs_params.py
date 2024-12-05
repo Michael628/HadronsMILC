@@ -54,27 +54,17 @@ def build_params(**module_templates):
     module["options"]["action"] = "stag_e"
     modules.append(module)
 
-    alpha = str(float("%0.2g" % (float(env['ALPHA'])+float(env["BUNDLEINDEX"])*float(
-        env["DALPHA"])))) if "DALPHA" in env.keys() else env['ALPHA']
-    npoly = str(int(env['NPOLY'])+int(env["BUNDLEINDEX"]) *
-                int(env["DNPOLY"])) if "DNPOLY" in env.keys() else env['NPOLY']
-
     module = copy.deepcopy(module_templates["irl"])
-    module["id"]["name"] = "epack"
+    module["id"]["name"] = "epack_l"
     module["options"]["op"] = "stag_op_schur"
-    module["options"]["lanczosParams"]["Cheby"]["alpha"] = alpha
-    module["options"]["lanczosParams"]["Cheby"]["beta"] = env['BETA']
-    module["options"]["lanczosParams"]["Cheby"]["Npoly"] = npoly
-    module["options"]["lanczosParams"]["Nstop"] = env['NSTOP']
-    module["options"]["lanczosParams"]["Nk"] = env['NK']
-    module["options"]["lanczosParams"]["Nm"] = env['NM']
-    if 'EIGOUT' in env.keys():
-        module["options"]["output"] = env['EIGOUT'].format(
-            ens=env['ENS'], series=env['SERIES'])
-    if 'MULTIFILE' in env.keys():
-        module["options"]["multiFile"] = env['MULTIFILE']
-    if 'EIGRESID' in env.keys():
-        module["options"]["lanczosParams"]["resid"] = env['EIGRESID']
+    module["options"]["lanczosParams"]["Cheby"]["alpha"] = "0.001"
+    module["options"]["lanczosParams"]["Cheby"]["beta"] = "24"
+    module["options"]["lanczosParams"]["Cheby"]["Npoly"] = "251"
+    module["options"]["lanczosParams"]["Nstop"] = "2000"
+    module["options"]["lanczosParams"]["Nk"] = "2050"
+    module["options"]["lanczosParams"]["Nm"] = "2500"
+    module["options"]["output"] = f"eigen/local/eig{env['ENS']}nv2000er8_grid_{env['SERIES']}"
+    module["options"]["multiFile"] = "true"
     modules.append(module)
 
     params["grid"]["modules"] = {"module": modules}

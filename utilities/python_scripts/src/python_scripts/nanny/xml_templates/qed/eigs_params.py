@@ -1,6 +1,6 @@
 import copy
 import os
-def buildParams(**moduleTemplates):
+def build_params(**module_templates):
 
      env = os.environ
 
@@ -30,17 +30,17 @@ def buildParams(**moduleTemplates):
 
      modules = []
 
-     module = copy.deepcopy(moduleTemplates["loadGauge"])
+     module = copy.deepcopy(module_templates["load_gauge"])
      module["id"]["name"] = "gauge_fat"
      module["options"]["file"] = f"lat/scidac/fat{env['ENS']}{env['SERIES']}.ildg"
      modules.append(module)
 
-     module = copy.deepcopy(moduleTemplates["loadGauge"])
+     module = copy.deepcopy(module_templates["load_gauge"])
      module["id"]["name"] = "gauge_long"
      module["options"]["file"] = f"lat/scidac/lng{env['ENS']}{env['SERIES']}.ildg"
      modules.append(module)
 
-     module = copy.deepcopy(moduleTemplates["action"])
+     module = copy.deepcopy(module_templates["action"])
      module["id"]["name"] = "stag_e"
      module["options"]["mass"] = "0.0"
      module["options"]["gaugefat"] = "gauge_fat"
@@ -48,30 +48,24 @@ def buildParams(**moduleTemplates):
      modules.append(module)
 
      
-     module = copy.deepcopy(moduleTemplates["op"])
+     module = copy.deepcopy(module_templates["op"])
      module["id"]["name"] = "stag_op"
      module["options"]["action"] = "stag_e"
      modules.append(module)
 
-     alpha = str(float( "%0.2g" % (float(env['ALPHA'])+float(env["BUNDLEINDEX"])*float(env["DALPHA"])))) if "DALPHA" in env.keys() else env['ALPHA']
-     npoly = str(int(env['NPOLY'])+int(env["BUNDLEINDEX"])*int(env["DNPOLY"])) if "DNPOLY" in env.keys() else env['NPOLY']
-     nm = str(int(env['NM'])+int(env["BUNDLEINDEX"])*int(env["DNM"])) if "DNM" in env.keys() else env['NM']
-
-     module = copy.deepcopy(moduleTemplates["IRL"])
-     module["id"]["name"] = "epack"
+     module = copy.deepcopy(module_templates["irl"])
+     module["id"]["name"] = "epack_l"
      module["options"]["op"] = "stag_op_schur"
-     module["options"]["lanczosParams"]["Cheby"]["alpha"] = '0'
-     module["options"]["lanczosParams"]["Cheby"]["beta"] = '10' #env['BETA']
-     module["options"]["lanczosParams"]["Cheby"]["Npoly"] = '11'
-     module["options"]["lanczosParams"]["Nstop"] = '1000'#env['NSTOP']
-     module["options"]["lanczosParams"]["Nk"] = '1050'#env['NK']
-     module["options"]["lanczosParams"]["Nm"] = '1100'
-     module["options"]["output"] = "eigen/eig{ens}nv2000er8_grid_{series}".format(ens=env['ENS'],series=env['SERIES'])
-     module["options"]["multiFile"] = 'true'
-     module["options"]["lanczosParams"]["resid"] = '1e-1'
-                    
+     module["options"]["lanczosParams"]["Cheby"]["alpha"] = "0.01"
+     module["options"]["lanczosParams"]["Cheby"]["beta"] = "24"
+     module["options"]["lanczosParams"]["Cheby"]["Npoly"] = "101"
+     module["options"]["lanczosParams"]["Nstop"] = "1000"
+     module["options"]["lanczosParams"]["Nk"] = "1050"
+     module["options"]["lanczosParams"]["Nm"] = "1300"
+     module["options"]["output"] = f"eigen/local/eig{env['ENS']}nv2000er8_grid_{env['SERIES']}"
+     module["options"]["multiFile"] = "false"
      modules.append(module)
-    
+
      params["grid"]["modules"] = {"module":modules}
 
      return params

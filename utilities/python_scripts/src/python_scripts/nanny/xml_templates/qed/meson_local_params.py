@@ -9,7 +9,6 @@ def build_params(**module_templates):
     gammas = {
         "pion_local"   :"(G5 G5)",
         "vec_local"  :" ".join(["(GX GX)","(GY GY)","(GZ GZ)"]),
-        "vec_onelink": " ".join(["(GX G1)","(GY G1)","(GZ G1)"])
     }
     gammas_iter = list(gammas.items())
 
@@ -97,21 +96,6 @@ def build_params(**module_templates):
          modules.append(module)
 
          if mass1_index == 0:
-              module = copy.deepcopy(module_templates["meson_field"])
-              module["id"]["name"] = f"mf_ll_wv_onelink"
-              module["options"].update({
-                   "action":f"stag_{mass1_label}",
-                   "block":"200",
-                   "spinTaste":{
-                        "gammas":"(GX G1) (GY G1) (GZ G1)",
-                        "gauge" :"gauge",
-                        "applyG5":"false"
-                   },
-                   "lowModes":f"evecs_{mass1_label}",
-                   "output":f"e{env['EIGS']}n{env['NOISE']}dt{env['DT']}/mesons/{(mass1_label+'/') if len(masses) > 1 else ''}mf_{env['SERIES']}"
-              })
-              modules.append(module)
-
               module = copy.deepcopy(module_templates["meson_field"])
               module["id"]["name"] = f"mf_ll_wv_local"
               module["options"].update({
