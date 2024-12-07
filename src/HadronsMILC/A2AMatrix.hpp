@@ -404,6 +404,10 @@ A2AMatrixBlockComputationMILC<T, Field, MetadataType, TIo>
 {
 }
 
+#undef START_TIMER
+#undef STOP_TIMER
+#undef GET_TIMER
+
 #define START_TIMER(name) if (_tArray) _tArray->startTimer(name)
 #define STOP_TIMER(name)  if (_tArray) _tArray->stopTimer(name)
 #define GET_TIMER(name)   ((_tArray != nullptr) ? _tArray->getDTimer(name) : 0.)

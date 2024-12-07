@@ -49,8 +49,8 @@ public:
     virtual void execute(void);
 };
 
-MODULE_REGISTER_TMP(StagIRL, TImplicitlyRestartedLanczosMILC<STAGIMPL::FermionField>, MSolver);
-MODULE_REGISTER_TMP(StagIRLIo32, ARG(TImplicitlyRestartedLanczosMILC<STAGIMPL::FermionField, STAGIMPLF::FermionField>), MSolver);
+MODULE_REGISTER_TMP(StagFermionIRL, TImplicitlyRestartedLanczosMILC<STAGIMPL::FermionField>, MSolver);
+MODULE_REGISTER_TMP(StagFermionIRLIo32, ARG(TImplicitlyRestartedLanczosMILC<STAGIMPL::FermionField, STAGIMPLF::FermionField>), MSolver);
 
 /******************************************************************************
  *                 TImplicitlyRestartedLanczosMILC implementation                 *
