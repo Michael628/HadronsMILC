@@ -93,7 +93,7 @@ def build_params(**module_templates):
 
     module = copy.deepcopy(module_templates["irl"])
     module["id"]["name"] = "epack"
-    module["id"]["type"] = "MSolver::StagIRL"
+    module["id"]["type"] = "MSolver::StagFermionIRL"
     module["options"]["op"] = "stag_op_schur"
     module["options"]["lanczosParams"]["Cheby"]["alpha"] = alpha
     module["options"]["lanczosParams"]["Cheby"]["beta"] = env['BETA']
