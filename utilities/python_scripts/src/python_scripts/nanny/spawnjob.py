@@ -8,7 +8,7 @@ import re
 import subprocess
 import todo_utils
 import python_scripts.utils as utils
-import python_scripts.nanny.check_completed as check_completed
+#import python_scripts.nanny.check_completed as check_completed
 from functools import reduce
 
 from dict2xml import dict2xml as dxml

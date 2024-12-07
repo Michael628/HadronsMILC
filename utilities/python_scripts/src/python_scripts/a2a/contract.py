@@ -4,7 +4,11 @@ import sys
 import logging
 import itertools
 import numpy as np
-import cupy as cp
+try:
+    import cupy as cpnp
+except ImportError:
+    import numpy as cpnp
+
 import opt_einsum as oe
 import h5py
 import pickle
@@ -22,13 +26,12 @@ import python_scripts.utils as utils
 import typing as t
 
 
-cpnp = cp
-NdType = t.Union[np.ndarray, cp.ndarray]
+NdType = t.Union[np.ndarray, cpnp.ndarray]
 
 
 def convert_to_numpy(corr: NdType) -> np.ndarray:
     """Converts a cupy array to a numpy array"""
-    return corr if isinstance(corr, np.ndarray) else cp.asnumpy(corr)
+    return corr if isinstance(corr, np.ndarray) else cpnp.asnumpy(corr)
 
 
 def time_average(cij: NdType, open_indices: t.Tuple = (0, -1)) -> NdType:
@@ -534,9 +537,9 @@ class Contractor:
     def execute(self, contraction):
 
         if cpnp.__name__ == 'cupy':
-            my_device = self.rank % cp.cuda.runtime.getDeviceCount()
+            my_device = self.rank % cpnp.cuda.runtime.getDeviceCount()
             logging.debug(f"Rank {self.rank} is using gpu device {my_device}")
-            cp.cuda.Device(my_device).use()
+            cpnp.cuda.Device(my_device).use()
 
         logging.info(f"Processing mode: {', '.join(contraction)}")
 
@@ -594,7 +597,7 @@ def main(seriescfg: str = ''):
     contractor_dict = dict(zip(diagrams, [
         Contractor(series=series,
                    cfg=cfg,
-                   nt=int(params['lmi_param']['TIME']),
+                   nt=int(params['lmi_param']['time']),
                    comm=comm,
                    **params['contract'][d]) for d in diagrams
     ]))

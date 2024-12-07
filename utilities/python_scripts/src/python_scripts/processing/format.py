@@ -4,12 +4,12 @@ from string import Formatter
 from dataclasses import dataclass, field
 import re
 import functools
-
+import typing as t
 
 @dataclass
 class FilestemFormatBase:
     @staticmethod
-    def getvalue(haystack: dict, needle: list[str]) -> dict:
+    def getvalue(haystack: t.Dict, needle: t.List[str]) -> t.Dict:
         """Traverse `needle` in nested dictionary `haystack`
 
         Returns
@@ -36,7 +36,7 @@ class FilestemFormatBase:
         res = s
         if isinstance(s, str):
             res = [[s]]
-        elif isinstance(s, list):
+        elif isinstance(s, t.List):
             if len(s) == 0 or isinstance(s[0], str):
                 res = [s]
 
@@ -46,8 +46,8 @@ class FilestemFormatBase:
         return res
 
     @classmethod
-    def getvalues(cls, haystack: dict,
-                  paths: list[list[str]], needles: list[list[str]]):
+    def getvalues(cls, haystack: t.Dict,
+                  paths: t.List[t.List[str]], needles: t.List[t.List[str]]):
         """Searches the `paths` of `haystack` for each key in `needles`.
         Takes the first value found when traversing `paths`
 
@@ -78,7 +78,7 @@ class FilestemFormatBase:
         return res
 
     @staticmethod
-    def formatkeys(format_string: str, keysort: callable = None) -> list[str]:
+    def formatkeys(format_string: str, keysort: t.Callable = None) -> t.List[str]:
         key_list = list(
             {
                 k[1]
@@ -93,7 +93,7 @@ class FilestemFormatBase:
         return key_list
 
     @classmethod
-    def formatdict(cls, format_string: str, **kwargs) -> dict:
+    def formatdict(cls, format_string: str, **kwargs) -> t.Dict:
         """Builds a dictionary from elements of `source_dict` of required
         variables in `format_string`.
 
@@ -122,7 +122,7 @@ class FilestemFormatBase:
         return sub_dict
 
     @staticmethod
-    def dictval_iter(input_dict: dict, keysort=None) -> (list[str], iter):
+    def dictval_iter(input_dict: t.Dict, keysort=None) -> (t.List[str], iter):
         """Traverses dictionary values for lists of strings and
         builds a list of all combinations of list values
 
@@ -146,7 +146,7 @@ class FilestemFormatBase:
 
         prod_list = [
             [str(item) for item in input_dict[k]]
-            if type(input_dict[k]) is list
+            if isinstance(input_dict[k], t.List)
             else [str(input_dict[k])]
             for k in keys
         ]
@@ -155,8 +155,8 @@ class FilestemFormatBase:
 
     @classmethod
     def format_iter(
-        cls, format_string: str, source_dict: dict, keysort=None
-    ) -> list[tuple]:
+        cls, format_string: str, source_dict: t.Dict, keysort=None
+    ) -> t.List[t.Tuple]:
         """A list of all combinations of format parameters designated in
         `format_string` and found in `source_dict`
         """
@@ -167,8 +167,8 @@ class FilestemFormatBase:
 
     @staticmethod
     def setdictval(
-        dict_out: dict,
-        keys: list[str],
+        dict_out: t.Dict,
+        keys: t.List[str],
         value=None,
         overwrite=False,
     ):
@@ -212,9 +212,9 @@ class FilestemFormatParser(FilestemFormatBase):
     """
 
     filestem: str
-    replacements: dict = field(default_factory=dict)
-    regex: dict = field(default_factory=dict)
-    keysort: callable = None
+    replacements: t.Dict = field(default_factory=dict)
+    regex: t.Dict = field(default_factory=dict)
+    keysort: t.Callable = None
 
     def __post_init__(self):
         self._current_file = None
@@ -232,13 +232,13 @@ class FilestemFormatParser(FilestemFormatBase):
     def keys(self):
         return self._filekeys
 
-    def format(self, **kwargs) -> str | functools.partial:
+    def format(self, **kwargs) -> t.Union[str, functools.partial]:
         try:
             return self.filestem.format(**kwargs)
         except KeyError:
             return functools.partial(self.filestem.format, **kwargs)
 
-    def traverse_replacements(self) -> (dict, str):
+    def traverse_replacements(self) -> (t.Dict, str):
         """Generator for keyword replacements of `filestem`
 
         Yields
@@ -263,7 +263,7 @@ class FilestemFormatParser(FilestemFormatBase):
 
         self._current_file = None
 
-    def traverse_regex(self) -> (dict, str):
+    def traverse_regex(self) -> (t.Dict, str):
         """Generator for files found matching regex replacements
         of `_current_file`
 
@@ -293,7 +293,7 @@ class FilestemFormatParser(FilestemFormatBase):
             # not in the directory path.
             directory, match = os.path.split(file_pattern)
 
-            files: list[str] = os.listdir(directory)
+            files: t.List[str] = os.listdir(directory)
 
             regex_pattern = re.compile(match)
 
@@ -310,7 +310,7 @@ class FilestemFormatParser(FilestemFormatBase):
                     }
                     yield regex_repl, f"{directory}/{file}"
 
-    def traverse_files(self) -> (dict, str):
+    def traverse_files(self) -> (t.Dict, str):
         full_repl = {}
         for replacement, _ in self.traverse_replacements():
             full_repl.update(replacement)
