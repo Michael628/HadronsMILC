@@ -6,6 +6,7 @@ import re
 import functools
 import typing as t
 
+
 @dataclass
 class FilestemFormatBase:
     @staticmethod

@@ -246,36 +246,6 @@ def good_contract_py(param, cfgno):
 #     return ret
 
 
-def get_epack_output(tasks: config.ConfigBase, param: t.Dict):
-
-    epack_tasks = tasks['epack']
-    file_params = param['files']['epack']
-
-    generate_eigs: bool = not epack_tasks['load']
-
-    multifile: bool
-    multifile = epack_tasks.get('multifile', False)
-
-    save_evals: bool
-    save_evals = generate_eigs or epack_tasks.get('save_evals', False)
-
-    files = []
-    if generate_eigs:
-        eig_key = 'eigdir' if multifile else 'eig'
-        files.append(file_params[eig_key])
-        files.append(file_params['eval'])
-
-        output = dict(files[key].items())
-        if multifile:
-            output['formatting'] = {
-                'eig_index': [str(i) for i in range()]
-            }
-    if save_evals:
-        ret.append(files['eval'])
-
-    return ret
-
-
 def get_task_outputs(task_config: t.List[config.ConfigBase], param: t.Dict) \
         -> t.List[str]:
     """Call `get_{task}_output` function for each task in list"""
@@ -381,16 +351,19 @@ def check_pending_jobs(YAML):
             try:
                 tasks = param["job_setup"][step]['tasks']
             except KeyError:
-                raise KeyError(("`tasks` not found in `job_setup` parameters."
-                       f"for step `{step}`"))
+                raise KeyError(("`tasks` not found in `job_setup` parameters"
+                                f"for step `{step}`."))
 
             task_config: t.Dict[str, config.ConfigBase]
             task_config = {
                 key: config.get_config(key)(task)
                 for key, task in tasks.items()
             }
-            run_config = get_config('lmi_param')(param['lmi_param'])
-            output.get_outputs(task_config, param['lmi_param'])
+            run_config = config.get_config('lmi_param')(param['lmi_param'])
+            task_outfiles = {
+                key: output.get_outfile_iter(key)(task[key], param['files'], run_config)
+            }
+
         # status = all([
             # call(f"good_{key}", tasks[key], cfgno, param)
             # for key in tasks.keys()

@@ -1,8 +1,10 @@
 import typing as t
 from dataclasses import dataclass
 
-from python_scripts import utils as utils
-from python_scripts.config import ConfigBase
+from python_scripts import (
+    utils,
+    ConfigBase
+)
 
 
 @dataclass
@@ -20,6 +22,7 @@ class LoadH5Config(ConfigBase):
     """
     name: str
     datasets: t.Dict[str, str]
+
 
 @dataclass
 class LoadArrayConfig(ConfigBase):
@@ -43,7 +46,8 @@ class LoadArrayConfig(ConfigBase):
     labels: t.Dict[str, t.Union[str, t.List]]
 
     def __post_init__(self):
-        self.labels = utils.process_params(self.labels)
+        self.labels = utils.process_params(**self.labels)
+
 
 @dataclass
 class DataioConfig(ConfigBase):
@@ -67,7 +71,17 @@ class DataioConfig(ConfigBase):
         if not self.actions:
             self.actions = {}
 
-        self.replacements = utils.process_params(self.replacements)
+        self.replacements = utils.process_params(**self.replacements)
+
+
+def create_load_array_config(params: t.Dict) -> LoadArrayConfig:
+
+    return LoadArrayConfig(**params)
+
+
+def create_load_h5_config(params: t.Dict) -> LoadH5Config:
+
+    return LoadH5Config(**params)
 
 
 def create_dataio_config(params: t.Dict) -> DataioConfig:
@@ -86,22 +100,12 @@ def create_dataio_config(params: t.Dict) -> DataioConfig:
     h5_params = config_params.pop('h5_params', {})
     array_params = config_params.pop('array_params', {})
     if h5_params:
-        config_params['h5_params'] = LoadH5Config.create(h5_params)
+        config_params['h5_params'] = create_load_h5_config(h5_params)
 
         config_params['array_params'] = {}
-        for k, v in array_params:
-            config_params['array_params'][k] = LoadArrayConfig.create(v)
+        for k, v in array_params.items():
+            config_params['array_params'][k] = create_load_array_config(v)
     else:
-        config_params['array_params'] = LoadArrayConfig.create(array_params)
+        config_params['array_params'] = create_load_array_config(array_params)
 
     return DataioConfig(**config_params)
-
-
-def create_load_array_config(params: t.Dict) -> LoadArrayConfig:
-
-    return LoadArrayConfig(**params)
-
-
-def create_load_h5_config(params: t.Dict) -> LoadH5Config:
-
-    return LoadH5Config(**params)

@@ -22,7 +22,7 @@ from mpi4py import MPI
 # from multiprocessing import Process, Pool, Lock, Manager
 
 from python_scripts.processing.format import FilestemFormatBase as FSFormat
-import python_scripts.utils as utils
+from python_scripts import utils
 import typing as t
 
 
@@ -688,8 +688,7 @@ def main(seriescfg: str = ''):
             logging.debug('')
 
             if ('comm' not in contractor.__dict__ or contractor.rank == 0):
-                if not os.path.exists(os.path.dirname(outfile)):
-                    os.makedirs(os.path.dirname(outfile))
+                os.makedirs(os.path.dirname(outfile), exist_ok=True)
                 pickle.dump(corr, open(outfile, 'wb'))
 
 

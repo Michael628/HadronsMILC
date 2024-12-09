@@ -1,3 +1,4 @@
+import python_scripts as ps
 import yaml
 import copy
 from collections.abc import Mapping
@@ -8,7 +9,7 @@ from functools import partial
 import os
 import re
 import itertools
-
+import concurrent.futures
 
 procFn = t.Callable[[str, t.Any], t.Any]
 
@@ -200,12 +201,23 @@ def process_files(filestem: str, processor: procFn,
 
     collection = []
 
-    for str_reps, repl_filename in string_replacement_gen(
-            filestem, str_repl):
-        for reg_reps, regex_filename in file_regex_gen(
-                repl_filename, regex_repl):
+    def file_gen():
+        for str_reps, repl_filename in string_replacement_gen(
+                filestem, str_repl):
+            for reg_reps, regex_filename in file_regex_gen(
+                    repl_filename, regex_repl):
 
-            new_result = processor(regex_filename, **str_reps, **reg_reps)
+                str_reps.update(reg_reps)
+                yield str_reps, regex_filename
+
+    parallel_load = ps.PARALLEL_LOAD
+
+    if parallel_load:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            collection = list(executor.map(processor, file_gen()))
+    else:
+        for reps, filename in file_gen():
+            new_result = processor(filename, reps)
             collection.append(new_result)
 
     return collection

@@ -1,13 +1,19 @@
+import sys
+import os
 import logging
 import itertools
 from functools import partial
 import numpy as np
 import pandas as pd
 import h5py
-import python_scripts.processing.processor as processor
 import typing as t
-import python_scripts.utils as utils
-from python_scripts.processing.config import DataioConfig, LoadArrayConfig, LoadH5Config
+
+from python_scripts import utils
+from python_scripts.processing import (
+    processor,
+    config as proc_conf
+)
+
 
 dataFrameFn = t.Callable[[np.ndarray], pd.DataFrame]
 loadFn = t.Callable[[str], pd.DataFrame]
@@ -16,7 +22,7 @@ loadFn = t.Callable[[str], pd.DataFrame]
 # ------ Data structure Functions ------ #
 def ndarray_to_frame(
         array: np.ndarray,
-        array_params: LoadArrayConfig) -> pd.DataFrame:
+        array_params: proc_conf.LoadArrayConfig) -> pd.DataFrame:
     """Converts ndarray into a pandas DataFrame object indexed by the values in
     `array_params`. See `ArrayParams` class for details.
     """
@@ -42,7 +48,7 @@ def ndarray_to_frame(
 
 def h5_to_frame(file: h5py.File,
                 data_to_frame: t.Dict[str, dataFrameFn],
-                h5_params: LoadH5Config) -> pd.DataFrame:
+                h5_params: proc_conf.LoadH5Config) -> pd.DataFrame:
     """Converts hdf5 format `file` to pandas DataFrame based on dataset info
     provided by `h5_params`. See H5Params class for details.
 
@@ -194,27 +200,25 @@ def load_files(filestem: str, file_loader: loadFn,
                replacements: t.Optional[t.Dict] = None,
                regex: t.Optional[t.Dict] = None):
 
-    def proc(filename: str, **kwargs) -> pd.DataFrame:
+    def proc(filename: str, repl: t.Dict) -> pd.DataFrame:
         logging.debug(f"Loading file: {filename}")
         new_data: pd.DataFrame = file_loader(filename)
 
-        if len(kwargs) != 0:
-            new_data[list(kwargs.keys())] = tuple(kwargs.values())
+        if len(repl) != 0:
+            new_data[list(repl.keys())] = tuple(repl.values())
 
         return new_data
 
     return utils.process_files(filestem, proc, replacements, regex)
 
 
-def load(config_params: t.Dict) -> pd.DataFrame:
-
-    conf: DataioConfig = DataioConfig.from_dict(config_params)
+def load(config: proc_conf.DataioConfig) -> pd.DataFrame:
 
     def pickle_loader(filename: str):
 
-        dict_labels: t.Tuple = tuple(conf.dict_labels)
+        dict_labels: t.Tuple = tuple(config.dict_labels)
 
-        array_params: LoadArrayConfig = conf.array_params
+        array_params: proc_conf.LoadArrayConfig = config.array_params
 
         data_to_frame = partial(ndarray_to_frame, array_params=array_params)
 
@@ -237,12 +241,12 @@ def load(config_params: t.Dict) -> pd.DataFrame:
         try:
             return pd.read_hdf(filename)
         except ValueError:
-            assert conf.h5_params is not None
+            assert config.h5_params is not None
 
-            h5_params: LoadH5Config = conf.h5_params
+            h5_params: proc_conf.LoadH5Config = config.h5_params
 
-            array_params: t.Dict[str, LoadArrayConfig]
-            array_params = conf.array_params
+            array_params: t.Dict[str, proc_conf.LoadArrayConfig]
+            array_params = config.array_params
 
             data_to_frame = {
                 k: partial(ndarray_to_frame, array_params=array_params[k])
@@ -253,9 +257,9 @@ def load(config_params: t.Dict) -> pd.DataFrame:
 
             return h5_to_frame(file, data_to_frame, h5_params)
 
-    replacements: t.Dict = conf.replacements
-    regex: t.Dict = conf.regex
-    filestem: str = conf.filestem
+    replacements: t.Dict = config.replacements
+    regex: t.Dict = config.regex
+    filestem: str = config.filestem
 
     if filestem.endswith(".p") or filestem.endswith(".npy"):
         file_loader = pickle_loader
@@ -268,7 +272,7 @@ def load(config_params: t.Dict) -> pd.DataFrame:
         filestem, file_loader, replacements, regex
     )
 
-    actions: t.Dict = conf.actions
+    actions: t.Dict = config.actions
     _ = [
         processor.execute(elem, actions=actions)
         for elem in df
@@ -302,9 +306,11 @@ def write_data(df: pd.DataFrame, filestem: str,
             repl_vals = (group,) if isinstance(group, str) else group
             repl = dict(zip(repl_keys, repl_vals))
 
+            filename = filestem.format(**repl)
+            os.makedirs(os.path.dirname(filename), exist_ok=True)
             write_fn(
                 df_group.reset_index(repl_keys, drop=True),
-                filestem.format(**repl)
+                filename
             )
 
     else:
@@ -335,5 +341,41 @@ def write_frame(df: pd.DataFrame, filestem: str) -> None:
     """
     write_data(df, filestem,
                write_fn=lambda data, fname: data.to_hdf(fname, key='corr'))
+
+
+def main(**kwargs):
+
+    globals()['PARALLEL_LOAD'] = False
+    logging_level: str
+    if kwargs:
+        logging_level = kwargs.pop('logging_level', 'INFO')
+        config = proc_conf.get_config('load_files')(kwargs)
+    else:
+        try:
+            params = utils.load_param('params.yaml')['load_files']
+        except KeyError:
+            raise ValueError("Expecting `load_files` key in params.yaml file.")
+
+        logging_level = params.pop('logging_level', 'INFO')
+        config = proc_conf.get_config('load_files')(params)
+
+    logging.basicConfig(
+        format="%(asctime)s - %(levelname)-5s - %(message)s",
+        style="%",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        level=logging_level,
+        handlers=[
+            logging.StreamHandler(sys.stdout)
+        ]
+    )
+    return load(config)
+
+
+if __name__ == '__main__':
+    print("Assuming python interpreter is being run in interactive mode.")
+    print(("Result will be stored in `result` variable"
+           " upon load file completion."))
+    result = main()
+    logging.info("Result of file load is now stored in `result` variable.")
 
 # ------ End Output functions ------ #

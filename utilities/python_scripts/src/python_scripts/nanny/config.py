@@ -1,7 +1,7 @@
 import typing as t
 from dataclasses import dataclass
 
-from python_scripts.config import ConfigBase, Gamma
+from python_scripts import ConfigBase, Gamma
 
 
 @dataclass
@@ -23,6 +23,7 @@ class OpConfig(ConfigBase):
     """
     gamma: t.List[Gamma]
     mass: t.List[str]
+
 
 def create_op_config(params: t.Dict) -> ConfigBase:
     m = params['mass']
@@ -46,10 +47,8 @@ class OpListConfig(ConfigBase):
 
 
 def create_op_list_config(params: t.List) -> ConfigBase:
-    """Converts a list of strings matching names in Gamma enum (case insensitive)
-    to corresponding gamma operators. Currently assumes the use of mass=`l`,
-    from RunConfig
+    """Converts a list of strings matching names in Gamma enum
+    (case insensitive) to corresponding gamma operators.
+    Currently assumes the use of mass=`l`, from RunConfig
     """
     return OpListConfig(gammas=[OpConfig.create(g) for g in params])
-
-

@@ -1,26 +1,13 @@
+from python_scripts import ConfigBase
 import typing as t
-from enum import Enum, auto
-
-import nanny.config
-
-
-class Gamma(Enum):
-    ONELINK = auto()
-    LOCAL = auto()
-    VEC_ONELINK = auto()
-    VEC_LOCAL = auto()
-    PION_LOCAL = auto()
-
-
-class ConfigBase:
-    pass
+import python_scripts.nanny.config as nanny_config
+import python_scripts.processing.config as processing_config
 
 
 def create_config(params: t.Dict) -> ConfigBase:
     """Processes dictionary into object with corresponding key names
     as properties. nested dictionaries are flattened with `_` connecting
     inner and outer keys."""
-
 
     def process_val(val: t.Union[str, t.List[str]]):
         """Might use to do some type checking on inputs later"""
@@ -41,10 +28,11 @@ def create_config(params: t.Dict) -> ConfigBase:
 
 def get_config(config_label: str):
     configs = {
-        "epack": nanny.config.create_epack_config,
-        "meson": nanny.config.create_op_list_config,
-        "high_modes": nanny.config.create_op_list_config,
-        'lmi_params': create_config
+        "epack": nanny_config.create_epack_config,
+        "meson": nanny_config.create_op_list_config,
+        "high_modes": nanny_config.create_op_list_config,
+        'lmi_params': create_config,
+        "load_files": processing_config.create_dataio_config
     }
 
     if config_label in configs:
