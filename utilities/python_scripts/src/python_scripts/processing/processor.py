@@ -1,4 +1,8 @@
 #! /usr/bin/env python3
+import python_scripts as ps
+from python_scripts import utils
+from python_scripts.processing import dataio
+
 import logging
 import pandas as pd
 import numpy as np
@@ -82,8 +86,6 @@ def normalize(df, divisor, *args, **kwargs):
 def sum(df: pd.DataFrame, average=False, *avg_indices) -> pd.DataFrame:
     """Averages `df` attribute over columns specified in `indices`
     """
-    logging.debug(df.index.names)
-    logging.debug(avg_indices)
     assert all([isinstance(x, str) for x in avg_indices])
     assert all([i in df.index.names for i in avg_indices])
     assert len(df.columns) == 1
@@ -173,3 +175,32 @@ def execute(df: pd.DataFrame, actions: t.Dict) -> pd.DataFrame:
                 df_out = call(df_out, key)
 
     return df_out
+
+
+def main(**kwargs):
+    ps.setup()
+    logging_level: str
+    if kwargs:
+        logging_level = kwargs.pop('logging_level', 'INFO')
+        params = kwargs
+    else:
+        try:
+            params = utils.load_param('params.yaml')['process_files']
+        except KeyError:
+            raise ValueError("Expecting `process_files` key in params.yaml file.")
+
+        logging_level = params.pop('logging_level', 'INFO')
+
+    logging.getLogger().setLevel(logging_level)
+
+    ps.set_parallel_load(False)
+
+    result = {}
+    for key in params['run']:
+        result[key] = dataio.main(**params[key])
+
+    return result
+
+
+if __name__ == '__main__':
+    result = main()

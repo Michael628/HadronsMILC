@@ -1,3 +1,5 @@
+import python_scripts as ps
+
 import sys
 import os
 import logging
@@ -9,6 +11,7 @@ import h5py
 import typing as t
 
 from python_scripts import utils
+from python_scripts.config import get_config
 from python_scripts.processing import (
     processor,
     config as proc_conf
@@ -240,7 +243,7 @@ def load(config: proc_conf.DataioConfig) -> pd.DataFrame:
     def h5_loader(filename: str):
         try:
             return pd.read_hdf(filename)
-        except ValueError:
+        except (ValueError, NotImplementedError):
             assert config.h5_params is not None
 
             h5_params: proc_conf.LoadH5Config = config.h5_params
@@ -252,7 +255,6 @@ def load(config: proc_conf.DataioConfig) -> pd.DataFrame:
                 k: partial(ndarray_to_frame, array_params=array_params[k])
                 for k in array_params.keys()
             }
-
             file = h5py.File(filename)
 
             return h5_to_frame(file, data_to_frame, h5_params)
@@ -345,29 +347,22 @@ def write_frame(df: pd.DataFrame, filestem: str) -> None:
 
 def main(**kwargs):
 
-    globals()['PARALLEL_LOAD'] = False
     logging_level: str
     if kwargs:
-        logging_level = kwargs.pop('logging_level', 'INFO')
-        config = proc_conf.get_config('load_files')(kwargs)
+        logging_level = kwargs.pop('logging_level', False)
+        config = get_config('load_files')(kwargs['load_files'])
     else:
         try:
             params = utils.load_param('params.yaml')['load_files']
         except KeyError:
             raise ValueError("Expecting `load_files` key in params.yaml file.")
 
-        logging_level = params.pop('logging_level', 'INFO')
-        config = proc_conf.get_config('load_files')(params)
+        logging_level = params.pop('logging_level', False)
+        config = get_config('load_files')(params)
 
-    logging.basicConfig(
-        format="%(asctime)s - %(levelname)-5s - %(message)s",
-        style="%",
-        datefmt="%Y-%m-%d %H:%M:%S",
-        level=logging_level,
-        handlers=[
-            logging.StreamHandler(sys.stdout)
-        ]
-    )
+    if logging_level:
+        logging.getLogger().setLevel(logging_level)
+    ps.set_parallel_load(False)
     return load(config)
 
 

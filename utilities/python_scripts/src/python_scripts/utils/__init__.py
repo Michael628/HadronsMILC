@@ -208,16 +208,17 @@ def process_files(filestem: str, processor: procFn,
                     repl_filename, regex_repl):
 
                 str_reps.update(reg_reps)
-                yield str_reps, regex_filename
+                yield regex_filename, str_reps
 
-    parallel_load = ps.PARALLEL_LOAD
-
-    if parallel_load:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-            collection = list(executor.map(processor, file_gen()))
+    if ps.PARALLEL_LOAD:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+            collection = list(executor.map(
+                lambda p: processor(*p),
+                ((r, f) for (r, f) in file_gen())
+            ))
     else:
         for reps, filename in file_gen():
-            new_result = processor(filename, reps)
+            new_result = processor(reps, filename)
             collection.append(new_result)
 
     return collection
