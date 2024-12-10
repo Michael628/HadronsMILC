@@ -52,7 +52,10 @@ class LoadArrayConfig(ConfigBase):
 @dataclass
 class DataioConfig(ConfigBase):
     filestem: str
-    array_params: t.Union[LoadArrayConfig, t.Dict[str, LoadArrayConfig]]
+    array_params: t.Optional[
+        t.Union[LoadArrayConfig,
+                t.Dict[str, LoadArrayConfig]]
+    ] = None
     replacements: t.Optional[t.Dict[str, t.Union[str, t.List[str]]]] = None
     regex: t.Optional[t.Dict[str, str]] = None
     h5_params: t.Optional[LoadH5Config] = None
@@ -105,7 +108,7 @@ def create_dataio_config(params: t.Dict) -> DataioConfig:
         config_params['array_params'] = {}
         for k, v in array_params.items():
             config_params['array_params'][k] = create_load_array_config(v)
-    else:
+    elif array_params:
         config_params['array_params'] = create_load_array_config(array_params)
 
     return DataioConfig(**config_params)
