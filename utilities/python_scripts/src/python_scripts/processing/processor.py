@@ -10,8 +10,8 @@ import gvar as gv
 import gvar.dataset as ds
 import typing as t
 
-ACTION_ORDER = ['build_high', 'fold', 'stdjackknife', 'average',
-                'normalize', 'gvar']
+ACTION_ORDER = ['real', 'build_high', 'fold', 'stdjackknife', 'average',
+                'normalize', 'index', 'drop', 'gvar']
 
 GROUPED_ACTIONS = {
     'fold': ['dt'],
@@ -67,41 +67,92 @@ def buffer(df: pd.DataFrame, key_index: str) -> gv.BufferDict:
     # localMinusOnelink = dsetGvar['local'] - dsetGvar['onelink']
 
 
-def build_high(df: pd.DataFrame) -> pd.DataFrame:
+# def build_high(df: pd.DataFrame, data_col) -> pd.DataFrame:
 
-    high = df.xs('ama', level='dset').sort_index()['corr'] \
-        - df.xs('ranLL', level='dset').sort_index()['corr']
-    high = high.to_frame('corr')
-    high['dset'] = 'high'
-    high.set_index('dset', append=True, inplace=True)
-    high = high.reorder_levels(df.index.names)
+#     high = df.xs('ama', level='dset').sort_index()[data_col] \
+#         - df.xs('ranLL', level='dset').sort_index()[data_col]
+#     high = high.to_frame(data_col)
+#     high['dset'] = 'high'
+#     high.set_index('dset', append=True, inplace=True)
+#     high = high.reorder_levels(df.index.names)
 
-    return pd.concat([df, high])
-
-
-def normalize(df, divisor, *args, **kwargs):
-    return df['corr'].apply(lambda x: x.real / float(divisor)).to_frame()
+#     return pd.concat([df, high])
 
 
-def sum(df: pd.DataFrame, average=False, *avg_indices) -> pd.DataFrame:
+def drop(df, data_col, *args):
+    for key in args:
+        assert isinstance(key, str)
+
+        if key in df.index.names:
+            df.reset_index(key, drop=True, inplace=True)
+        elif key in df.columns:
+            _ = df.pop(key)
+        else:
+            raise ValueError(f'Drop Failed - No index or column `{key}` found.')
+    return df
+
+
+def index(df, data_col, *args):
+
+    indices = [i for i in args]
+    assert all([isinstance(i, str) for i in indices])
+
+    if indices:
+        if 'series.cfg' in indices:
+
+            series: pd.DataFrame
+            cfg: pd.DataFrame
+            for key in ['series', 'cfg']:
+                if key in df.index.names:
+                    df.reset_index(key, inplace=True)
+
+            series = df.pop('series')
+            cfg = df.pop('cfg')
+
+            df['series.cfg'] = series + '.' + cfg
+
+            if 'series.cfg' in df.index.names:
+                df.reset_index('series.cfg', drop=True, inplace=True)
+
+        df.reset_index(inplace=True)
+        df.set_index(indices, inplace=True)
+        df.sort_index(inplace=True)
+    return df
+
+
+def real(df, data_col, apply_real: bool = True):
+    if apply_real:
+        df[data_col] = df[data_col].apply(np.real)
+    return df
+
+
+def normalize(df, data_col, divisor):
+    return df['corr'].apply(lambda x: x / float(divisor)).to_frame()
+
+
+def sum(df: pd.DataFrame, data_col, average=False, *avg_indices) -> pd.DataFrame:
     """Averages `df` attribute over columns specified in `indices`
     """
     assert all([isinstance(x, str) for x in avg_indices])
-    assert all([i in df.index.names for i in avg_indices])
-    assert len(df.columns) == 1
-
+    assert all([
+        i in df.index.names or
+        i in df.columns
+        for i in avg_indices
+    ])
+    df_group_keys: t.List[str]
     df_group_keys = [k for k in df.index.names if k not in avg_indices]
-
+    df_group_keys += [k for k in df.columns if k not in avg_indices]
+    df_group_keys.remove(data_col)
     if average:
-        df_out = df.groupby(level=df_group_keys).mean()
+        df_out = df.reset_index().groupby(by=df_group_keys).mean()
     else:
-        df_out = df.groupby(level=df_group_keys).sum()
+        df_out = df.reset_index().groupby(by=df_group_keys).sum()
 
     return df_out
 
 
-def average(df: pd.DataFrame, *avg_indices) -> pd.DataFrame:
-    return sum(df, True, *avg_indices)
+def average(df: pd.DataFrame, data_col, *avg_indices) -> pd.DataFrame:
+    return sum(df, data_col, True, *avg_indices)
 
 
 def fold(series: pd.Series) -> pd.Series:
@@ -145,14 +196,15 @@ def group_apply(df: pd.DataFrame, func: t.Callable, ungrouped_cols: t.List) \
                      .apply(func).to_frame()
 
 
-def call(df, func_name, *args, **kwargs):
+def call(df, func_name, data_col, *args, **kwargs):
+
     func = globals().get(func_name, None)
     if callable(func):
         if func_name in GROUPED_ACTIONS:
             return group_apply(
                 df, func, GROUPED_ACTIONS[func_name], *args, **kwargs)
         else:
-            return func(df, *args, **kwargs)
+            return func(df, data_col, *args, **kwargs)
     else:
         raise AttributeError(
             f"Function '{func_name}' not found or is not callable.")
@@ -161,18 +213,20 @@ def call(df, func_name, *args, **kwargs):
 def execute(df: pd.DataFrame, actions: t.Dict) -> pd.DataFrame:
 
     df_out = df
+    data_col = actions.pop('data_col', 'corr')
+
     for key in sorted(actions.keys(), key=ACTION_ORDER.index):
         assert key in ACTION_ORDER
         param = actions[key]
         if isinstance(param, t.Dict):
-            df_out = call(df_out, key, **param)
+            df_out = call(df_out, key, data_col, **param)
         elif isinstance(param, t.List):
-            df_out = call(df_out, key, *param)
+            df_out = call(df_out, key, data_col, *param)
         else:
             if param:
-                df_out = call(df_out, key, param)
+                df_out = call(df_out, key, data_col, *[param])
             else:
-                df_out = call(df_out, key)
+                df_out = call(df_out, key, data_col)
 
     return df_out
 
@@ -197,7 +251,29 @@ def main(**kwargs):
 
     result = {}
     for key in params['run']:
-        result[key] = dataio.main(**params[key])
+        run_params = params[key]
+
+        result[key] = dataio.main(**run_params)
+        actions = run_params.get('actions', {})
+        out_files = run_params.get('out_files', {})
+        index = out_files.pop('index', None)
+
+        if index:
+            actions.update({'index': index})
+
+        if 'actions' in run_params:
+            result[key] = execute(result[key], run_params['actions'])
+
+        if out_files:
+            out_type = out_files['type']
+            if out_type == 'dictionary':
+                filestem = out_files['filestem']
+                depth = int(out_files['depth'])
+                dataio.write_dict(result[key], filestem, depth)
+            else:
+                raise NotImplementedError(
+                    f"No support for out file type {out_type}."
+                )
 
     return result
 

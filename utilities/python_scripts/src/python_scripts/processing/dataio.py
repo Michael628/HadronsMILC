@@ -302,16 +302,19 @@ def write_data(df: pd.DataFrame, filestem: str,
     repl_keys = utils.formatkeys(filestem)
     if repl_keys:
         assert len(df) != 0
-        assert all([k in df.index.names for k in repl_keys])
+        assert all([k in df.columns for k in repl_keys])
 
-        for group, df_group in df.groupby(level=repl_keys):
+        for group, df_group in df.groupby(by=repl_keys):
             repl_vals = (group,) if isinstance(group, str) else group
             repl = dict(zip(repl_keys, repl_vals))
 
             filename = filestem.format(**repl)
             os.makedirs(os.path.dirname(filename), exist_ok=True)
+
+            out_cols = [c for c in df_group.columns if c not in repl_keys]
+            print(df_group)
             write_fn(
-                df_group.reset_index(repl_keys, drop=True),
+                df_group[out_cols],
                 filename
             )
 
