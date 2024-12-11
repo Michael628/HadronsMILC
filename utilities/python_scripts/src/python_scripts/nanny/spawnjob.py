@@ -267,7 +267,7 @@ def submit_job(param, step, cfgno_steps, max_cases):
         cmd = (f"sbatch -N {str(nodes)} -n {NP} "
                f"-J {job_name} -t {wall_time} {job_script}")
     elif scheduler == 'INTERACTIVE':
-        cmd = f"./ {job_script}"
+        cmd = f"./{job_script}"
     elif scheduler == 'Cobalt':
         # NEEDS UPDATING IF WE STILL USE Cobalt
         cmd = (f"qsub -n {str(nodes)} --jobname {job_name} {archflags}"
