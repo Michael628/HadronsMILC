@@ -210,61 +210,6 @@ def good_contract_py(param, cfgno):
 
 
 ######################################################################
-# def get_high_modes_output(tasks: t.Dict, param: t.Dict) -> t.List[OutputCheck]:
-
-#     epack_tasks = tasks['epack']
-
-#     generate_eigs: bool
-#     multifile: bool
-#     save_evals: bool
-
-#     generate_eigs = not epack_tasks['load']
-#     multifile = epack_tasks.get('multifile', False)
-#     save_evals = generate_eigs or epack_tasks.get('save_evals', False)
-
-#     ret = []
-#     if generate_eigs:
-#         ret.append(files['eigdir' if multifile else 'eig'])
-#     if save_evals:
-#         ret.append(files['eval'])
-
-#     return ret
-
-
-# def get_meson_output(tasks: t.Dict, param: t.Dict) -> t.List[OutputCheck]:
-
-#     meson_tasks = tasks['meson']
-
-#     ret = [
-#         OutputCheck(
-#             filestem=files[meson],
-#             good_size=files['good_size']
-#         )
-#         for meson in meson_tasks
-#     ]
-
-#     return ret
-
-
-def get_task_outputs(task_config: t.List[config.ConfigBase], param: t.Dict) \
-        -> t.List[str]:
-    """Call `get_{task}_output` function for each task in list"""
-
-    outfiles = []
-    for cfg in task_config:
-        if hasattr(cfg, 'output'):
-            if callable(cfg.output):
-                outfiles.append(cfg.output(**param))
-            elif isinstance(cfg.output, t.List):
-                for output in cfg.output:
-                    outfiles.append(output.format(**param))
-            else:
-                raise ValueError(("Expecting output of all tasks to provide"
-                                  "lists of strings to be formatted"))
-
-    return sum(outfiles, [])
-
-######################################################################
 
 
 def next_finished(param, todo_list, entry_list):

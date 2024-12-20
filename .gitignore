@@ -16,3 +16,5 @@ Makefile.in
 sftp*
 __pycache__
 __pycache__/*
+.tags
+.tags_sorted_by_file

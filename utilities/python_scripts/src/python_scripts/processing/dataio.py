@@ -312,7 +312,6 @@ def write_data(df: pd.DataFrame, filestem: str,
             os.makedirs(os.path.dirname(filename), exist_ok=True)
 
             out_cols = [c for c in df_group.columns if c not in repl_keys]
-            print(df_group)
             write_fn(
                 df_group[out_cols],
                 filename
@@ -345,7 +344,7 @@ def write_frame(df: pd.DataFrame, filestem: str) -> None:
     (see `write_data` function for details).
     """
     write_data(df, filestem,
-               write_fn=lambda data, fname: data.to_hdf(fname, key='corr'))
+               write_fn=lambda data, fname: data.to_hdf(fname, key='corr', mode='w'))
 
 
 def main(**kwargs):

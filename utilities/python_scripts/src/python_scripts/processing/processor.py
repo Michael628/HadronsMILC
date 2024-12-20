@@ -39,7 +39,7 @@ def gvar(df: pd.DataFrame) -> pd.DataFrame:
     return df_out
 
 
-def buffer(df: pd.DataFrame, key_index: str) -> gv.BufferDict:
+def buffer(df: pd.DataFrame, data_col: str, key_index: str) -> gv.BufferDict:
 
     buff = gv.BufferDict()
 
@@ -54,8 +54,8 @@ def buffer(df: pd.DataFrame, key_index: str) -> gv.BufferDict:
         group_param = {'level': key_index}
 
     for key, xs in df.groupby(**group_param):
-        buff[key] = xs.reorder_levels(labels_dt_last)['corr'] \
-            .to_numpy().reshape((-1, nt)).real
+        buff[key] = xs.reorder_levels(labels_dt_last)[data_col] \
+            .to_numpy().reshape((-1, nt))
 
     return buff
 
@@ -155,16 +155,24 @@ def average(df: pd.DataFrame, data_col, *avg_indices) -> pd.DataFrame:
     return sum(df, data_col, True, *avg_indices)
 
 
-def fold(series: pd.Series) -> pd.Series:
-    array = series.to_numpy()
-    nt = len(array)
+def fold(df: pd.DataFrame, apply_fold: bool = True) -> pd.DataFrame:
 
+    if not apply_fold:
+        return df
+
+    assert len(df.columns) == 2
+
+    data_col = df.columns[-1]
+
+    array = df.sort_values('dt')[data_col].to_numpy()
+    nt = len(array)
+    folded_len = nt // 2 + 1
     array[1:nt // 2] = (array[1:nt // 2] + array[-1:nt // 2:-1]) / 2.0
 
-    time_indices = series.index.get_level_values('dt') < (nt // 2 + 1)
-    return pd.Series(
-        array[:nt // 2 + 1],
-        index=series[time_indices].index
+    return pd.DataFrame(
+        array[:folded_len],
+        index=pd.Index(range(folded_len), name='dt'),
+        columns=[data_col]
     )
 
 
@@ -185,15 +193,17 @@ def stdjackknife(series: pd.Series) -> pd.Series:
     return pd.Series(array_out, index=series.index)
 
 
-def group_apply(df: pd.DataFrame, func: t.Callable, ungrouped_cols: t.List) \
-        -> pd.DataFrame:
+def group_apply(df: pd.DataFrame, func: t.Callable, data_col: str,
+                ungrouped_cols: t.List, *args, **kwargs) -> pd.DataFrame:
 
-    assert 'dt' in df.index.names
-    assert 'corr' in df
-    index_names = [x for x in df.index.names if x not in ungrouped_cols]
+    df.reset_index(inplace=True)
 
-    return df['corr'].groupby(level=index_names, group_keys=False) \
-                     .apply(func).to_frame()
+    ungrouped = ungrouped_cols + [data_col]
+    grouped = [x for x in df.columns if x not in ungrouped]
+
+    return df.groupby(by=grouped)[
+        ungrouped
+    ].apply(lambda x: func(x, *args, **kwargs))
 
 
 def call(df, func_name, data_col, *args, **kwargs):
@@ -202,7 +212,7 @@ def call(df, func_name, data_col, *args, **kwargs):
     if callable(func):
         if func_name in GROUPED_ACTIONS:
             return group_apply(
-                df, func, GROUPED_ACTIONS[func_name], *args, **kwargs)
+                df, func, data_col, GROUPED_ACTIONS[func_name], *args, **kwargs)
         else:
             return func(df, data_col, *args, **kwargs)
     else:
@@ -270,6 +280,9 @@ def main(**kwargs):
                 filestem = out_files['filestem']
                 depth = int(out_files['depth'])
                 dataio.write_dict(result[key], filestem, depth)
+            elif out_type == 'dataframe':
+                filestem = out_files['filestem']
+                dataio.write_frame(result[key], filestem)
             else:
                 raise NotImplementedError(
                     f"No support for out file type {out_type}."

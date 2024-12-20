@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from python_scripts.config import ConfigBase
 import typing as t
-from python_scripts import utils
+import python_scripts.utils as utils
 
 
 @dataclass
@@ -31,16 +31,13 @@ def get_output(output_label: str):
         raise ValueError(f"No config implementation for `{output_label}`.")
 
 
-def get_epack_outfiles(tasks: config.ConfigBase, file_params: t.Dict,
-                       run_config: ConfigBase):
-
-    home = file_params['home']
-
+def get_epack_outfiles(tasks: ConfigBase, home: str,
+                       file_params: t.Dict):
     eigfile_params: t.Dict
     if tasks.multifile:
-        eigfile_params = file_params['epack']['eig']
+        eigfile_params = file_params['eig']
     else:
-        eigfile_params = file_params['epack']['eigdir']
+        eigfile_params = file_params['eigdir']
 
     replacements: t.Dict
     goodsize: int
@@ -48,12 +45,15 @@ def get_epack_outfiles(tasks: config.ConfigBase, file_params: t.Dict,
 
     replacements = eigfile_params.get('replacements', {})
     goodsize = eigfile_params['goodize']
-    filestem = eigfile_params['filestem']
+    filestem = f"{home}/{eigfile_params['filestem']}"
 
     replacements = utils.process_params(**replacements)
-    replacements = run_config.__dict__.update(replacements)
 
-    utils.process_files()
+    def run(run_config: ConfigBase):
+        replacements = run_config.__dict__.update(replacements)
+
+        utils.process_files(filestem, run, replacements)
+
     epack_tasks = tasks['epack']
     file_params = param['files']['epack']
 
@@ -81,12 +81,14 @@ def get_epack_outfiles(tasks: config.ConfigBase, file_params: t.Dict,
 
     return ret
 
-def get_outfile_config(file_label: str):
+def get_outfile_config(file_label: str, file_params: t.Dict):
+
+    home = file_params['home']
 
     output = {
-        "epack": create_epack_output,
-        "meson": create_meson_output,
-        "high_modes": create_high_modes_output,
+        "epack": create_epack_outfiles(home, file_params['epack']),
+        "meson": create_meson_outfiles(home, file_params['meson']),
+        "high_modes": create_high_modes_outfiles(home, file_params['high_modes']),
     }
 
     if output_label in output:
