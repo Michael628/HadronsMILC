@@ -4,17 +4,16 @@
 
 import sys
 import os
-import re
 import subprocess
-import todo_utils
-import python_scripts.utils as utils
-#import python_scripts.nanny.check_completed as check_completed
+from python_scripts.nanny import (
+    fileio, xml_templates, config,
+    todo_utils, checkjobs
+)
+from python_scripts import utils
+
 from functools import reduce
 
 from dict2xml import dict2xml as dxml
-import importlib
-
-sys.path.append("../templates")
 
 # Nanny script for managing job queues
 # C. DeTar 7/11/2022
@@ -158,7 +157,7 @@ def make_inputs(param, step, cfgno_steps):
     """Create input XML files for this job"""
 
     ncases = len(cfgno_steps)
-    INPUTXMLLIST = ""
+    input_files = []
 
     if step == 'S':
 
@@ -185,37 +184,38 @@ def make_inputs(param, step, cfgno_steps):
             io_stem_template = param['job_setup'][step]['io']
             # Replace variables in io_stem if need be
             io_stem = io_stem_template.format(**param['lmi_param'])
-            input_xml = f"{io_stem}-{cfgno_series}.xml"
+            input_file = f"{io_stem}-{cfgno_series}.xml"
 
             if 'param_file' in param['job_setup'][step]:
-                # String naming one of the files in ../templates without .py
-                param_module = "python_scripts.nanny.xml_templates."
-                param_module += f"{param['job_setup'][step]['param_file']}"
+                run_config = config.get_run_config(param)
+                run_config.cfg = cfgno
+                run_config.series = series
 
                 tasks = param['job_setup'][step].get('tasks', {})
 
                 # import paramModule as pm
-                pm = importlib.import_module(param_module)
 
                 sched_file = f"schedules/{io_stem}-{cfgno_series}.sched"
 
-                # Generate the input XML file
-                xml_dict, schedule = pm.build_params(
-                    tasks=tasks,
-                    schedule=sched_file,
-                    cfg=cfgno, series=series,
-                    **param['lmi_param'],
+                xml_dict = xml_templates.xml_wrapper(
+                    runid=(f"LMI-RW-series-{run_config.series}"
+                           f"-{run_config.eigs}-eigs-{run_config.noise}-noise"),
+                    sched=sched_file,
+                    cfg=run_config.cfg
                 )
+                modules, schedule = fileio.build_xml_params(tasks, run_config)
 
-                with open("in/" + input_xml, "w") as f:
+                xml_dict['grid']['modules'] = {"module": modules}
+
+                with open("in/" + input_file, "w") as f:
                     print(dxml(xml_dict), file=f)
 
                 with open(sched_file, 'w') as f:
                     f.write(str(len(schedule)) + "\n" + "\n".join(schedule))
 
-            INPUTXMLLIST = INPUTXMLLIST + " " + input_xml
+            input_files.append(input_file)
 
-    os.environ['INPUTXMLLIST'] = INPUTXMLLIST
+    os.environ['INPUTXMLLIST'] = " ".join(input_files)
 
 
 ######################################################################
@@ -268,11 +268,11 @@ def submit_job(param, step, cfgno_steps, max_cases):
                f"-J {job_name} -t {wall_time} {job_script}")
     elif scheduler == 'INTERACTIVE':
         cmd = f"./{job_script}"
-    elif scheduler == 'Cobalt':
+    #elif scheduler == 'Cobalt':
         # NEEDS UPDATING IF WE STILL USE Cobalt
-        cmd = (f"qsub -n {str(nodes)} --jobname {job_name} {archflags}"
-               f"--mode script --env LATS={LATS}:NCASES={NCASES}"
-               f":NP={NP} {job_script}")
+        #cmd = (f"qsub -n {str(nodes)} --jobname {job_name} {archflags}"
+        #       f"--mode script --env LATS={LATS}:NCASES={NCASES}"
+        #       f":NP={NP} {job_script}")
     else:
         print("Don't recognize scheduler", scheduler)
         print("Quitting")
@@ -333,26 +333,6 @@ def mark_queued_todo_entries(step, cfgno_steps, jobid, todo_list):
 
 
 ######################################################################
-def check_complete():
-    """Check completion of queued jobs and purge scratch files"""
-    cmd = "../scripts/check_completed.py"
-    print(cmd)
-    sys.stdout.flush()
-    reply = ""
-    # try:
-    #     reply = subprocess.check_output(cmd, shell=True).decode().splitlines()
-    # except subprocess.CalledProcessError as e:
-    #     print("Error checking job completion.  Return code", e.returncode)
-    #     for line in reply:
-    #         print(line)
-
-    # for line in reply:
-    #     print(line)
-
-    return
-
-
-######################################################################
 def nanny_loop(YAML):
     """Check job periodically and submit to the queue"""
 
@@ -397,7 +377,7 @@ def nanny_loop(YAML):
 
             # Check completion and purge scratch files for complete jobs
             if check_count == 0:
-                #check_complete()
+                checkjobs.main()
                 check_count = int(param['nanny']['check_interval'])
 
             if ncases > 0:

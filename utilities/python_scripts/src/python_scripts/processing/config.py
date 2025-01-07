@@ -16,13 +16,13 @@ class LoadH5Config(ConfigBase):
     ----------
         name: str
             The name to give the datasets provided in `datasets`
-        datasets: dict(str, str)
+        datasets: dict(str, str|list(str))
             Dictionary keys will correspond to DataFrame index labels.
-            Dictionary values are hdf5 file paths to access corresponding data.
+            Dictionary values are hdf5 file paths to access corresponding data. If given
+                a list of paths, the first valid path will be used.
     """
     name: str
-    datasets: t.Dict[str, str]
-
+    datasets: t.Dict[str, t.Union[str, t.List[str]]]
 
 @dataclass
 class LoadArrayConfig(ConfigBase):
@@ -77,38 +77,49 @@ class DataioConfig(ConfigBase):
         self.replacements = utils.process_params(**self.replacements)
 
 
-def create_load_array_config(params: t.Dict) -> LoadArrayConfig:
-
-    return LoadArrayConfig(**params)
 
 
-def create_load_h5_config(params: t.Dict) -> LoadH5Config:
+def get_config(config_label: str):
 
-    return LoadH5Config(**params)
+    def create_load_h5_config(params: t.Dict) -> LoadH5Config:
+        return LoadH5Config(**params)
 
 
-def create_dataio_config(params: t.Dict) -> DataioConfig:
-    """Returns an instance of DataioConfig from `params` dictionary.
+    def create_load_array_config(params: t.Dict) -> LoadArrayConfig:
+        return LoadArrayConfig(**params)
 
-    Parameters
-    ----------
-    params: dict
-        keys should correspond to class parameters (above).
-        `h5_params` and `array_params`, if provided,
-        should have dictionaries that can be passed to `create` static methods
-        in H5Params and ArrayParams, respectively.
-    """
-    config_params = utils.deep_copy_dict(params)
 
-    h5_params = config_params.pop('h5_params', {})
-    array_params = config_params.pop('array_params', {})
-    if h5_params:
-        config_params['h5_params'] = create_load_h5_config(h5_params)
+    def create_dataio_config(params: t.Dict) -> DataioConfig:
+        """Returns an instance of DataioConfig from `params` dictionary.
 
-        config_params['array_params'] = {}
-        for k, v in array_params.items():
-            config_params['array_params'][k] = create_load_array_config(v)
-    elif array_params:
-        config_params['array_params'] = create_load_array_config(array_params)
+        Parameters
+        ----------
+        params: dict
+            keys should correspond to class parameters (above).
+            `h5_params` and `array_params`, if provided,
+            should have dictionaries that can be passed to `create` static methods
+            in H5Params and ArrayParams, respectively.
+        """
+        config_params = utils.deep_copy_dict(params)
 
-    return DataioConfig(**config_params)
+        h5_params = config_params.pop('h5_params', {})
+        array_params = config_params.pop('array_params', {})
+        if h5_params:
+            config_params['h5_params'] = create_load_h5_config(h5_params)
+
+            config_params['array_params'] = {}
+            for k, v in array_params.items():
+                config_params['array_params'][k] = create_load_array_config(v)
+        elif array_params:
+            config_params['array_params'] = create_load_array_config(array_params)
+
+        return DataioConfig(**config_params)
+
+    configs = {
+        "load_files": create_dataio_config
+    }
+
+    if config_label in configs:
+        return configs[config_label]
+    else:
+        raise ValueError(f"No config implementation for `{config_label}`.")

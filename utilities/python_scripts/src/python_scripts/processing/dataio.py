@@ -11,10 +11,9 @@ import h5py
 import typing as t
 
 from python_scripts import utils
-from python_scripts.config import get_config
 from python_scripts.processing import (
     processor,
-    config as proc_conf
+    config
 )
 
 
@@ -73,7 +72,18 @@ def h5_to_frame(file: h5py.File,
 
     df = []
     for k, v in h5_params.datasets.items():
-        frame = data_to_frame[k](file[v][:].view(np.complex128))
+        
+        if isinstance(v,str):
+            dataset_label = iter((v,) if v in file else ())
+        else:
+            dataset_label = (x for x in v if x in file)
+        
+        try:
+            data = file[next(dataset_label)][:].view(np.complex128)
+        except StopIteration:
+            raise ValueError(f"dataset {k} not found in file.")
+
+        frame = data_to_frame[k](data)
         if len(h5_params.datasets) > 1:
             frame[h5_params.name] = k
         df.append(frame)
@@ -231,13 +241,15 @@ def load(config: proc_conf.DataioConfig) -> pd.DataFrame:
 
         if isinstance(data, pd.DataFrame):
             return data
+        elif isinstance(data, np.ndarray):
+            return dict_to_frame(data, data_to_frame=data_to_frame)
         elif isinstance(data, t.Dict):
             return dict_to_frame(data,
                                  data_to_frame=data_to_frame,
                                  dict_labels=dict_labels)
         else:
             raise ValueError(
-                (f"Contents of {filestem} is of type {type(data)}."
+                (f"Contents of {filename} is of type {type(data)}."
                  "Expecting dictionary or pandas DataFrame."))
 
     def h5_loader(filename: str):
@@ -352,7 +364,7 @@ def main(**kwargs):
     logging_level: str
     if kwargs:
         logging_level = kwargs.pop('logging_level', False)
-        config = get_config('load_files')(kwargs['load_files'])
+        dataio_config = config.get_config('load_files')(kwargs['load_files'])
     else:
         try:
             params = utils.load_param('params.yaml')['load_files']
@@ -360,12 +372,12 @@ def main(**kwargs):
             raise ValueError("Expecting `load_files` key in params.yaml file.")
 
         logging_level = params.pop('logging_level', False)
-        config = get_config('load_files')(params)
+        dataio_config = get_config('load_files')(params)
 
     if logging_level:
         logging.getLogger().setLevel(logging_level)
     ps.set_parallel_load(False)
-    return load(config)
+    return load(dataio_config)
 
 
 if __name__ == '__main__':

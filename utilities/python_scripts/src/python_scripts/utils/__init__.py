@@ -186,7 +186,7 @@ def string_replacement_gen(
 
 def process_files(filestem: str, processor: procFn,
                   replacements: t.Optional[t.Dict] = None,
-                  regex: t.Optional[t.Dict] = None):
+                  regex: t.Optional[t.Dict] = None) -> t.List:
 
     repl_keys: t.List[str] = formatkeys(filestem)
 
@@ -199,7 +199,7 @@ def process_files(filestem: str, processor: procFn,
         for k in repl_keys
     ))
 
-    collection = []
+    collection: t.List = []
 
     def file_gen():
         for str_reps, repl_filename in string_replacement_gen(
@@ -214,11 +214,11 @@ def process_files(filestem: str, processor: procFn,
         with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
             collection = list(executor.map(
                 lambda p: processor(*p),
-                ((r, f) for (r, f) in file_gen())
+                ((f, r) for (f, r) in file_gen())
             ))
     else:
-        for reps, filename in file_gen():
-            new_result = processor(reps, filename)
+        for filename, reps in file_gen():
+            new_result = processor(filename, reps)
             collection.append(new_result)
 
     return collection

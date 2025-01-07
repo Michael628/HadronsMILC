@@ -130,29 +130,42 @@ def normalize(df, data_col, divisor):
     return df['corr'].apply(lambda x: x / float(divisor)).to_frame()
 
 
-def sum(df: pd.DataFrame, data_col, average=False, *avg_indices) -> pd.DataFrame:
-    """Averages `df` attribute over columns specified in `indices`
-    """
-    assert all([isinstance(x, str) for x in avg_indices])
+def sum(df: pd.DataFrame, data_col, *sum_indices) -> pd.DataFrame:
+    """Sums `data_col` column in `df` over columns or indices specified in `avg_indices`
+        """
+    assert all([isinstance(x, str) for x in sum_indices])
     assert all([
         i in df.index.names or
         i in df.columns
-        for i in avg_indices
+        for i in sum_indices
     ])
     df_group_keys: t.List[str]
-    df_group_keys = [k for k in df.index.names if k not in avg_indices]
-    df_group_keys += [k for k in df.columns if k not in avg_indices]
+    df_group_keys = [k for k in df.index.names if k not in sum_indices]
+    df_group_keys += [k for k in df.columns if k not in sum_indices]
     df_group_keys.remove(data_col)
-    if average:
-        df_out = df.reset_index().groupby(by=df_group_keys).mean()
-    else:
-        df_out = df.reset_index().groupby(by=df_group_keys).sum()
+    df_out = df.reset_index().groupby(by=df_group_keys, sort=False)[data_col].sum().to_frame(data_col)
 
     return df_out
 
 
 def average(df: pd.DataFrame, data_col, *avg_indices) -> pd.DataFrame:
-    return sum(df, data_col, True, *avg_indices)
+    """Averages `data_col` column in `df` over columns or indices specified in `avg_indices`,
+    one at a time.
+    """
+    if not avg_indices:
+        return df
+
+    avg_index = avg_indices[0]
+    assert isinstance(avg_index, str)
+    assert avg_index in df.index.names or avg_index in df.columns
+
+    df_group_keys: t.List[str]
+    df_group_keys = [k for k in df.index.names if k != avg_index]
+    df_group_keys += [k for k in df.columns if k != avg_index]
+    df_group_keys.remove(data_col)
+    df_out = df.reset_index().groupby(by=df_group_keys, sort=False)[data_col].mean().to_frame(data_col)
+
+    return average(df_out,data_col,*avg_indices[1:])
 
 
 def fold(df: pd.DataFrame, apply_fold: bool = True) -> pd.DataFrame:

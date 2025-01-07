@@ -1,16 +1,16 @@
 #! /usr/bin/env python3
 
-# Python 3 version
-
+import logging
 import sys
 import os
 import re
 import subprocess
-import todo_utils
-import python_scripts.utils as utils
+from python_scripts import utils
 import typing as t
-import python_scripts.config as config
-import fileoutput
+from python_scripts.nanny import (
+    config,
+    todo_utils
+)
 
 ######################################################################
 def job_still_queued(param, job_id):
@@ -249,7 +249,53 @@ def next_finished(param, todo_list, entry_list):
 
 
 ######################################################################
-def check_pending_jobs(YAML):
+def good_output(step: str, cfgno: str, param: t.Dict) -> bool:
+
+    def good_file(filepath: str, good_size: int) -> bool:
+        logging.debug(f"Checking file: {filepath}")
+        try:
+            file_size = os.path.getsize(filepath)
+
+            if file_size < good_size:
+                logging.warning(f"File `{filepath}` not of correct size")
+                return False
+        except OSError:
+            logging.warning(f"File `{filepath}` not found")
+            return False
+
+        return True
+
+    job_params = param["job_setup"][step]
+    if 'tasks' in job_params:
+        run_config = config.get_run_config(param)
+        task_config = config.get_task_config(step,param)
+        outfile_config = config.get_outfile_config(param)
+
+        good = []
+        outfile_generator = config.generate_outfile_formatting(task_config, outfile_config, run_config)
+        for task_replacements, outfile in outfile_generator:
+            filekeys = utils.formatkeys(outfile.filestem)
+            replacements = dict(zip(('series', 'cfg'), cfgno.split('.')))
+            replacements.update({
+                key:run_config[key]
+                for key in filekeys
+                if key in run_config and key not in task_replacements
+            })
+            replacements.update(task_replacements)
+            res = utils.process_files(
+                outfile.filestem,
+                processor=lambda filepath, _: good_file(filepath, outfile.good_size),
+                replacements=replacements
+            )
+            good += res
+
+        return all(good)
+    else:
+        raise NotImplementedError("Todo: return fallback branching code for legacy output checker.")
+
+
+######################################################################
+def check_jobs(YAML):
     """Process all entries marked Q in the todolist"""
 
     # Read primary parameter file
@@ -288,31 +334,7 @@ def check_pending_jobs(YAML):
             sys.exit(1)
 
         # Check that the job completed successfully
-        status = True
-        if step == "S":
-            status = status and good_links(param, cfgno)
-        else:
-            tasks: t.Dict[str, t.Any]
-            try:
-                tasks = param["job_setup"][step]['tasks']
-            except KeyError:
-                raise KeyError(("`tasks` not found in `job_setup` parameters"
-                                f"for step `{step}`."))
-
-            task_config: t.Dict[str, config.ConfigBase]
-            task_config = {
-                key: config.get_config(key)(task)
-                for key, task in tasks.items()
-            }
-            run_config = config.get_config('lmi_param')(param['lmi_param'])
-            task_outfiles = {
-                key: output.get_outfile_iter(key)(task[key], param['files'], run_config)
-            }
-
-        # status = all([
-            # call(f"good_{key}", tasks[key], cfgno, param)
-            # for key in tasks.keys()
-        # ])
+        status = good_output(step, cfgno, param)
         sys.stdout.flush()
 
         # Update the entry in the todo file
@@ -332,23 +354,13 @@ def check_pending_jobs(YAML):
 
 
 ############################################################
-def call(func_name, *args, **kwargs):
-    func = globals().get(func_name, None)
-    if callable(func):
-        return func(*args, **kwargs)
-    else:
-        raise AttributeError(
-            f"Function '{func_name}' not found or is not callable.")
-
-
-############################################################
 def main():
 
     # Parameter file
 
     YAML = "params.yaml"
 
-    check_pending_jobs(YAML)
+    check_jobs(YAML)
 
 
 ############################################################

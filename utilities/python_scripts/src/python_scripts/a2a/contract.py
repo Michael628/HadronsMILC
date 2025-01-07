@@ -82,7 +82,7 @@ def time_average(cij: NdType, open_indices: t.Tuple = (0, -1)) -> NdType:
                       + (nt,), dtype=np.complex128)
 
     # t1 = perf_counter()
-    corr[:] = cpnp.array([cij[t_mask == t].sum() for t in range(nt)])
+    corr[:] = cpnp.array([cij[t_mask == t].sum(, for t in range(nt)])
     # t2 = perf_counter()
 
     # print(f"claculation: {t2-t1}")

@@ -1,5 +1,5 @@
 # Scripts supporting job queue management
-# spawnjob.py and check_completed.py
+# spawnjob.py and checkjobs.py
 
 # For Python 3 version
 

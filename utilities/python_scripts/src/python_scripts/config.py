@@ -1,7 +1,5 @@
 from python_scripts import ConfigBase
 import typing as t
-import python_scripts.nanny.config as nanny_config
-import python_scripts.processing.config as processing_config
 
 
 def create_config(params: t.Dict) -> ConfigBase:
@@ -18,24 +16,16 @@ def create_config(params: t.Dict) -> ConfigBase:
     instance = ConfigBase()
     for k, v in params.items():
         if isinstance(v, t.Dict):
-            for k_inner, v_inner in v.items():
-                setattr(instance, f"{k}_{k_inner}", process_val(v_inner))
+            setattr(instance, f"{k}",
+                dict(
+                    (k_inner,process_val(v_inner))
+                    for k_inner, v_inner in v.items()
+                )
+            )
+
+        elif isinstance(v, t.List):
+            setattr(instance, f"{k}", list(map(process_val,v)))
         else:
             setattr(instance, f"{k}", process_val(v))
 
     return instance
-
-
-def get_config(config_label: str):
-    configs = {
-        "epack": nanny_config.create_epack_config,
-        "meson": nanny_config.create_op_list_config,
-        "high_modes": nanny_config.create_op_list_config,
-        'lmi_params': create_config,
-        "load_files": processing_config.create_dataio_config
-    }
-
-    if config_label in configs:
-        return configs[config_label]
-    else:
-        raise ValueError(f"No config implementation for `{config_label}`.")
