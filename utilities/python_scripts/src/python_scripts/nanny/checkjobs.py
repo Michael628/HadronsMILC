@@ -6,11 +6,11 @@ import os
 import re
 import subprocess
 
-import python_scripts.nanny.fileio
 from python_scripts import utils
 import typing as t
 from python_scripts.nanny import (
     config,
+    fileio,
     todo_utils
 )
 
@@ -271,18 +271,21 @@ def good_output(step: str, cfgno: str, param: t.Dict) -> bool:
     if 'tasks' in job_params:
         run_config = config.get_run_config(param)
         task_config = config.get_task_config(step,param)
-        outfile_config = config.get_outfile_config(param)
+        outfile_config_list = config.get_outfile_config(param)
 
         good = []
-        outfile_generator = python_scripts.nanny.fileio.generate_outfile_formatting(task_config, outfile_config, run_config)
+        outfile_generator = fileio.generate_outfile_formatting(task_config,
+                                                               outfile_config_list,
+                                                               run_config)
         replacements = run_config.string_dict
         replacements.update(dict(zip(('series', 'cfg'), cfgno.split('.'))))
-        for task_replacements, outfile in outfile_generator:
-            filekeys = utils.formatkeys(outfile.filestem)
+        for task_replacements, outfile_config in outfile_generator:
+            outfile = outfile_config.filestem + outfile_config.ext
+            filekeys = utils.formatkeys(outfile)
             replacements.update(task_replacements)
             res = utils.process_files(
-                outfile.filestem,
-                processor=lambda filepath, _: good_file(filepath, outfile.good_size),
+                outfile,
+                processor=lambda filepath, _: good_file(filepath, outfile_config.good_size),
                 replacements={k:v for k,v in replacements.items() if k in filekeys}
             )
             good += res

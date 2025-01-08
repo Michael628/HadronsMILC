@@ -284,7 +284,13 @@ def lma_solver(name: str, action: str, low_modes: str) -> t.Dict:
     }
 
 
-def quark_prop(name: str, source: str, solver: str, guess: str, gammas: str, gauge: str) -> t.Dict:
+def quark_prop(name: str,
+               source: str,
+               solver: str,
+               guess: str,
+               gammas: str,
+               gauge: str,
+               apply_g5: str) -> t.Dict:
     return {
         "id": {
             "name": name,
@@ -296,7 +302,8 @@ def quark_prop(name: str, source: str, solver: str, guess: str, gammas: str, gau
             "guess": guess,
             "spinTaste": {
                 "gammas": gammas,
-                "gauge": gauge
+                "gauge": gauge,
+                "applyG5":apply_g5
 
             },
         },
@@ -309,9 +316,10 @@ def prop_contract(name: str,
                   sink_func: str,
                   source_shift: str,
                   source_gammas: str,
-                  gammas: str,
+                  sink_gammas: str,
                   gauge: str,
-                  output: str) -> t.Dict:
+                  output: str,
+                  apply_g5: str) -> t.Dict:
     return {
         "id": {
             "name": name,
@@ -324,9 +332,9 @@ def prop_contract(name: str,
             "sourceShift": source_shift,
             "sourceGammas": source_gammas,
             "sinkSpinTaste": {
-                "gammas": gammas,
-                "gauge": gauge
-
+                "gammas": sink_gammas,
+                "gauge": gauge,
+                "applyG5": apply_g5
             },
             "output": output,
         },
@@ -341,7 +349,8 @@ def meson_field(name: str,
                 low_modes: str,
                 left: str,
                 right: str,
-                output: str) -> t.Dict:
+                output: str,
+                apply_g5:str) -> t.Dict:
     return {
         "id": {
             "name": name,
@@ -355,7 +364,8 @@ def meson_field(name: str,
             },
             "spinTaste": {
                 "gammas": gammas,
-                "gauge": gauge
+                "gauge": gauge,
+                "applyG5": apply_g5
 
             },
             "lowModes": low_modes,

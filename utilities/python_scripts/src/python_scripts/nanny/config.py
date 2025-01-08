@@ -17,7 +17,7 @@ class RunConfig(ConfigBase):
     eigs: t.Optional[int] = None
     sourceeigs: t.Optional[int] = None
     noise: t.Optional[int] = None
-    mass: t.Optional[t.Dict[str,float]] = None
+    mass: t.Dict[str,float] = field(default_factory=dict)
     time: t.Optional[int] = None
     tstart: int = 0
     tstop: t.Optional[int] = None
@@ -69,6 +69,8 @@ class RunConfig(ConfigBase):
                 continue
             elif isinstance(v,t.List):
                 res[k] = list(map(str,v))
+            elif isinstance(v,bool):
+                res[k] = str(v).lower()
             else:
                 res[k] = str(v)
 
@@ -77,6 +79,7 @@ class RunConfig(ConfigBase):
 @dataclass
 class OutfileConfig(ConfigBase):
     filestem: str
+    ext: str
     good_size: int
 
 
@@ -90,49 +93,6 @@ class OutfileConfigList(ConfigBase):
     eval: t.Optional[OutfileConfig] = None
     high_modes: t.Optional[OutfileConfig] = None
     meson: t.Optional[OutfileConfig] = None
-
-    @property
-    def eigstem(self):
-        if self.eigdir:
-            head, tail = os.path.split(self.eigdir.filestem)
-            if tail.startswith('v') and tail.endswith('.bin'):
-                return head
-            else:
-                return self.eigdir
-        elif self.eig:
-            head, tail = os.path.split(self.eig.filestem)
-            tail = tail.split('.')[0]
-            return os.path.join(head,tail)
-        else:
-            return None
-
-    @property
-    def evalstem(self):
-        if self.eval:
-            head, tail = os.path.split(self.eval.filestem)
-            tail = tail.split('.')[0]
-            return os.path.join(head,tail)
-        else:
-            return None
-
-    @property
-    def mesonstem(self):
-        if self.meson:
-            head, tail = os.path.split(self.meson.filestem)
-            head, tail = os.path.split(head)
-            tail = tail.split('.')[0]
-            return os.path.join(head, tail)
-        else:
-            return None
-
-    @property
-    def highstem(self):
-        if self.high_modes:
-            head, tail = os.path.split(self.high_modes.filestem)
-            tail = tail.split('.')[0]
-            return os.path.join(head, tail)
-        else:
-            return None
 
 
 @dataclass
@@ -249,14 +209,24 @@ def get_config_factory(config_label: str):
         return GenerateLMITaskConfig(**config_params)
 
     def create_outfile_config(params: t.Dict) -> OutfileConfigList:
+        extensions = {
+            "fat_links": ".{cfg}",
+            "long_links": ".{cfg}",
+            "gauge_links": ".{cfg}",
+            "eig": ".{cfg}.bin",
+            "eigdir": ".{cfg}/v{eig_index}.bin",
+            "eval": ".{cfg}.h5",
+            "high_modes": ".{cfg}.h5",
+            "meson": ".{cfg}/{gamma}_0_0_0.h5",
+        }
         outfiles = {}
         home = params['home']
-        for k, v in params.items():
-            if k != 'home':
-
+        for k in extensions:
+            if k in params:
                 outfiles[k] = OutfileConfig(
-                    filestem=str(os.path.join(home,v['filestem'])),
-                    good_size=v['good_size']
+                    filestem=str(os.path.join(home,params[k]['filestem'])),
+                    ext=extensions[k],
+                    good_size=params[k]['good_size']
                 )
 
         return OutfileConfigList(**outfiles)

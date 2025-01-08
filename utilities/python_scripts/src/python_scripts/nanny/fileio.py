@@ -115,7 +115,7 @@ def build_xml_params(tasks: GenerateLMITaskConfig, run_config: RunConfig, outfil
     if tasks.epack:
         epack_path = ''
         if tasks.epack.load or tasks.epack.save_eigs:
-            epack_path = outfile_config.eigstem.format(**run_conf_dict)
+            epack_path = outfile_config.eig.filestem.format(**run_conf_dict)
 
         if tasks.epack.load:
             modules.append(xml_templates.epack_load(name='epack',
@@ -143,13 +143,13 @@ def build_xml_params(tasks: GenerateLMITaskConfig, run_config: RunConfig, outfil
                                                       mass=mass))
 
         if tasks.epack.save_evals:
-            eval_path = outfile_config.evalstem.format(**run_conf_dict)
+            eval_path = outfile_config.eval.filestem.format(**run_conf_dict)
             modules.append(xml_templates.eval_save(name='eval_save',
                                                    eigen_pack='epack',
                                                    output=eval_path))
 
     if tasks.meson:
-        meson_path = outfile_config.mesonstem
+        meson_path = outfile_config.meson.filestem
         for op in tasks.meson.operations:
             op_type = op.gamma.name.lower()
             gauge = "" if op.gamma == Gamma.LOCAL else "gauge"
@@ -159,12 +159,13 @@ def build_xml_params(tasks: GenerateLMITaskConfig, run_config: RunConfig, outfil
                     **run_conf_dict
                 )
                 modules.append(xml_templates.meson_field(
-                    name=f"mf_{op_type}_{mass_label}",
-                    action=f"stag_{mass_label}",
+                    name=f"mf_{op_type}_mass_{mass_label}",
+                    action=f"stag_mass_{mass_label}",
                     block=run_conf_dict['blocksize'],
                     gammas=op.gamma.gamma_string,
+                    apply_g5='false',
                     gauge=gauge,
-                    low_modes=f"evecs_{mass_label}",
+                    low_modes=f"evecs_mass_{mass_label}",
                     left="",
                     right="",
                     output=output
@@ -228,6 +229,7 @@ def build_xml_params(tasks: GenerateLMITaskConfig, run_config: RunConfig, outfil
                     solver=solver,
                     guess=guess,
                     gammas=op.gamma.gamma_string,
+                    apply_g5='true',
                     gauge="" if op.gamma.local else "gauge"
                 ))
 
@@ -263,7 +265,8 @@ def build_xml_params(tasks: GenerateLMITaskConfig, run_config: RunConfig, outfil
                     sink_func='sink',
                     source_shift=f"noise_t{tslice}_shift",
                     source_gammas=op.gamma.gamma_string,
-                    gammas=op.gamma.gamma_string,
+                    sink_gammas=op.gamma.gamma_string,
+                    apply_g5='true',
                     gauge="" if op.gamma.local else "gauge",
                     output=output
                 ))
@@ -286,19 +289,21 @@ def generate_outfile_formatting(task_config: ConfigBase, outfile_config: Outfile
         if task_config.epack.save_eigs:
             yield {}, outfile_config.eval
 
-    res: t.Dict = {}
-    for op in task_config.meson.operations:
-        res['gamma'] = op.gamma.gamma_list
-        res['mass'] = [run_config.mass_out_label[m] for m in op.mass]
-        yield res, outfile_config.meson
+    if task_config.meson:
+        res: t.Dict = {}
+        for op in task_config.meson.operations:
+            res['gamma'] = op.gamma.gamma_list
+            res['mass'] = [run_config.mass_out_label[m] for m in op.mass]
+            yield res, outfile_config.meson
 
-    res = {'tsource': list(range(run_config.tstart, run_config.tstop, run_config.dt))}
-    if task_config.epack:
-        res['dset'] = ['ama', 'ranLL']
-    else:
-        res['dset'] = ['ama']
+    if task_config.high_modes:
+        res = {'tsource': list(range(run_config.tstart, run_config.tstop, run_config.dt))}
+        if task_config.epack:
+            res['dset'] = ['ama', 'ranLL']
+        else:
+            res['dset'] = ['ama']
 
-    for op in task_config.high_modes.operations:
-        res['gamma'] = op.gamma.name.lower()
-        res['mass'] = [run_config.mass_out_label[m] for m in op.mass]
-        yield res, outfile_config.high_modes
+        for op in task_config.high_modes.operations:
+            res['gamma'] = op.gamma.name.lower()
+            res['mass'] = [run_config.mass_out_label[m] for m in op.mass]
+            yield res, outfile_config.high_modes
