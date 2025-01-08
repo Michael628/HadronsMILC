@@ -5,6 +5,8 @@ import sys
 import os
 import re
 import subprocess
+
+import python_scripts.nanny.fileio
 from python_scripts import utils
 import typing as t
 from python_scripts.nanny import (
@@ -272,7 +274,7 @@ def good_output(step: str, cfgno: str, param: t.Dict) -> bool:
         outfile_config = config.get_outfile_config(param)
 
         good = []
-        outfile_generator = config.generate_outfile_formatting(task_config, outfile_config, run_config)
+        outfile_generator = python_scripts.nanny.fileio.generate_outfile_formatting(task_config, outfile_config, run_config)
         for task_replacements, outfile in outfile_generator:
             filekeys = utils.formatkeys(outfile.filestem)
             replacements = dict(zip(('series', 'cfg'), cfgno.split('.')))

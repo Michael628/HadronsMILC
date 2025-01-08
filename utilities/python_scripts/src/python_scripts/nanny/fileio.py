@@ -1,230 +1,13 @@
 import itertools
 import re
 
-from python_scripts.nanny import config
-from python_scripts.nanny.xml_templates import gauge, meson, highmodes, eig
+from python_scripts.nanny import xml_templates
+from python_scripts import ConfigBase, Gamma
+from python_scripts.nanny.config import OutfileConfigList, RunConfig, GenerateLMITaskConfig
 import typing as t
 
-
-GAMMAS = ['pion_local', 'vec_local', 'vec_onelink']
-
-
-def append_gauges_and_actions(modules: t.List, run_config: config.RunConfig) -> None:
-
-    modules += gauge.gauge_dp_params(
-        ens=run_config.ens,
-        series=run_config.series,
-        include_unsmeared=True
-    )
-
-    modules += gauge.gauge_sp_params(
-        field_names=["gauge_fat", "gauge_long"]
-    )
-
-    modules += gauge.action_params(
-        name='stag_e',
-        mass='0.0',
-        fat_label='gauge_fat',
-        long_label='gauge_long'
-    )
-
-    for mass_label, mass in run_config.mass.items():
-
-        modules += gauge.action_params(
-            name=f"stag_mass_{mass_label}",
-            mass=str(mass),
-            fat_label='gauge_fat',
-            long_label='gauge_long',
-            single_precision=False
-        )
-
-        modules += gauge.action_params(
-            name=f"istag_mass_{mass_label}",
-            mass=str(mass),
-            fat_label='gauge_fatf',
-            long_label='gauge_longf',
-            single_precision=True
-        )
-
-
-def append_epacks(modules: t.List,
-                  load: bool,
-                  run_config: config.RunConfig,
-                  save_evals: bool = False,
-                  save_eigs: bool = False) -> None:
-
-    modules += gauge.op_params('stag_op', 'stag_e')
-
-    if load:
-        modules += eig.epack_load_params(
-            name='epack',
-            filestem=(f"eigen/eig{run_config.ens}nv"
-                      f"{run_config.sourceeigs}{run_config.series}"),
-            eigs=str(run_config.eigs),
-            multifile=str(run_config.multifile)
-        )
-    else:
-        eig_out: str = ""
-        if save_eigs:
-            eig_out = (f"eig{run_config.ens}nv{run_config.sourceeigs}"
-                       f"{run_config.series}")
-        modules += eig.irl_params(
-            name='epack',
-            operator='stag_op_schur',
-            lanczos_params={
-                'alpha': run_config.alpha,
-                'beta': run_config.beta,
-                'npoly': run_config.npoly,
-                'nstop': run_config.nstop,
-                'nk': run_config.nk,
-                'nm': run_config.nm
-            }
-        )
-
-    for mass_label, mass in run_config.mass.items():
-
-        modules += eig.epack_modify_params(
-            name=f"evecs_mass_{mass_label}",
-            epack="epack",
-            mass=str(mass)
-        )
-
-    if save_evals:
-        modules += eig.eval_save_params(
-            output=(f"eigen/eval/eval{run_config.ens}nv"
-                    f"{run_config.sourceeigs}{run_config.series}")
-        )
-
-
-def append_mesons(modules: t.List,
-                  operators: t.List[str], run_config: config.RunConfig) -> None:
-
-    if 'l' not in run_config.mass:
-        raise ValueError(("Masses must include light "
-                          "quark key `l` for meson generation"))
-
-    mass_label = "mass_l"
-    mass_output = f"m{str(run_config.mass['l'])[2:]}"
-
-    if 'local' in operators:
-        modules += meson.meson_local_params(
-            name=f"mf_local_{mass_label}",
-            action=f"stag_{mass_label}",
-            block=str(run_config.blocksize),
-            lowmodes=f"evecs_{mass_label}",
-            output=(f"e{run_config.eigs}n{run_config.noise}dt{run_config.dt}/"
-                    f"mesons/{mass_output}/mf_{run_config.series}"),
-            include_pion=True
-        )
-
-    if 'onelink' in operators:
-        modules += meson.meson_onelink_params(
-            name=f"mf_onelink_{mass_label}",
-            action=f"stag_{mass_label}",
-            block=str(run_config.blocksize),
-            lowmodes=f"evecs_{mass_label}",
-            gauge='gauge',
-            output=(f"e{run_config.eigs}n{run_config.noise}dt{run_config.dt}/"
-                    f"mesons/{mass_output}/mf_{run_config.series}")
-        )
-
-
-def append_solvers(modules: t.List, eigs: bool, run_config: config.RunConfig) -> None:
-
-    for mass_label in run_config.mass.keys():
-
-        modules += highmodes.mixed_precision_solver_params(
-            name=f"stag_ama_mass_{mass_label}",
-            outer_action=f"stag_mass_{mass_label}",
-            inner_action=f"istag_mass_{mass_label}",
-            residual='1e-8'
-        )
-
-        if eigs:
-            modules += highmodes.ranLL_solver_params(
-                name=f"stag_ranLL_mass_{mass_label}",
-                action=f"stag_mass_{mass_label}",
-                lowmodes=f"evecs_mass_{mass_label}"
-            )
-
-
-def append_sources_and_quarks(modules: t.List, eigs: bool, quark_iter: t.List, run_config: config.RunConfig) \
-        -> None:
-
-    for tslice in run_config.time_range:
-        modules += highmodes.source_params(
-            name=f"noise_t{tslice}",
-            nsrc=str(run_config.noise),
-            tstep=str(run_config.time),
-            t0=str(tslice)
-        )
-
-    def m1_eq_m2(x):
-        return x[-2] == x[-1]
-
-    for (tslice, glabel, slabel, mlabel, _) in filter(m1_eq_m2,
-                                                      quark_iter):
-
-        quark = f"quark_{slabel}_{glabel}_mass_{mlabel}_t{tslice}"
-        source = f"noise_t{tslice}"
-        solver = f"stag_{slabel}_mass_{mlabel}"
-        if slabel == "ama" and eigs:
-            guess = f"quark_ranLL_{glabel}_mass_{mlabel}_t{tslice}"
-        else:
-            guess = ""
-
-        module_builder = getattr(highmodes, f"propagator_{glabel}_params")
-        kwargs = {
-            'name': quark,
-            'source': source,
-            'solver': solver,
-            'guess': guess
-        }
-        if 'local' not in glabel:
-            kwargs['gauge'] = "gauge"
-
-        modules += module_builder(**kwargs)
-
-
-def append_contractors(modules: t.List, quark_iter: t.List, run_config: config.RunConfig) -> None:
-
-    modules += highmodes.sink_params()
-
-    def m1_ge_m2(x):
-        return x[-2] >= x[-1]
-
-    for (tslice, glabel, slabel, m1label, m2label) \
-            in filter(m1_ge_m2, quark_iter):
-
-        quark1 = f"quark_{slabel}_{glabel}_mass_{m1label}_t{tslice}"
-        quark2 = f"quark_{slabel}_pion_local_mass_{m2label}_t{tslice}"
-
-        if m1label == m2label:
-            mass_label = f"mass_{m1label}"
-            mass_output = f"m{str(run_config.mass[m1label])[2:]}"
-        else:
-            mass_label = f"mass_{m1label}_mass_{m2label}"
-            mass_output = (f"m{str(run_config.mass[m1label])[2:]}"
-                           f"_m{str(run_config.mass[m2label])[2:]}")
-
-        module_builder = getattr(highmodes, f"contractor_{glabel}_params")
-        kwargs = {
-            'name': f"corr_{slabel}_{glabel}_{mass_label}_t{tslice}",
-            'source': quark1,
-            'sink': quark2,
-            'source_shift': f"noise_t{tslice}_shift",
-            'output': (f"e{run_config.eigs}n{run_config.noise}dt{run_config.dt}/"
-                       f"correlators/{mass_output}/{glabel}/{slabel}/"
-                       f"corr_{glabel}_{slabel}_{mass_output}_t{tslice}"
-                       f"_{run_config.series}")
-        }
-        if 'local' not in glabel:
-            kwargs['gauge'] = "gauge"
-
-        modules += module_builder(**kwargs)
-
-
 def build_schedule(module_info, run_config):
+    gammas = ['pion_local', 'vec_local', 'vec_onelink']
 
     def pop_conditional(mi, cond):
         indices = [
@@ -265,7 +48,7 @@ def build_schedule(module_info, run_config):
     sorted_modules += sp_gauges
 
     def gamma_order(x):
-        for i, gamma in enumerate(GAMMAS):
+        for i, gamma in enumerate(gammas):
             if gamma in x['name']:
                 return i
         return -1
@@ -296,50 +79,227 @@ def build_schedule(module_info, run_config):
     return [m['name'] for m in sorted_modules]
 
 
-def build_xml_params(tasks: t.Dict, run_config: config.RunConfig):
+def build_xml_params(tasks: GenerateLMITaskConfig, run_config: RunConfig, outfile_config: OutfileConfigList):
+    run_conf_dict = run_config.string_dict
 
-    modules = []
+    gauge_filepath = outfile_config.gauge_links.filestem.format(**run_conf_dict)
+    gauge_fat_filepath = outfile_config.fat_links.filestem.format(**run_conf_dict)
+    gauge_long_filepath = outfile_config.long_links.filestem.format(**run_conf_dict)
 
-    epack = tasks.get('epack', {})
-    has_eigs = len(epack) != 0
+    modules = [
+        xml_templates.load_gauge('gauge', gauge_filepath),
+        xml_templates.load_gauge('gauge_fat', gauge_fat_filepath),
+        xml_templates.load_gauge('gauge_long', gauge_long_filepath),
+        xml_templates.cast_gauge('gauge_fatf', 'gauge_fat'),
+        xml_templates.cast_gauge('gauge_longf', 'gauge_long')
+    ]
 
-    append_gauges_and_actions(modules, run_config)
+    for mass_label in tasks.mass:
+        name = f"stag_mass_{mass_label}"
+        mass = str(run_config.mass[mass_label])
+        modules.append(xml_templates.action(name=name,
+                                                                 mass=mass,
+                                                                 gauge_fat='gauge_fat',
+                                                                 gauge_long='gauge_long'))
 
-    if has_eigs:
-        append_epacks(modules, run_config=run_config, **epack)
+    if tasks.high_modes:
+        for mass_label in tasks.high_modes.mass:
+            name = f"istag_mass_{mass_label}"
+            mass = str(run_config.mass[mass_label])
+            modules.append(xml_templates.action_float(name=name,
+                                                                           mass=mass,
+                                                                           gauge_fat='gauge_fatf',
+                                                                           gauge_long='gauge_longf'))
 
-    meson_operators = tasks.get('meson', [])
-    append_mesons(modules, meson_operators, run_config)
+    if tasks.epack:
+        epack_path = ''
+        if tasks.epack.load or tasks.epack.save_eigs:
+            epack_path = outfile_config.eigstem.format(**run_conf_dict)
 
-    high_params = tasks.get('high_modes', {})
-    if high_params:
-        high_config = config.get_config_factory('high_modes')(high_params)
+        if tasks.epack.load:
+            modules.append(xml_templates.epack_load(name='epack',
+                                                                         filestem=epack_path,
+                                                                         size=run_conf_dict['sourceeigs'],
+                                                                         multifile=run_conf_dict['multifile']))
+        else:
+            modules.append(xml_templates.op('stag_op', 'stag_e'))
+            modules.append(xml_templates.irl(name='epack',
+                                                                  op='stag_op_schur',
+                                                                  alpha=run_conf_dict['alpha'],
+                                                                  beta=run_conf_dict['beta'],
+                                                                  npoly=run_conf_dict['npoly'],
+                                                                  nstop=run_conf_dict['nstop'],
+                                                                  nk=run_conf_dict['nk'],
+                                                                  nm=run_conf_dict['nm'],
+                                                                  output=epack_path))
 
-        solve_combos = []
-        solver_labels = ["ranLL", "ama"] if epack else ['ama']
+        for mass_label in tasks.mass:
+            if mass_label == "zero":
+                continue
+            mass = str(run_config.mass[mass_label])
+            modules.append(xml_templates.epack_modify(name=f"evecs_mass_{mass_label}",
+                                                                           eigen_pack='epack',
+                                                                           mass=mass))
 
-        for op in high_config.gammas:
-            mass_labels: t.List[str] = op.mass
+        if tasks.epack.save_evals:
+            eval_path = outfile_config.evalstem.format(**run_conf_dict)
+            modules.append(xml_templates.eval_save(name='eval_save',
+                                                                        eigen_pack='epack',
+                                                                        output=eval_path))
 
-            assert all([m in run_config.mass.keys() for m in mass_labels])
+    if tasks.meson:
+        meson_path = outfile_config.mesonstem
+        for op in tasks.meson.operations:
+            op_type = op.gamma.name.lower()
+            gauge = "" if op.gamma == Gamma.LOCAL else "gauge"
+            for mass_label in op.mass:
+                output = meson_path.format(
+                    mass=run_config.mass_out_label[mass_label],
+                    **run_conf_dict
+                )
+                modules.append(xml_templates.meson_field(
+                    name=f"mf_{op_type}_{mass_label}",
+                    action=f"stag_{mass_label}",
+                    block=run_conf_dict['blocksize'],
+                    gammas=op.gamma.gamma_string,
+                    gauge=gauge,
+                    low_modes=f"evecs_{mass_label}",
+                    left="",
+                    right="",
+                    output=output
+                ))
 
-            solve_combos.append(itertools.product(
-                run_config.time_range,
-                [op.gamma.name.lower()],
-                solver_labels,
-                mass_labels,
-                mass_labels
+    if tasks.high_modes:
+
+        modules.append(xml_templates.sink(name='sink', mom='0 0 0'))
+
+        for op in tasks.high_modes.operations:
+            for mass_label in op.mass:
+                modules.append(xml_templates.mixed_precision_cg(
+                    name=f"stag_ama_mass_{mass_label}",
+                    outer_action=f"stag_mass_{mass_label}",
+                    inner_action=f"istag_mass_{mass_label}",
+                    residual='1e-8'
+                ))
+
+                if tasks.epack:
+                    modules.append(xml_templates.lma_solver(
+                        name=f"stag_ranLL_mass_{mass_label}",
+                        action=f"stag_mass_{mass_label}",
+                        low_modes=f"evecs_mass_{mass_label}"
+                    ))
+
+        for tslice in map(str, run_config.time_range):
+            modules.append(xml_templates.noise_rw(
+                name=f"noise_t{tslice}",
+                nsrc=run_conf_dict['noise'],
+                t0=tslice,
+                tstep=run_conf_dict['time']
             ))
 
-        quark_iter = list(itertools.chain(*solve_combos))
+        def m1_eq_m2(x):
+            return x[-2] == x[-1]
 
-        append_solvers(modules, has_eigs, run_config)
-        append_sources_and_quarks(modules, has_eigs, quark_iter, run_config)
-        append_contractors(modules, quark_iter, run_config)
+        solver_labels = ["ranLL", "ama"] if tasks.epack else ['ama']
+
+        high_path = outfile_config.high_modes.filestem
+        for op in tasks.high_modes.operations:
+            glabel = op.gamma.name.lower()
+            quark_iter = list(itertools.product(
+                list(map(str, run_config.time_range)),
+                solver_labels,
+                op.mass,
+                op.mass
+            ))
+
+            for (tslice, slabel, mlabel, _) in filter(m1_eq_m2, quark_iter):
+
+                quark = f"quark_{slabel}_{glabel}_mass_{mlabel}_t{tslice}"
+                source = f"noise_t{tslice}"
+                solver = f"stag_{slabel}_mass_{mlabel}"
+                if slabel == "ama" and tasks.epack:
+                    guess = f"quark_ranLL_{glabel}_mass_{mlabel}_t{tslice}"
+                else:
+                    guess = ""
+
+                modules.append(xml_templates.quark_prop(
+                    name=quark,
+                    source=source,
+                    solver=solver,
+                    guess=guess,
+                    gammas=op.gamma.gamma_string,
+                    gauge="" if op.gamma.local else "gauge"
+                ))
+
+            def m1_ge_m2(x):
+                return x[-2] >= x[-1]
+
+            for (tslice, slabel, m1label, m2label) \
+                    in filter(m1_ge_m2, quark_iter):
+
+                quark1 = f"quark_{slabel}_{glabel}_mass_{m1label}_t{tslice}"
+                quark2 = f"quark_{slabel}_pion_local_mass_{m2label}_t{tslice}"
+
+                if m1label == m2label:
+                    mass_label = f"mass_{m1label}"
+                    mass_output = f"{run_config.mass_out_label[m1label]}"
+                else:
+                    mass_label = f"mass_{m1label}_mass_{m2label}"
+                    mass_output = (f"{run_config.mass_out_label[m1label]}"
+                                   f"_m{run_config.mass_out_label[m2label]}")
+
+                output = high_path.format(
+                    mass=mass_output,
+                    dset=slabel,
+                    gamma=glabel,
+                    tsource=tslice,
+                    **run_conf_dict
+                )
+
+                modules.append(xml_templates.prop_contract(
+                    name=f"corr_{slabel}_{glabel}_{mass_label}_t{tslice}",
+                    source=quark1,
+                    sink=quark2,
+                    sink_func='sink',
+                    source_shift=f"noise_t{tslice}_shift",
+                    source_gammas=op.gamma.gamma_string,
+                    gammas=op.gamma.gamma_string,
+                    gauge="" if op.gamma.local else "gauge",
+                    output=output
+                ))
+
 
     module_info = [m["id"] for m in modules]
     schedule = build_schedule(module_info, run_config)
 
     return modules, schedule
 
-    # return xml_params
+
+def generate_outfile_formatting(task_config: ConfigBase, outfile_config: OutfileConfigList, run_config: RunConfig):
+    assert isinstance(task_config, GenerateLMITaskConfig)
+
+    if task_config.epack:
+        if task_config.epack.save_eigs:
+            if task_config.epack.multifile:
+                yield {'eig_index': list(range(int(run_config.eigs)))}, outfile_config.eigdir
+            else:
+                yield {}, outfile_config.eig
+        if task_config.epack.save_eigs:
+            yield {}, outfile_config.eval
+
+    res: t.Dict = {}
+    for op in task_config.meson.operations:
+        res['gamma'] = op.gamma.gamma_list
+        res['mass'] = [run_config.mass_out_label[m] for m in op.mass]
+        yield res, outfile_config.meson
+
+    res = {'tsource': list(range(run_config.tstart, run_config.tstop, run_config.dt))}
+    if task_config.epack:
+        res['dset'] = ['ama', 'ranLL']
+    else:
+        res['dset'] = ['ama']
+
+    for op in task_config.high_modes.operations:
+        res['gamma'] = op.gamma.name.lower()
+        res['mass'] = [run_config.mass_out_label[m] for m in op.mass]
+        yield res, outfile_config.high_modes
