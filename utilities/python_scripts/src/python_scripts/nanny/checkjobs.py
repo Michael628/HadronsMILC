@@ -275,7 +275,6 @@ def good_output(step: str, cfgno: str, param: t.Dict) -> bool:
 
         good = []
         outfile_generator = python_scripts.nanny.fileio.generate_outfile_formatting(task_config, outfile_config, run_config)
-        logging.warning(cfgno)
         replacements = run_config.string_dict
         replacements.update(dict(zip(('series', 'cfg'), cfgno.split('.'))))
         for task_replacements, outfile in outfile_generator:
