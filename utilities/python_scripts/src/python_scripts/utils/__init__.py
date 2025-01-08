@@ -212,13 +212,25 @@ def process_files(filestem: str, processor: procFn,
 
     if ps.PARALLEL_LOAD:
         with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-            collection = list(executor.map(
-                lambda p: processor(*p),
-                ((f, r) for (f, r) in file_gen())
-            ))
+            try:
+                collection = list(executor.map(
+                    lambda p: processor(*p),
+                    ((f, r) for (f, r) in file_gen())
+                ))
+            except StopIteration as e:
+                if e.args:
+                    assert len(e.args) == 1
+                    collection = list(e.args)
+                pass
     else:
         for filename, reps in file_gen():
-            new_result = processor(filename, reps)
+            try:
+                new_result = processor(filename, reps)
+            except StopIteration as e:
+                if e.args:
+                    assert len(e.args) == 1
+                    collection.append(e.args[0])
+                break
             collection.append(new_result)
 
     return collection

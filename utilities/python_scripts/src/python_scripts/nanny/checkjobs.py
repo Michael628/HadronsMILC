@@ -255,17 +255,21 @@ def good_output(step: str, cfgno: str, param: t.Dict) -> bool:
 
     def good_file(filepath: str, good_size: int) -> bool:
         logging.debug(f"Checking file: {filepath}")
+        good = True
         try:
             file_size = os.path.getsize(filepath)
 
             if file_size < good_size:
                 logging.warning(f"File `{filepath}` not of correct size")
-                return False
+                good = False
         except OSError:
             logging.warning(f"File `{filepath}` not found")
-            return False
+            good = False
 
-        return True
+        if not good:
+            raise StopIteration(good)
+
+        return good
 
     job_params = param["job_setup"][step]
     if 'tasks' in job_params:
@@ -273,7 +277,6 @@ def good_output(step: str, cfgno: str, param: t.Dict) -> bool:
         task_config = config.get_task_config(step,param)
         outfile_config_list = config.get_outfile_config(param)
 
-        good = []
         outfile_generator = fileio.generate_outfile_formatting(task_config,
                                                                outfile_config_list,
                                                                run_config)
@@ -283,14 +286,15 @@ def good_output(step: str, cfgno: str, param: t.Dict) -> bool:
             outfile = outfile_config.filestem + outfile_config.ext
             filekeys = utils.formatkeys(outfile)
             replacements.update(task_replacements)
-            res = utils.process_files(
+            good = utils.process_files(
                 outfile,
                 processor=lambda filepath, _: good_file(filepath, outfile_config.good_size),
-                replacements={k:v for k,v in replacements.items() if k in filekeys}
+                replacements={k: v for k, v in replacements.items() if k in filekeys}
             )
-            good += res
+            if not all(good):
+                return False
 
-        return all(good)
+        return True
     else:
         raise NotImplementedError("Todo: return fallback branching code for legacy output checker.")
 
