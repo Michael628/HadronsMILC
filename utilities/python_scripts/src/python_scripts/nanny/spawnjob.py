@@ -5,6 +5,7 @@
 import sys
 import os
 import subprocess
+import typing as t
 from python_scripts.nanny import (
     fileio, xml_templates, config,
     todo_utils, checkjobs
@@ -191,7 +192,9 @@ def make_inputs(param, step, cfgno_steps):
                 run_config.cfg = cfgno
                 run_config.series = series
 
-                tasks = param['job_setup'][step].get('tasks', {})
+                outfile_config = config.get_outfile_config(param)
+
+                tasks = config.get_task_config(step, param)
 
                 # import paramModule as pm
 
@@ -203,7 +206,7 @@ def make_inputs(param, step, cfgno_steps):
                     sched=sched_file,
                     cfg=run_config.cfg
                 )
-                modules, schedule = fileio.build_xml_params(tasks, run_config)
+                modules, schedule = fileio.build_xml_params(tasks, run_config, outfile_config)
 
                 xml_dict['grid']['modules'] = {"module": modules}
 
@@ -418,17 +421,25 @@ def nanny_loop(YAML):
 
 
 ############################################################
-def main():
+def main(step: t.Optional[str]=None, cfgnos: t.Optional[t.List[str]]=None):
 
     # Set permissions
     os.system("umask 022")
-    print(sys.argv)
 
     YAML = "params.yaml"
 
-    nanny_loop(YAML)
+    if not step:
+        nanny_loop(YAML)
+    else:
+        param = utils.load_param(YAML)
+        make_inputs(param,step,[(c,'') for c in cfgnos])
 
 
 ############################################################
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) > 2:
+        step = sys.argv[1]
+        cfgnos = sys.argv[2:]
+        main(step, cfgnos)
+    else:
+        main()

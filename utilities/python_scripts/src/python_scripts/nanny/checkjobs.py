@@ -275,19 +275,16 @@ def good_output(step: str, cfgno: str, param: t.Dict) -> bool:
 
         good = []
         outfile_generator = python_scripts.nanny.fileio.generate_outfile_formatting(task_config, outfile_config, run_config)
+        logging.warning(cfgno)
+        replacements = run_config.string_dict
+        replacements.update(dict(zip(('series', 'cfg'), cfgno.split('.'))))
         for task_replacements, outfile in outfile_generator:
             filekeys = utils.formatkeys(outfile.filestem)
-            replacements = dict(zip(('series', 'cfg'), cfgno.split('.')))
-            replacements.update({
-                key:run_config[key]
-                for key in filekeys
-                if key in run_config and key not in task_replacements
-            })
             replacements.update(task_replacements)
             res = utils.process_files(
                 outfile.filestem,
                 processor=lambda filepath, _: good_file(filepath, outfile.good_size),
-                replacements=replacements
+                replacements={k:v for k,v in replacements.items() if k in filekeys}
             )
             good += res
 

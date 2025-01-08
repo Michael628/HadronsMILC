@@ -6,6 +6,7 @@ from python_scripts import ConfigBase, Gamma
 from python_scripts.nanny.config import OutfileConfigList, RunConfig, GenerateLMITaskConfig
 import typing as t
 
+
 def build_schedule(module_info, run_config):
     gammas = ['pion_local', 'vec_local', 'vec_onelink']
 
@@ -40,7 +41,7 @@ def build_schedule(module_info, run_config):
 
     indep_mass_tslice = pop_conditional(
         module_info,
-        lambda x: "mass" not in x['name'] and "_t" not in x['name']
+        lambda x: ("mass" not in x['name'] or "mass_zero" in x['name']) and "_t" not in x['name']
     )
 
     sorted_modules = dp_gauges + indep_mass_tslice
@@ -98,18 +99,18 @@ def build_xml_params(tasks: GenerateLMITaskConfig, run_config: RunConfig, outfil
         name = f"stag_mass_{mass_label}"
         mass = str(run_config.mass[mass_label])
         modules.append(xml_templates.action(name=name,
-                                                                 mass=mass,
-                                                                 gauge_fat='gauge_fat',
-                                                                 gauge_long='gauge_long'))
+                                            mass=mass,
+                                            gauge_fat='gauge_fat',
+                                            gauge_long='gauge_long'))
 
     if tasks.high_modes:
         for mass_label in tasks.high_modes.mass:
             name = f"istag_mass_{mass_label}"
             mass = str(run_config.mass[mass_label])
             modules.append(xml_templates.action_float(name=name,
-                                                                           mass=mass,
-                                                                           gauge_fat='gauge_fatf',
-                                                                           gauge_long='gauge_longf'))
+                                                      mass=mass,
+                                                      gauge_fat='gauge_fatf',
+                                                      gauge_long='gauge_longf'))
 
     if tasks.epack:
         epack_path = ''
@@ -118,34 +119,34 @@ def build_xml_params(tasks: GenerateLMITaskConfig, run_config: RunConfig, outfil
 
         if tasks.epack.load:
             modules.append(xml_templates.epack_load(name='epack',
-                                                                         filestem=epack_path,
-                                                                         size=run_conf_dict['sourceeigs'],
-                                                                         multifile=run_conf_dict['multifile']))
+                                                    filestem=epack_path,
+                                                    size=run_conf_dict['sourceeigs'],
+                                                    multifile=run_conf_dict['multifile']))
         else:
-            modules.append(xml_templates.op('stag_op', 'stag_e'))
+            modules.append(xml_templates.op('stag_op', 'stag_mass_zero'))
             modules.append(xml_templates.irl(name='epack',
-                                                                  op='stag_op_schur',
-                                                                  alpha=run_conf_dict['alpha'],
-                                                                  beta=run_conf_dict['beta'],
-                                                                  npoly=run_conf_dict['npoly'],
-                                                                  nstop=run_conf_dict['nstop'],
-                                                                  nk=run_conf_dict['nk'],
-                                                                  nm=run_conf_dict['nm'],
-                                                                  output=epack_path))
+                                             op='stag_op_schur',
+                                             alpha=run_conf_dict['alpha'],
+                                             beta=run_conf_dict['beta'],
+                                             npoly=run_conf_dict['npoly'],
+                                             nstop=run_conf_dict['nstop'],
+                                             nk=run_conf_dict['nk'],
+                                             nm=run_conf_dict['nm'],
+                                             output=epack_path))
 
         for mass_label in tasks.mass:
             if mass_label == "zero":
                 continue
             mass = str(run_config.mass[mass_label])
             modules.append(xml_templates.epack_modify(name=f"evecs_mass_{mass_label}",
-                                                                           eigen_pack='epack',
-                                                                           mass=mass))
+                                                      eigen_pack='epack',
+                                                      mass=mass))
 
         if tasks.epack.save_evals:
             eval_path = outfile_config.evalstem.format(**run_conf_dict)
             modules.append(xml_templates.eval_save(name='eval_save',
-                                                                        eigen_pack='epack',
-                                                                        output=eval_path))
+                                                   eigen_pack='epack',
+                                                   output=eval_path))
 
     if tasks.meson:
         meson_path = outfile_config.mesonstem
@@ -173,21 +174,20 @@ def build_xml_params(tasks: GenerateLMITaskConfig, run_config: RunConfig, outfil
 
         modules.append(xml_templates.sink(name='sink', mom='0 0 0'))
 
-        for op in tasks.high_modes.operations:
-            for mass_label in op.mass:
-                modules.append(xml_templates.mixed_precision_cg(
-                    name=f"stag_ama_mass_{mass_label}",
-                    outer_action=f"stag_mass_{mass_label}",
-                    inner_action=f"istag_mass_{mass_label}",
-                    residual='1e-8'
-                ))
+        for mass_label in tasks.high_modes.mass:
+            modules.append(xml_templates.mixed_precision_cg(
+                name=f"stag_ama_mass_{mass_label}",
+                outer_action=f"stag_mass_{mass_label}",
+                inner_action=f"istag_mass_{mass_label}",
+                residual='1e-8'
+            ))
 
-                if tasks.epack:
-                    modules.append(xml_templates.lma_solver(
-                        name=f"stag_ranLL_mass_{mass_label}",
-                        action=f"stag_mass_{mass_label}",
-                        low_modes=f"evecs_mass_{mass_label}"
-                    ))
+            if tasks.epack:
+                modules.append(xml_templates.lma_solver(
+                    name=f"stag_ranLL_mass_{mass_label}",
+                    action=f"stag_mass_{mass_label}",
+                    low_modes=f"evecs_mass_{mass_label}"
+                ))
 
         for tslice in map(str, run_config.time_range):
             modules.append(xml_templates.noise_rw(
@@ -267,7 +267,6 @@ def build_xml_params(tasks: GenerateLMITaskConfig, run_config: RunConfig, outfil
                     gauge="" if op.gamma.local else "gauge",
                     output=output
                 ))
-
 
     module_info = [m["id"] for m in modules]
     schedule = build_schedule(module_info, run_config)

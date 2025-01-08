@@ -17,7 +17,7 @@ class RunConfig(ConfigBase):
     eigs: t.Optional[int] = None
     sourceeigs: t.Optional[int] = None
     noise: t.Optional[int] = None
-    mass: t.Dict[str,float] = field(default_factory=dict)
+    mass: t.Optional[t.Dict[str,float]] = None
     time: t.Optional[int] = None
     tstart: int = 0
     tstop: t.Optional[int] = None
@@ -32,7 +32,8 @@ class RunConfig(ConfigBase):
     blocksize: int = 500
 
     def __post_init__(self):
-        assert 'zero' not in self.mass
+        if not self.mass:
+            self.mass = {}
         self.mass['zero'] = 0.0
 
         if self.eigs:
@@ -47,7 +48,7 @@ class RunConfig(ConfigBase):
 
     @property
     def time_range(self):
-        return list(range(self.tstart,self.tstop,self.dt))
+        return list(range(self.tstart,self.tstop+1,self.dt))
 
     @property
     def mass_out_label(self):
@@ -63,7 +64,7 @@ class RunConfig(ConfigBase):
         Returns a dictionary keyed by the attribute labels
         """
         res = {}
-        for k, v in self.__dict__:
+        for k, v in self.__dict__.items():
             if isinstance(v,t.Dict):
                 continue
             elif isinstance(v,t.List):
@@ -190,7 +191,7 @@ class GenerateLMITaskConfig(ConfigBase):
         if self.high_modes:
             res += self.high_modes.mass
 
-        return res
+        return list(set(res))
 
 
 def get_config_factory(config_label: str):
