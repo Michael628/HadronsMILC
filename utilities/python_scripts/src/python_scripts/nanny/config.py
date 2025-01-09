@@ -238,7 +238,7 @@ def get_config_factory(config_label: str):
         "epack": lambda p: create_config(EpackTaskConfig, p),
         "meson": create_op_list_config,
         "high_modes": create_op_list_config,
-        'generate_lmi': create_lmi_config,
+        'lmi': create_lmi_config,
         'outfile': create_outfile_config,
     }
 
