@@ -1,9 +1,12 @@
 import itertools
+import os.path
 import re
 
+import pandas as pd
+
 from python_scripts.nanny import xml_templates
-from python_scripts import ConfigBase, Gamma
-from python_scripts.nanny.config import OutfileConfigList, RunConfig, GenerateLMITaskConfig
+from python_scripts import Gamma, utils
+from python_scripts.nanny.config import OutfileConfigList, RunConfig, LMITaskConfig
 import typing as t
 
 
@@ -80,12 +83,24 @@ def build_schedule(module_info, run_config):
     return [m['name'] for m in sorted_modules]
 
 
-def build_xml_params(tasks: GenerateLMITaskConfig, run_config: RunConfig, outfile_config: OutfileConfigList):
+def build_xml_params(tasks: LMITaskConfig,
+                     outfile_config_list: OutfileConfigList,
+                     run_config: RunConfig):
     run_conf_dict = run_config.string_dict
 
-    gauge_filepath = outfile_config.gauge_links.filestem.format(**run_conf_dict)
-    gauge_fat_filepath = outfile_config.fat_links.filestem.format(**run_conf_dict)
-    gauge_long_filepath = outfile_config.long_links.filestem.format(**run_conf_dict)
+    if not run_config.overwrite_sources:
+        missing_files = catalog_files(tasks, outfile_config_list, run_config)
+        missing_files = missing_files[missing_files['exists'] != True].copy()
+        run_tsources = []
+        for t in run_config.tsource_range:
+            if any(missing_files['tsource'] == str(t)):
+                run_tsources.append(str(t))
+    else:
+        run_tsources = list(map(str, run_config.tsource_range))
+
+    gauge_filepath = outfile_config_list.gauge_links.filestem.format(**run_conf_dict)
+    gauge_fat_filepath = outfile_config_list.fat_links.filestem.format(**run_conf_dict)
+    gauge_long_filepath = outfile_config_list.long_links.filestem.format(**run_conf_dict)
 
     modules = [
         xml_templates.load_gauge('gauge', gauge_filepath),
@@ -115,8 +130,9 @@ def build_xml_params(tasks: GenerateLMITaskConfig, run_config: RunConfig, outfil
     if tasks.epack:
         epack_path = ''
         if tasks.epack.load or tasks.epack.save_eigs:
-            epack_path = outfile_config.eig.filestem.format(**run_conf_dict)
+            epack_path = outfile_config_list.eig.filestem.format(**run_conf_dict)
 
+        # Load or generate eigenvectors
         if tasks.epack.load:
             modules.append(xml_templates.epack_load(name='epack',
                                                     filestem=epack_path,
@@ -134,6 +150,7 @@ def build_xml_params(tasks: GenerateLMITaskConfig, run_config: RunConfig, outfil
                                              nm=run_conf_dict['nm'],
                                              output=epack_path))
 
+        # Shift mass of eigenvalues
         for mass_label in tasks.mass:
             if mass_label == "zero":
                 continue
@@ -143,13 +160,13 @@ def build_xml_params(tasks: GenerateLMITaskConfig, run_config: RunConfig, outfil
                                                       mass=mass))
 
         if tasks.epack.save_evals:
-            eval_path = outfile_config.eval.filestem.format(**run_conf_dict)
+            eval_path = outfile_config_list.eval.filestem.format(**run_conf_dict)
             modules.append(xml_templates.eval_save(name='eval_save',
                                                    eigen_pack='epack',
                                                    output=eval_path))
 
     if tasks.meson:
-        meson_path = outfile_config.meson.filestem
+        meson_path = outfile_config_list.meson.filestem
         for op in tasks.meson.operations:
             op_type = op.gamma.name.lower()
             gauge = "" if op.gamma == Gamma.LOCAL else "gauge"
@@ -173,7 +190,88 @@ def build_xml_params(tasks: GenerateLMITaskConfig, run_config: RunConfig, outfil
 
     if tasks.high_modes:
 
+        def m1_eq_m2(x):
+            return x[-2] == x[-1]
+
+        def m1_ge_m2(x):
+            return x[-2] >= x[-1]
+
         modules.append(xml_templates.sink(name='sink', mom='0 0 0'))
+
+        for tsource in run_tsources:
+            modules.append(xml_templates.noise_rw(
+                name=f"noise_t{tsource}",
+                nsrc=run_conf_dict['noise'],
+                t0=tsource,
+                tstep=run_conf_dict['time']
+            ))
+
+        solver_labels = ["ranLL", "ama"] if tasks.epack else ['ama']
+
+        high_path = outfile_config_list.high_modes.filestem
+        for op in tasks.high_modes.operations:
+            glabel = op.gamma.name.lower()
+            quark_iter = list(itertools.product(
+                run_tsources,
+                solver_labels,
+                op.mass,
+                op.mass
+            ))
+
+            for (tsource, slabel, mlabel, _) in filter(m1_eq_m2, quark_iter):
+
+                quark = f"quark_{slabel}_{glabel}_mass_{mlabel}_t{tsource}"
+                source = f"noise_t{tsource}"
+                solver = f"stag_{slabel}_mass_{mlabel}"
+                if slabel == "ama" and tasks.epack:
+                    guess = f"quark_ranLL_{glabel}_mass_{mlabel}_t{tsource}"
+                else:
+                    guess = ""
+
+                modules.append(xml_templates.quark_prop(
+                    name=quark,
+                    source=source,
+                    solver=solver,
+                    guess=guess,
+                    gammas=op.gamma.gamma_string,
+                    apply_g5='true',
+                    gauge="" if op.gamma.local else "gauge"
+                ))
+
+            for (tsource, slabel, m1label, m2label) \
+                    in filter(m1_ge_m2, quark_iter):
+
+                quark1 = f"quark_{slabel}_{glabel}_mass_{m1label}_t{tsource}"
+                quark2 = f"quark_{slabel}_pion_local_mass_{m2label}_t{tsource}"
+
+                if m1label == m2label:
+                    mass_label = f"mass_{m1label}"
+                    mass_output = f"{run_config.mass_out_label[m1label]}"
+                else:
+                    mass_label = f"mass_{m1label}_mass_{m2label}"
+                    mass_output = (f"{run_config.mass_out_label[m1label]}"
+                                   f"_m{run_config.mass_out_label[m2label]}")
+
+                output = high_path.format(
+                    mass=mass_output,
+                    dset=slabel,
+                    gamma=glabel,
+                    tsource=tsource,
+                    **run_conf_dict
+                )
+
+                modules.append(xml_templates.prop_contract(
+                    name=f"corr_{slabel}_{glabel}_{mass_label}_t{tsource}",
+                    source=quark1,
+                    sink=quark2,
+                    sink_func='sink',
+                    source_shift=f"noise_t{tsource}_shift",
+                    source_gammas=op.gamma.gamma_string,
+                    sink_gammas=op.gamma.gamma_string,
+                    apply_g5='true',
+                    gauge="" if op.gamma.local else "gauge",
+                    output=output
+                ))
 
         for mass_label in tasks.high_modes.mass:
             modules.append(xml_templates.mixed_precision_cg(
@@ -190,120 +288,78 @@ def build_xml_params(tasks: GenerateLMITaskConfig, run_config: RunConfig, outfil
                     low_modes=f"evecs_mass_{mass_label}"
                 ))
 
-        for tslice in map(str, run_config.time_range):
-            modules.append(xml_templates.noise_rw(
-                name=f"noise_t{tslice}",
-                nsrc=run_conf_dict['noise'],
-                t0=tslice,
-                tstep=run_conf_dict['time']
-            ))
-
-        def m1_eq_m2(x):
-            return x[-2] == x[-1]
-
-        solver_labels = ["ranLL", "ama"] if tasks.epack else ['ama']
-
-        high_path = outfile_config.high_modes.filestem
-        for op in tasks.high_modes.operations:
-            glabel = op.gamma.name.lower()
-            quark_iter = list(itertools.product(
-                list(map(str, run_config.time_range)),
-                solver_labels,
-                op.mass,
-                op.mass
-            ))
-
-            for (tslice, slabel, mlabel, _) in filter(m1_eq_m2, quark_iter):
-
-                quark = f"quark_{slabel}_{glabel}_mass_{mlabel}_t{tslice}"
-                source = f"noise_t{tslice}"
-                solver = f"stag_{slabel}_mass_{mlabel}"
-                if slabel == "ama" and tasks.epack:
-                    guess = f"quark_ranLL_{glabel}_mass_{mlabel}_t{tslice}"
-                else:
-                    guess = ""
-
-                modules.append(xml_templates.quark_prop(
-                    name=quark,
-                    source=source,
-                    solver=solver,
-                    guess=guess,
-                    gammas=op.gamma.gamma_string,
-                    apply_g5='true',
-                    gauge="" if op.gamma.local else "gauge"
-                ))
-
-            def m1_ge_m2(x):
-                return x[-2] >= x[-1]
-
-            for (tslice, slabel, m1label, m2label) \
-                    in filter(m1_ge_m2, quark_iter):
-
-                quark1 = f"quark_{slabel}_{glabel}_mass_{m1label}_t{tslice}"
-                quark2 = f"quark_{slabel}_pion_local_mass_{m2label}_t{tslice}"
-
-                if m1label == m2label:
-                    mass_label = f"mass_{m1label}"
-                    mass_output = f"{run_config.mass_out_label[m1label]}"
-                else:
-                    mass_label = f"mass_{m1label}_mass_{m2label}"
-                    mass_output = (f"{run_config.mass_out_label[m1label]}"
-                                   f"_m{run_config.mass_out_label[m2label]}")
-
-                output = high_path.format(
-                    mass=mass_output,
-                    dset=slabel,
-                    gamma=glabel,
-                    tsource=tslice,
-                    **run_conf_dict
-                )
-
-                modules.append(xml_templates.prop_contract(
-                    name=f"corr_{slabel}_{glabel}_{mass_label}_t{tslice}",
-                    source=quark1,
-                    sink=quark2,
-                    sink_func='sink',
-                    source_shift=f"noise_t{tslice}_shift",
-                    source_gammas=op.gamma.gamma_string,
-                    sink_gammas=op.gamma.gamma_string,
-                    apply_g5='true',
-                    gauge="" if op.gamma.local else "gauge",
-                    output=output
-                ))
-
     module_info = [m["id"] for m in modules]
     schedule = build_schedule(module_info, run_config)
 
     return modules, schedule
 
 
-def generate_outfile_formatting(task_config: ConfigBase, outfile_config: OutfileConfigList, run_config: RunConfig):
-    assert isinstance(task_config, GenerateLMITaskConfig)
-
-    if task_config.epack:
-        if task_config.epack.save_eigs:
-            if task_config.epack.multifile:
-                yield {'eig_index': list(range(int(run_config.eigs)))}, outfile_config.eigdir
-            else:
-                yield {}, outfile_config.eig
-        if task_config.epack.save_eigs:
-            yield {}, outfile_config.eval
-
-    if task_config.meson:
-        res: t.Dict = {}
-        for op in task_config.meson.operations:
-            res['gamma'] = op.gamma.gamma_list
-            res['mass'] = [run_config.mass_out_label[m] for m in op.mass]
-            yield res, outfile_config.meson
-
-    if task_config.high_modes:
-        res = {'tsource': list(range(run_config.tstart, run_config.tstop, run_config.dt))}
+def catalog_files(task_config: LMITaskConfig,
+                  outfile_config_list: OutfileConfigList,
+                  run_config: RunConfig) -> pd.DataFrame:
+    def generate_outfile_formatting():
         if task_config.epack:
-            res['dset'] = ['ama', 'ranLL']
-        else:
-            res['dset'] = ['ama']
+            if task_config.epack.save_eigs:
+                if task_config.epack.multifile:
+                    yield {'eig_index': list(range(int(run_config.eigs)))}, outfile_config_list.eigdir
+                else:
+                    yield {}, outfile_config_list.eig
+            if task_config.epack.save_eigs:
+                yield {}, outfile_config_list.eval
 
-        for op in task_config.high_modes.operations:
-            res['gamma'] = op.gamma.name.lower()
-            res['mass'] = [run_config.mass_out_label[m] for m in op.mass]
-            yield res, outfile_config.high_modes
+        if task_config.meson:
+            res: t.Dict = {}
+            for op in task_config.meson.operations:
+                res['gamma'] = op.gamma.gamma_list
+                res['mass'] = [run_config.mass_out_label[m] for m in op.mass]
+                yield res, outfile_config_list.meson
+
+        if task_config.high_modes:
+            res = {'tsource': list(range(run_config.tstart, run_config.tstop, run_config.dt))}
+            if task_config.epack:
+                res['dset'] = ['ama', 'ranLL']
+            else:
+                res['dset'] = ['ama']
+
+            for op in task_config.high_modes.operations:
+                res['gamma'] = op.gamma.name.lower()
+                res['mass'] = [run_config.mass_out_label[m] for m in op.mass]
+                yield res, outfile_config_list.high_modes
+
+    def build_row(filepath: str, repls: t.Dict[str, str]) -> t.Dict[str, str]:
+        repls['filepath'] = filepath
+        return repls
+
+    outfile_generator = generate_outfile_formatting()
+    replacements = run_config.string_dict
+
+    df = []
+    for task_replacements, outfile_config in outfile_generator:
+        outfile = outfile_config.filestem + outfile_config.ext
+        filekeys = utils.formatkeys(outfile)
+        replacements.update(task_replacements)
+        files = utils.process_files(
+            outfile,
+            processor=build_row,
+            replacements={k: v for k, v in replacements.items() if k in filekeys}
+        )
+        dict_of_rows = {k: [file[k] for file in files] for k in files[0] if len(files) > 0}
+
+        new_df = pd.DataFrame(dict_of_rows)
+        new_df['good_size'] = outfile_config.good_size
+        new_df['exists'] = new_df['filepath'].apply(os.path.exists)
+        new_df['file_size'] = None
+        new_df.loc[new_df['exists'],'file_size'] = new_df[new_df['exists']]['filepath'].apply(os.path.getsize)
+        df.append(new_df)
+
+    df = pd.concat(df, ignore_index=True)
+
+    return df
+
+
+def find_bad_files(task_config: LMITaskConfig,
+                   outfile_config_list: OutfileConfigList,
+                   run_config: RunConfig) -> t.List[str]:
+    df = catalog_files(task_config, outfile_config_list, run_config)
+
+    return list(df[(df['file_size'] >= df['good_size']) != True]['filepath'])

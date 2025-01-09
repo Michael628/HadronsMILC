@@ -30,6 +30,7 @@ class RunConfig(ConfigBase):
     multifile: bool =  False
     eigresid: float = 1e-8
     blocksize: int = 500
+    overwrite_sources: bool = True
 
     def __post_init__(self):
         if not self.mass:
@@ -47,7 +48,7 @@ class RunConfig(ConfigBase):
 
 
     @property
-    def time_range(self):
+    def tsource_range(self):
         return list(range(self.tstart,self.tstop+1,self.dt))
 
     @property
@@ -135,7 +136,7 @@ class OpListConfig(ConfigBase):
 
 
 @dataclass
-class GenerateLMITaskConfig(ConfigBase):
+class LMITaskConfig(ConfigBase):
     epack: t.Optional[EpackTaskConfig] = None
     meson: t.Optional[OpListConfig] = None
     high_modes: t.Optional[OpListConfig] = None
@@ -201,12 +202,12 @@ def get_config_factory(config_label: str):
         return OpListConfig(operations=operations)
 
 
-    def create_generate_lmi_config(params: t.Dict) -> GenerateLMITaskConfig:
+    def create_generate_lmi_config(params: t.Dict) -> LMITaskConfig:
         config_params = {
             key: get_config_factory(key)(val)
             for key, val in params.items()
         }
-        return GenerateLMITaskConfig(**config_params)
+        return LMITaskConfig(**config_params)
 
     def create_outfile_config(params: t.Dict) -> OutfileConfigList:
         extensions = {

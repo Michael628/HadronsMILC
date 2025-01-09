@@ -274,27 +274,17 @@ def good_output(step: str, cfgno: str, param: t.Dict) -> bool:
     job_params = param["job_setup"][step]
     if 'tasks' in job_params:
         run_config = config.get_run_config(param)
+        run_config.series = cfgno.split('.')[0]
+        run_config.cfg = cfgno.split('.')[1]
         task_config = config.get_task_config(step,param)
         outfile_config_list = config.get_outfile_config(param)
 
-        outfile_generator = fileio.generate_outfile_formatting(task_config,
-                                                               outfile_config_list,
-                                                               run_config)
-        replacements = run_config.string_dict
-        replacements.update(dict(zip(('series', 'cfg'), cfgno.split('.'))))
-        for task_replacements, outfile_config in outfile_generator:
-            outfile = outfile_config.filestem + outfile_config.ext
-            filekeys = utils.formatkeys(outfile)
-            replacements.update(task_replacements)
-            good = utils.process_files(
-                outfile,
-                processor=lambda filepath, _: good_file(filepath, outfile_config.good_size),
-                replacements={k: v for k, v in replacements.items() if k in filekeys}
-            )
-            if not all(good):
-                return False
-
-        return True
+        bad_files = fileio.find_bad_files(task_config, outfile_config_list, run_config)
+        if bad_files:
+            logging.warning(f"File `{bad_files[0]}` not found")
+            return False
+        else:
+            return True
     else:
         raise NotImplementedError("Todo: return fallback branching code for legacy output checker.")
 

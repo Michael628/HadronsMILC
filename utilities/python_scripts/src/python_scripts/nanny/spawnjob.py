@@ -206,7 +206,7 @@ def make_inputs(param, step, cfgno_steps):
                     sched=sched_file,
                     cfg=run_config.cfg
                 )
-                modules, schedule = fileio.build_xml_params(tasks, run_config, outfile_config)
+                modules, schedule = fileio.build_xml_params(tasks, outfile_config, run_config)
 
                 xml_dict['grid']['modules'] = {"module": modules}
 
