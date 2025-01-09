@@ -202,7 +202,7 @@ def get_config_factory(config_label: str):
         return OpListConfig(operations=operations)
 
 
-    def create_generate_lmi_config(params: t.Dict) -> LMITaskConfig:
+    def create_lmi_config(params: t.Dict) -> LMITaskConfig:
         config_params = {
             key: get_config_factory(key)(val)
             for key, val in params.items()
@@ -238,7 +238,7 @@ def get_config_factory(config_label: str):
         "epack": lambda p: create_config(EpackTaskConfig, p),
         "meson": create_op_list_config,
         "high_modes": create_op_list_config,
-        'generate_lmi': create_generate_lmi_config,
+        'generate_lmi': create_lmi_config,
         'outfile': create_outfile_config,
     }
 
@@ -253,7 +253,7 @@ def get_run_config(param: t.Dict) -> RunConfig:
 
 def get_task_config(step: str, param: t.Dict) -> ConfigBase:
     tasks = param['job_setup'][step]['tasks']
-    job_type = param['job_setup'][step]['param_file']
+    job_type = param['job_setup'][step]['job_type']
     return get_config_factory(job_type)(tasks)
 
 def get_outfile_config(param: t.Dict):
