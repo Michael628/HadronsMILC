@@ -281,7 +281,7 @@ def good_output(step: str, cfgno: str, param: t.Dict) -> bool:
 
         bad_files = fileio.find_bad_files(task_config, outfile_config_list, run_config)
         if bad_files:
-            logging.warning(f"File `{bad_files[0]}` not found")
+            logging.warning(f"File `{bad_files[0]}` not found or not of correct file size.")
             return False
         else:
             return True

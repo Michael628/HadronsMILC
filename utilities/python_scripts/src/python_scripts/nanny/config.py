@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 from python_scripts import (
     ConfigBase,
-    Gamma,
+    Gamma, utils,
 )
 
 
@@ -248,8 +248,13 @@ def get_config_factory(config_label: str):
         raise ValueError(f"No config implementation for `{config_label}`.")
 
 
-def get_run_config(param: t.Dict) -> RunConfig:
-    return get_config_factory('run_config')(param['lmi_param'])
+def get_run_config(param: t.Dict, step: t.Optional[str] = None) -> RunConfig:
+    run_params = utils.deep_copy_dict(param['lmi_param'])
+    if step:
+        if 'param' in param['job_setup'][step]:
+            run_params.update(param['job_setup'][step]['param'])
+
+    return get_config_factory('run_config')(run_params)
 
 def get_task_config(step: str, param: t.Dict) -> ConfigBase:
     tasks = param['job_setup'][step]['tasks']

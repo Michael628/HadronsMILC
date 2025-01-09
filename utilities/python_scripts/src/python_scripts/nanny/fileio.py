@@ -360,6 +360,7 @@ def catalog_files(task_config: LMITaskConfig,
 def find_bad_files(task_config: LMITaskConfig,
                    outfile_config_list: OutfileConfigList,
                    run_config: RunConfig) -> t.List[str]:
+
     df = catalog_files(task_config, outfile_config_list, run_config)
 
     return list(df[(df['file_size'] >= df['good_size']) != True]['filepath'])

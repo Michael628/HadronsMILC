@@ -1,6 +1,5 @@
 import python_scripts as ps
 
-import sys
 import os
 import logging
 import itertools
@@ -24,7 +23,7 @@ loadFn = t.Callable[[str], pd.DataFrame]
 # ------ Data structure Functions ------ #
 def ndarray_to_frame(
         array: np.ndarray,
-        array_params: proc_conf.LoadArrayConfig) -> pd.DataFrame:
+        array_params: config.LoadArrayConfig) -> pd.DataFrame:
     """Converts ndarray into a pandas DataFrame object indexed by the values in
     `array_params`. See `ArrayParams` class for details.
     """
@@ -50,7 +49,7 @@ def ndarray_to_frame(
 
 def h5_to_frame(file: h5py.File,
                 data_to_frame: t.Dict[str, dataFrameFn],
-                h5_params: proc_conf.LoadH5Config) -> pd.DataFrame:
+                h5_params: config.LoadH5Config) -> pd.DataFrame:
     """Converts hdf5 format `file` to pandas DataFrame based on dataset info
     provided by `h5_params`. See H5Params class for details.
 
@@ -225,13 +224,13 @@ def load_files(filestem: str, file_loader: loadFn,
     return utils.process_files(filestem, proc, replacements, regex)
 
 
-def load(config: proc_conf.DataioConfig) -> pd.DataFrame:
+def load(io_config: config.DataioConfig) -> pd.DataFrame:
 
     def pickle_loader(filename: str):
 
-        dict_labels: t.Tuple = tuple(config.dict_labels)
+        dict_labels: t.Tuple = tuple(io_config.dict_labels)
 
-        array_params: proc_conf.LoadArrayConfig = config.array_params
+        array_params: config.LoadArrayConfig = io_config.array_params
 
         data_to_frame = partial(ndarray_to_frame, array_params=array_params)
 
@@ -256,12 +255,12 @@ def load(config: proc_conf.DataioConfig) -> pd.DataFrame:
         try:
             return pd.read_hdf(filename)
         except (ValueError, NotImplementedError):
-            assert config.h5_params is not None
+            assert io_config.h5_params is not None
 
-            h5_params: proc_conf.LoadH5Config = config.h5_params
+            h5_params: config.LoadH5Config = io_config.h5_params
 
-            array_params: t.Dict[str, proc_conf.LoadArrayConfig]
-            array_params = config.array_params
+            array_params: t.Dict[str, config.LoadArrayConfig]
+            array_params = io_config.array_params
 
             data_to_frame = {
                 k: partial(ndarray_to_frame, array_params=array_params[k])
@@ -271,9 +270,9 @@ def load(config: proc_conf.DataioConfig) -> pd.DataFrame:
 
             return h5_to_frame(file, data_to_frame, h5_params)
 
-    replacements: t.Dict = config.replacements
-    regex: t.Dict = config.regex
-    filestem: str = config.filestem
+    replacements: t.Dict = io_config.replacements
+    regex: t.Dict = io_config.regex
+    filestem: str = io_config.filestem
 
     if filestem.endswith(".p") or filestem.endswith(".npy"):
         file_loader = pickle_loader
@@ -286,7 +285,7 @@ def load(config: proc_conf.DataioConfig) -> pd.DataFrame:
         filestem, file_loader, replacements, regex
     )
 
-    actions: t.Dict = config.actions
+    actions: t.Dict = io_config.actions
     _ = [
         processor.execute(elem, actions=actions)
         for elem in df
@@ -372,7 +371,7 @@ def main(**kwargs):
             raise ValueError("Expecting `load_files` key in params.yaml file.")
 
         logging_level = params.pop('logging_level', False)
-        dataio_config = get_config('load_files')(params)
+        dataio_config = config.get_config('load_files')(params)
 
     if logging_level:
         logging.getLogger().setLevel(logging_level)
