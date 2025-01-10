@@ -1,13 +1,12 @@
 import os.path
 import typing as t
 from dataclasses import dataclass, field
-
 from python_scripts import (
-    ConfigBase,
-    Gamma, utils,
+    Gamma, utils
 )
+from python_scripts.config import ConfigBase
 
-
+# ============Run Configuration===========
 @dataclass
 class RunConfig(ConfigBase):
     ens: str
@@ -48,7 +47,7 @@ class RunConfig(ConfigBase):
 
 
     @property
-    def tsource_range(self):
+    def tsource_range(self) -> t.List[int]:
         return list(range(self.tstart,self.tstop+1,self.dt))
 
     @property
@@ -77,6 +76,7 @@ class RunConfig(ConfigBase):
 
         return res
 
+# ============Outfile Configuration===========
 @dataclass
 class OutfileConfig(ConfigBase):
     filestem: str
@@ -85,7 +85,7 @@ class OutfileConfig(ConfigBase):
 
 
 @dataclass
-class OutfileConfigList(ConfigBase):
+class OutfileListConfig(ConfigBase):
     fat_links: t.Optional[OutfileConfig] = None
     long_links: t.Optional[OutfileConfig] = None
     gauge_links: t.Optional[OutfileConfig] = None
@@ -95,7 +95,34 @@ class OutfileConfigList(ConfigBase):
     high_modes: t.Optional[OutfileConfig] = None
     meson: t.Optional[OutfileConfig] = None
 
+    @classmethod
+    def create(cls, params: t.Dict):
+        """Creates a new instance of OutfileConfigList from a dictionary."""
+        extensions = {
+            "fat_links": ".{cfg}",
+            "long_links": ".{cfg}",
+            "gauge_links": ".{cfg}",
+            "eig": ".{cfg}.bin",
+            "eigdir": ".{cfg}/v{eig_index}.bin",
+            "eval": ".{cfg}.h5",
+            "high_modes": ".{cfg}.h5",
+            "meson": ".{cfg}/{gamma}_0_0_0.h5",
+            "contract": ".{cfg}.p"
+        }
+        outfiles = {}
+        home = params['home']
+        for k in extensions:
+            if k in params:
+                outfiles[k] = OutfileConfig(
+                    filestem=str(os.path.join(home,params[k]['filestem'])),
+                    ext=extensions[k],
+                    good_size=params[k]['good_size']
+                )
 
+        return OutfileListConfig(**outfiles)
+
+
+# ============Epack Task Configuration===========
 @dataclass
 class EpackTaskConfig(ConfigBase):
     load: bool
@@ -104,6 +131,7 @@ class EpackTaskConfig(ConfigBase):
     save_evals: bool = True
 
 
+# ============Operator Configuration===========
 @dataclass
 class OpConfig(ConfigBase):
     """Configuration for a list of gamma operations and associated masses.
@@ -112,6 +140,18 @@ class OpConfig(ConfigBase):
     """
     gamma: Gamma
     mass: t.List[str]
+
+
+    @classmethod
+    def create(cls, params: t.Dict):
+        """Creates a new instance of OpConfig from a dictionary."""
+        m = params['mass']
+        if isinstance(m, str):
+            m = [m]
+        gamma = Gamma[params['gamma'].upper()]
+
+        return OpConfig(gamma=gamma, mass=m)
+
 
 @dataclass
 class OpListConfig(ConfigBase):
@@ -124,52 +164,13 @@ class OpListConfig(ConfigBase):
     """
     operations: t.List[OpConfig]
 
+    @classmethod
+    def create(cls, params: t.Dict):
+        """Creates a new instance of OpListConfig from a dictionary.
 
-    @property
-    def mass(self):
-        res: t.Set = set()
-        for op in self.operations:
-            for m in op.mass:
-                res.add(m)
-
-        return list(res)
-
-
-@dataclass
-class LMITaskConfig(ConfigBase):
-    epack: t.Optional[EpackTaskConfig] = None
-    meson: t.Optional[OpListConfig] = None
-    high_modes: t.Optional[OpListConfig] = None
-
-    @property
-    def mass(self):
-        res = []
-
-        if self.epack and not self.epack.load:
-            res.append('zero')
-        if self.meson:
-            res += self.meson.mass
-        if self.high_modes:
-            res += self.high_modes.mass
-
-        return list(set(res))
-
-
-def get_config_factory(config_label: str):
-    T = t.TypeVar('T')
-    def create_config(cls: t.Type[T], params: t.Dict) -> T:
-        return cls(**params)
-
-    def create_op_config(params: t.Dict) -> OpConfig:
-        m = params['mass']
-        if isinstance(m, str):
-            m = [m]
-        gamma = Gamma[params['gamma'].upper()]
-
-        return OpConfig(gamma=gamma, mass=m)
-
-    def create_op_list_config(params: t.Dict) -> OpListConfig:
-        """Creates a list of OpConfig objects. Supports two parameter formats.
+         Note
+         ----
+         Valid dictionary input formats:
 
          params = {
            'gamma': ['op1','op2','op3'],
@@ -190,56 +191,108 @@ def get_config_factory(config_label: str):
         """
         if 'mass' not in params:
             operations = [
-                create_op_config({'gamma':key,'mass':val['mass']})
+                OpConfig.create({'gamma':key,'mass':val['mass']})
                 for key, val in params.items()
             ]
         else:
+            gammas = params['gamma']
+            if isinstance(gammas, str):
+                gammas = [gammas]
             operations = [
-                create_op_config({'gamma':gamma,'mass':params['mass']})
-                for gamma in params['gamma']
+                OpConfig.create({'gamma':gamma,'mass':params['mass']})
+                for gamma in gammas
             ]
 
         return OpListConfig(operations=operations)
+    pass
+
+    @property
+    def mass(self):
+        res: t.Set = set()
+        for op in self.operations:
+            for m in op.mass:
+                res.add(m)
+
+        return list(res)
 
 
-    def create_lmi_config(params: t.Dict) -> LMITaskConfig:
+
+# ============LMI Task Configuration===========
+@dataclass
+class LMITaskConfig(ConfigBase):
+    epack: t.Optional[EpackTaskConfig] = None
+    meson: t.Optional[OpListConfig] = None
+    high_modes: t.Optional[OpListConfig] = None
+
+
+    @classmethod
+    def create(cls, params: t.Dict):
+        """Creates a new instance of LMITaskConfig from a dictionary.
+        """
+        # Assumes Valid class attributes labeled by corresponding strings in
+        # `get_config_factory` function.
         config_params = {
             key: get_config_factory(key)(val)
             for key, val in params.items()
         }
         return LMITaskConfig(**config_params)
+    pass
 
-    def create_outfile_config(params: t.Dict) -> OutfileConfigList:
-        extensions = {
-            "fat_links": ".{cfg}",
-            "long_links": ".{cfg}",
-            "gauge_links": ".{cfg}",
-            "eig": ".{cfg}.bin",
-            "eigdir": ".{cfg}/v{eig_index}.bin",
-            "eval": ".{cfg}.h5",
-            "high_modes": ".{cfg}.h5",
-            "meson": ".{cfg}/{gamma}_0_0_0.h5",
+    @property
+    def mass(self):
+        """Returns list of labels for masses required by task components."""
+        res = []
+
+        if self.epack and not self.epack.load:
+            res.append('zero')
+        if self.meson:
+            res += self.meson.mass
+        if self.high_modes:
+            res += self.high_modes.mass
+
+        return list(set(res))
+
+
+# ============Job Configuration===========
+@dataclass
+class JobConfig(ConfigBase):
+    tasks: ConfigBase
+    job_type: str
+    infile: str
+    wall_time: str
+    run: str
+    run_params: t.Optional[t.Dict] = None
+
+    @classmethod
+    def create(cls, params: t.Dict):
+        """Creates a new instance of JobConfig from a dictionary."""
+        res = {
+            'tasks': get_config_factory(params['job_type'])(params['tasks']),
         }
-        outfiles = {}
-        home = params['home']
-        for k in extensions:
-            if k in params:
-                outfiles[k] = OutfileConfig(
-                    filestem=str(os.path.join(home,params[k]['filestem'])),
-                    ext=extensions[k],
-                    good_size=params[k]['good_size']
-                )
+        res.update({k:v for k,v in params.items() if k not in res})
 
-        return OutfileConfigList(**outfiles)
+        # Rename `input` label from parameter file to `infile` attribute
+        res['infile'] = res.pop('io')
+
+        return JobConfig(**res)
+
+    def get_infile(self, run_config: RunConfig) -> str:
+        ext = {
+            'lmi':"{series}.{cfg}.xml"
+        }
+        return f"{self.infile}-{ext[self.job_type]}".format(**run_config.string_dict)
 
 
+# ============Convenience functions===========
+def get_config_factory(config_label: str):
     configs = {
-        'run_config': lambda p: create_config(RunConfig, p),
-        "epack": lambda p: create_config(EpackTaskConfig, p),
-        "meson": create_op_list_config,
-        "high_modes": create_op_list_config,
-        'lmi': create_lmi_config,
-        'outfile': create_outfile_config,
+        'run_config': RunConfig.create,
+        'job_config': JobConfig.create,
+        "epack": EpackTaskConfig.create,
+        "meson": OpListConfig.create,
+        "high_modes": OpListConfig.create,
+        'lmi': LMITaskConfig.create,
+        'outfile': OutfileListConfig.create,
     }
 
     if config_label in configs:
@@ -247,19 +300,15 @@ def get_config_factory(config_label: str):
     else:
         raise ValueError(f"No config implementation for `{config_label}`.")
 
+def get_job_config(param: t.Dict, step: str) -> JobConfig:
+    return get_config_factory('job_config')(param['job_setup'][step])
 
-def get_run_config(param: t.Dict, step: t.Optional[str] = None) -> RunConfig:
-    run_params = utils.deep_copy_dict(param['lmi_param'])
-    if step:
-        if 'param' in param['job_setup'][step]:
-            run_params.update(param['job_setup'][step]['param'])
+def get_run_config(param: t.Dict, job_config: JobConfig) -> RunConfig:
+    run_params = utils.deep_copy_dict(param['run_params'])
+    if job_config.run_params:
+        run_params.update(job_config.run_params)
 
     return get_config_factory('run_config')(run_params)
-
-def get_task_config(step: str, param: t.Dict) -> ConfigBase:
-    tasks = param['job_setup'][step]['tasks']
-    job_type = param['job_setup'][step]['job_type']
-    return get_config_factory(job_type)(tasks)
 
 def get_outfile_config(param: t.Dict):
     return get_config_factory('outfile')(param['files'])

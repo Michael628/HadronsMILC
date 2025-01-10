@@ -131,8 +131,8 @@ def check_path(param, job_key, cfgno, complain, file_key=None):
     good = True
 
     for filepath in filepaths:
-        for v in param['lmi_param'].keys():
-            filepath = re.sub(v, param['lmi_param'][v], filepath)
+        for v in param['run_params'].keys():
+            filepath = re.sub(v, param['run_params'][v], filepath)
 
         series, cfg = cfgno.split('.')
         filepath = re.sub('SERIES', series, filepath)
@@ -253,40 +253,23 @@ def next_finished(param, todo_list, entry_list):
 ######################################################################
 def good_output(step: str, cfgno: str, param: t.Dict) -> bool:
 
-    def good_file(filepath: str, good_size: int) -> bool:
-        logging.debug(f"Checking file: {filepath}")
-        good = True
-        try:
-            file_size = os.path.getsize(filepath)
-
-            if file_size < good_size:
-                logging.warning(f"File `{filepath}` not of correct size")
-                good = False
-        except OSError:
-            logging.warning(f"File `{filepath}` not found")
-            good = False
-
-        if not good:
-            raise StopIteration(good)
-
-        return good
-
-    job_params = param["job_setup"][step]
-    if 'tasks' in job_params:
-        run_config = config.get_run_config(param)
-        run_config.series = cfgno.split('.')[0]
-        run_config.cfg = cfgno.split('.')[1]
-        task_config = config.get_task_config(step,param)
-        outfile_config_list = config.get_outfile_config(param)
-
-        bad_files = fileio.find_bad_files(task_config, outfile_config_list, run_config)
-        if bad_files:
-            logging.warning(f"File `{bad_files[0]}` not found or not of correct file size.")
-            return False
-        else:
-            return True
-    else:
+    try:
+        job_config = config.get_job_config(param, step)
+    except KeyError:
         raise NotImplementedError("Todo: return fallback branching code for legacy output checker.")
+
+    run_config = config.get_run_config(param, job_config)
+    run_config.series = cfgno.split('.')[0]
+    run_config.cfg = cfgno.split('.')[1]
+    task_config = job_config.tasks
+    outfile_config_list = config.get_outfile_config(param)
+
+    bad_files = fileio.find_bad_files(task_config, outfile_config_list, run_config)
+    if bad_files:
+        logging.warning(f"File `{bad_files[0]}` not found or not of correct file size.")
+        return False
+    else:
+        return True
 
 
 ######################################################################
@@ -296,7 +279,7 @@ def check_jobs(YAML):
     # Read primary parameter file
     param = utils.load_param(YAML)
 
-    # Read the todo file
+    # Read the to-do file
     todo_file = param['nanny']['todo_file']
     lock_file = todo_utils.lock_file_name(todo_file)
 
@@ -307,9 +290,9 @@ def check_jobs(YAML):
     entry_list = sorted(todo_list, key=todo_utils.key_todo_entries)
 
     # Run through the entries. The entry_list is static, but the
-    # todo file could be changing due to other proceses
+    # to-do file could be changing due to other proceses
     while len(entry_list) > 0:
-        # Reread the todo file (it might have changed)
+        # Reread the to-do file (it might have changed)
         todo_utils.wait_set_todo_lock(lock_file)
         todo_list = todo_utils.read_todo(todo_file)
 
@@ -319,7 +302,7 @@ def check_jobs(YAML):
             continue
 
         step = step[:-1]
-        # Mark that we are checking this item and rewrite the todo list
+        # Mark that we are checking this item and rewrite the to-do list
         todo_list[cfgno][index] = step + "C"
         todo_utils.write_todo(todo_file, todo_list)
         todo_utils.remove_todo_lock(lock_file)
@@ -332,7 +315,7 @@ def check_jobs(YAML):
         status = good_output(step, cfgno, param)
         sys.stdout.flush()
 
-        # Update the entry in the todo file
+        # Update the entry in the to-do file
         todo_utils.wait_set_todo_lock(lock_file)
         todo_list = todo_utils.read_todo(todo_file)
         if status:

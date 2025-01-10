@@ -21,13 +21,13 @@ from dict2xml import dict2xml as dxml
 
 # Usage
 
-# From the ensemble directory containing the todo file
+# From the ensemble directory containing the to-do file
 # ../scripts/spawnjob.py
 
-# Requires a todo file with a list of configurations to be processed
+# Requires a to-do file with a list of configurations to be processed
 
-# The todo file contains the list of jobs to be done.
-# The line format of the todo file is
+# The to-do file contains the list of jobs to be done.
+# The line format of the to-do file is
 # <cfgno> <task code+flag> <task jobid> <task code+flag> <task jobid> etc.
 # Example: a.1170 SX 0 EX 2147965 LQ 2150955 A 0 H 0
 # Where cfgno is tne configuration number in the format x.nnn where x is the
@@ -84,7 +84,7 @@ def count_queue(scheduler, myjob_name_pfx):
 
 ######################################################################
 def next_cfgno_steps(max_cases, todo_list):
-    """Get next sets of cfgnos / job steps from the todo file"""
+    """Get next sets of cfgnos / job steps from the to-do file"""
 
     # Return a list of cfgnos and indices to be submitted in the next job
     # All subjobs in a single job must do the same step
@@ -127,16 +127,16 @@ def set_env(param, series, cfgno):
     """Set environment variables"""
 
     # Set environment parameters for the job script
-    lmi_param = param['lmi_param']
-    for key in lmi_param.keys():
-        os.environ[key.upper()] = str(lmi_param[key])
+    run_params = param['run_params']
+    for key in run_params.keys():
+        os.environ[key.upper()] = str(run_params[key])
 
     # These will be ignored in the bundled job script
     os.environ['SERIES'] = series
     os.environ['CFG'] = str(cfgno)
 
     # Compute starting time for loose and fine
-    dt = int(lmi_param['dt'])   # Spacing of source times
+    dt = int(run_params['dt'])   # Spacing of source times
 
     cfg0 = int(param['precess']['loose']['cfg0'])  # Base configuration
     dcfg = int(param['precess']['loose']['dcfg'])  # Interval between cfgnos
@@ -181,24 +181,23 @@ def make_inputs(param, step, cfgno_steps):
             # Define common environment variables
             set_env(param, series, cfgno)
 
-            # Name of the input XML file
-            io_stem_template = param['job_setup'][step]['io']
-            # Replace variables in io_stem if need be
-            io_stem = io_stem_template.format(**param['lmi_param'])
-            input_file = f"{io_stem}-{cfgno_series}.xml"
+            try:
+                job_config = config.get_job_config(param, step)
+            except KeyError:
+                raise NotImplementedError("Todo: return fallback branching code for legacy infile builder.")
 
-            if 'param_file' in param['job_setup'][step]:
-                run_config = config.get_run_config(param)
-                run_config.cfg = cfgno
-                run_config.series = series
+            run_config = config.get_run_config(param, job_config)
+            run_config.cfg = cfgno
+            run_config.series = series
 
-                outfile_config = config.get_outfile_config(param)
+            outfile_config = config.get_outfile_config(param)
 
-                tasks = config.get_task_config(step, param)
+            tasks = job_config.tasks
+            input_file = job_config.get_infile(run_config)
 
-                # import paramModule as pm
-
-                sched_file = f"schedules/{io_stem}-{cfgno_series}.sched"
+            # TODO: Move input file creation into fileio.py
+            if job_config.job_type == 'lmi':
+                sched_file = f"schedules/{input_file.removesuffix('.xml')}.sched"
 
                 xml_dict = xml_templates.xml_wrapper(
                     runid=(f"LMI-RW-series-{run_config.series}"

@@ -39,9 +39,6 @@ class Gamma(Enum):
         else:
             return False
 
-class ConfigBase:
-    pass
-
 
 PARALLEL_LOAD = False
 

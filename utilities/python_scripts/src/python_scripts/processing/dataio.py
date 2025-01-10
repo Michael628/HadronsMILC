@@ -363,7 +363,7 @@ def main(**kwargs):
     logging_level: str
     if kwargs:
         logging_level = kwargs.pop('logging_level', False)
-        dataio_config = config.get_config('load_files')(kwargs['load_files'])
+        dataio_config = config.get_dataio_config(kwargs['load_files'])
     else:
         try:
             params = utils.load_param('params.yaml')['load_files']
@@ -371,7 +371,7 @@ def main(**kwargs):
             raise ValueError("Expecting `load_files` key in params.yaml file.")
 
         logging_level = params.pop('logging_level', False)
-        dataio_config = config.get_config('load_files')(params)
+        dataio_config = config.get_dataio_config(params)
 
     if logging_level:
         logging.getLogger().setLevel(logging_level)

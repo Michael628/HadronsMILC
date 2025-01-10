@@ -2,9 +2,9 @@ import typing as t
 from dataclasses import dataclass
 
 from python_scripts import (
-    utils,
-    ConfigBase
+    utils
 )
+from python_scripts.config import ConfigBase
 
 
 @dataclass
@@ -76,50 +76,42 @@ class DataioConfig(ConfigBase):
 
         self.replacements = utils.process_params(**self.replacements)
 
-
-
-
-def get_config(config_label: str):
-
-    def create_load_h5_config(params: t.Dict) -> LoadH5Config:
-        return LoadH5Config(**params)
-
-
-    def create_load_array_config(params: t.Dict) -> LoadArrayConfig:
-        return LoadArrayConfig(**params)
-
-
-    def create_dataio_config(params: t.Dict) -> DataioConfig:
+    @classmethod
+    def create(cls, params: t.Dict):
         """Returns an instance of DataioConfig from `params` dictionary.
 
-        Parameters
-        ----------
-        params: dict
-            keys should correspond to class parameters (above).
-            `h5_params` and `array_params`, if provided,
-            should have dictionaries that can be passed to `create` static methods
-            in H5Params and ArrayParams, respectively.
-        """
+                Parameters
+                ----------
+                params: dict
+                    keys should correspond to class parameters (above).
+                    `h5_params` and `array_params`, if provided,
+                    should have dictionaries that can be passed to `create` static methods
+                    in H5Params and ArrayParams, respectively.
+                """
         config_params = utils.deep_copy_dict(params)
 
         h5_params = config_params.pop('h5_params', {})
         array_params = config_params.pop('array_params', {})
         if h5_params:
-            config_params['h5_params'] = create_load_h5_config(h5_params)
+            config_params['h5_params'] = LoadH5Config.create(h5_params)
 
             config_params['array_params'] = {}
             for k, v in array_params.items():
-                config_params['array_params'][k] = create_load_array_config(v)
+                config_params['array_params'][k] = LoadArrayConfig.create(v)
         elif array_params:
-            config_params['array_params'] = create_load_array_config(array_params)
+            config_params['array_params'] = LoadArrayConfig.create(array_params)
 
         return DataioConfig(**config_params)
 
+def get_config_factory(config_label: str):
     configs = {
-        "load_files": create_dataio_config
+        "dataio": DataioConfig.create
     }
 
     if config_label in configs:
         return configs[config_label]
     else:
         raise ValueError(f"No config implementation for `{config_label}`.")
+
+def get_dataio_config(params: t.Dict) -> DataioConfig:
+    return get_config_factory('dataio')(params)

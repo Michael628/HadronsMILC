@@ -6,7 +6,7 @@ import pandas as pd
 
 from python_scripts.nanny import xml_templates
 from python_scripts import Gamma, utils
-from python_scripts.nanny.config import OutfileConfigList, RunConfig, LMITaskConfig
+from python_scripts.nanny.config import OutfileListConfig, RunConfig, LMITaskConfig
 import typing as t
 
 
@@ -84,13 +84,13 @@ def build_schedule(module_info, run_config):
 
 
 def build_xml_params(tasks: LMITaskConfig,
-                     outfile_config_list: OutfileConfigList,
+                     outfile_config_list: OutfileListConfig,
                      run_config: RunConfig):
     run_conf_dict = run_config.string_dict
 
     if not run_config.overwrite_sources:
-        missing_files = catalog_files(tasks, outfile_config_list, run_config)
-        missing_files = missing_files[missing_files['exists'] != True].copy()
+        all_files = catalog_files(tasks, outfile_config_list, run_config)
+        missing_files = all_files[all_files['exists'] != True]
         run_tsources = []
         for t in run_config.tsource_range:
             if any(missing_files['tsource'] == str(t)):
@@ -295,7 +295,7 @@ def build_xml_params(tasks: LMITaskConfig,
 
 
 def catalog_files(task_config: LMITaskConfig,
-                  outfile_config_list: OutfileConfigList,
+                  outfile_config_list: OutfileListConfig,
                   run_config: RunConfig) -> pd.DataFrame:
     def generate_outfile_formatting():
         if task_config.epack:
@@ -315,7 +315,7 @@ def catalog_files(task_config: LMITaskConfig,
                 yield res, outfile_config_list.meson
 
         if task_config.high_modes:
-            res = {'tsource': list(range(run_config.tstart, run_config.tstop, run_config.dt))}
+            res = {'tsource': list(map(str,run_config.tsource_range))}
             if task_config.epack:
                 res['dset'] = ['ama', 'ranLL']
             else:
@@ -358,7 +358,7 @@ def catalog_files(task_config: LMITaskConfig,
 
 
 def find_bad_files(task_config: LMITaskConfig,
-                   outfile_config_list: OutfileConfigList,
+                   outfile_config_list: OutfileListConfig,
                    run_config: RunConfig) -> t.List[str]:
 
     df = catalog_files(task_config, outfile_config_list, run_config)

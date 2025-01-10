@@ -1,5 +1,12 @@
-from python_scripts import ConfigBase
 import typing as t
+
+T = t.TypeVar('T', bound='ConfigBase')
+class ConfigBase:
+
+    @classmethod
+    def create(cls: t.Type[T], params: t.Dict) -> T:
+        """Creates a new instance of ConfigBase from a dictionary."""
+        return cls(**params)
 
 
 def create_config(params: t.Dict) -> ConfigBase:
