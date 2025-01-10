@@ -81,11 +81,7 @@ def time_average(cij: NdType, open_indices: t.Tuple = (0, -1)) -> NdType:
     corr = cpnp.zeros(cij[time_removed_indices].shape
                       + (nt,), dtype=np.complex128)
 
-    # t1 = perf_counter()
-    corr[:] = cpnp.array([cij[t_mask == t].sum(, for t in range(nt)])
-    # t2 = perf_counter()
-
-    # print(f"claculation: {t2-t1}")
+    corr[:] = cpnp.array([cij[t_mask == t].sum() for t in range(nt)])
 
     return convert_to_numpy(corr / nt)
 
@@ -96,7 +92,7 @@ class MesonLoader:
 
     Parameters
     ----------
-    file : str
+    mesonfiles : str
         File location of meson field to load.
     times : iterable
         An iterable object containing slices. The slices will be used to load
