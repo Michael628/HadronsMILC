@@ -4,9 +4,29 @@ T = t.TypeVar('T', bound='ConfigBase')
 class ConfigBase:
 
     @classmethod
-    def create(cls: t.Type[T], params: t.Dict) -> T:
+    def create(cls: t.Type[T], **kwargs) -> T:
         """Creates a new instance of ConfigBase from a dictionary."""
-        return cls(**params)
+        return cls(**kwargs)
+
+    @property
+    def string_dict(self):
+        """Converts all attributes to strings or lists of strings.
+        Dictionary attributes are removed from output.
+        Returns a dictionary keyed by the attribute labels
+        """
+        res = {}
+        for k, v in self.__dict__.items():
+            if k.startswith("_") or isinstance(v, t.Dict):
+                continue
+            elif isinstance(v,t.List):
+                res[k] = list(map(str,v))
+            elif isinstance(v,bool):
+                res[k] = str(v).lower()
+            else:
+                if v is not None:
+                    res[k] = str(v)
+
+        return res
 
 
 def create_config(params: t.Dict) -> ConfigBase:

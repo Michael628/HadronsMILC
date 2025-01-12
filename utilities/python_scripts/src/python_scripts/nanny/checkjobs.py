@@ -258,7 +258,7 @@ def good_output(step: str, cfgno: str, param: t.Dict) -> bool:
     except KeyError:
         raise NotImplementedError("Todo: return fallback branching code for legacy output checker.")
 
-    run_config = config.get_run_config(param, job_config)
+    run_config = config.get_submit_config(param, job_config)
     run_config.series = cfgno.split('.')[0]
     run_config.cfg = cfgno.split('.')[1]
     task_config = job_config.tasks

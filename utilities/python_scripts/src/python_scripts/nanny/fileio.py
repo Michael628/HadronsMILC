@@ -6,7 +6,7 @@ import pandas as pd
 
 from python_scripts.nanny import xml_templates
 from python_scripts import Gamma, utils
-from python_scripts.nanny.config import OutfileListConfig, RunConfig, LMITaskConfig
+from python_scripts.nanny.config import OutfileListConfig, SubmitHadronsConfig, LMITaskConfig
 import typing as t
 
 
@@ -85,7 +85,7 @@ def build_schedule(module_info, run_config):
 
 def build_xml_params(tasks: LMITaskConfig,
                      outfile_config_list: OutfileListConfig,
-                     run_config: RunConfig):
+                     run_config: SubmitHadronsConfig):
     run_conf_dict = run_config.string_dict
 
     if not run_config.overwrite_sources:
@@ -296,7 +296,7 @@ def build_xml_params(tasks: LMITaskConfig,
 
 def catalog_files(task_config: LMITaskConfig,
                   outfile_config_list: OutfileListConfig,
-                  run_config: RunConfig) -> pd.DataFrame:
+                  run_config: SubmitHadronsConfig) -> pd.DataFrame:
     def generate_outfile_formatting():
         if task_config.epack:
             if task_config.epack.save_eigs:
@@ -359,7 +359,7 @@ def catalog_files(task_config: LMITaskConfig,
 
 def find_bad_files(task_config: LMITaskConfig,
                    outfile_config_list: OutfileListConfig,
-                   run_config: RunConfig) -> t.List[str]:
+                   run_config: SubmitHadronsConfig) -> t.List[str]:
 
     df = catalog_files(task_config, outfile_config_list, run_config)
 

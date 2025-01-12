@@ -2,6 +2,7 @@
 
 # Python 3 version
 
+import yaml
 import sys
 import os
 import subprocess
@@ -15,6 +16,9 @@ from python_scripts import utils
 from functools import reduce
 
 from dict2xml import dict2xml as dxml
+
+from python_scripts.nanny.config import ContractTaskConfig, SubmitContractConfig, SubmitHadronsConfig
+
 
 # Nanny script for managing job queues
 # C. DeTar 7/11/2022
@@ -123,101 +127,71 @@ def next_cfgno_steps(max_cases, todo_list):
 
 
 ######################################################################
-def set_env(param, series, cfgno):
-    """Set environment variables"""
-
-    # Set environment parameters for the job script
-    run_params = param['run_params']
-    for key in run_params.keys():
-        os.environ[key.upper()] = str(run_params[key])
-
-    # These will be ignored in the bundled job script
-    os.environ['SERIES'] = series
-    os.environ['CFG'] = str(cfgno)
-
-    # Compute starting time for loose and fine
-    dt = int(run_params['dt'])   # Spacing of source times
-
-    cfg0 = int(param['precess']['loose']['cfg0'])  # Base configuration
-    dcfg = int(param['precess']['loose']['dcfg'])  # Interval between cfgnos
-    tstep = int(param['precess']['loose']['tstep'])  # Precession interval
-    t0loose = ((int(cfgno) - cfg0) // dcfg * tstep) % dt  # Starting time
-
-    cfg0 = int(param['precess']['fine']['cfg0'])
-    dcfg = int(param['precess']['fine']['dcfg'])
-    tstep = int(param['precess']['fine']['tstep'])
-    nt = int(param['precess']['fine']['nt'])
-    t0fine = (t0loose + (int(cfgno) - cfg0) // dcfg * tstep * dt) % nt
-
-    os.environ['T0LOOSE'] = str(t0loose)
-    os.environ['T0FINE'] = str(t0fine)
-
-
-######################################################################
 def make_inputs(param, step, cfgno_steps):
     """Create input XML files for this job"""
 
     ncases = len(cfgno_steps)
     input_files = []
 
-    if step == 'S':
+    for i in range(ncases):
+        (cfgno_series, _) = cfgno_steps[i]
 
-        # Special treatment for link smearing.
-        if ncases > 0:
-            print("WARNING: No bundling of smearing jobs")
-            print("Will submit only one case")
-        (cfgno_series, _) = cfgno_steps[0]
+        # Extract series and cfgno  a.1428 -> a 1428
         (series, cfgno) = cfgno_series.split(".")
-        set_env(param, series, cfgno)
 
-    else:
+        try:
+            job_config = config.get_job_config(param, step)
+        except KeyError:
+            raise NotImplementedError("Todo: return fallback branching code for legacy infile builder.")
 
-        for i in range(ncases):
-            (cfgno_series, _) = cfgno_steps[i]
+        submit_config = config.get_submit_config(param,
+                                                 job_config,
+                                                 series=series,
+                                                 cfg=cfgno)
 
-            # Extract series and cfgno  a.1428 -> a 1428
-            (series, cfgno) = cfgno_series.split(".")
+        outfile_config = config.get_outfile_config(param)
 
-            # Define common environment variables
-            set_env(param, series, cfgno)
+        tasks = job_config.tasks
+        input_file = job_config.get_infile(submit_config)
 
-            try:
-                job_config = config.get_job_config(param, step)
-            except KeyError:
-                raise NotImplementedError("Todo: return fallback branching code for legacy infile builder.")
+        # TODO: Move input file creation into fileio.py
+        if job_config.job_type == 'lmi':
+            assert isinstance(submit_config, SubmitHadronsConfig)
+            sched_file = f"schedules/{input_file.removesuffix('.xml')}.sched"
 
-            run_config = config.get_run_config(param, job_config)
-            run_config.cfg = cfgno
-            run_config.series = series
+            xml_dict = xml_templates.xml_wrapper(
+                runid=(f"LMI-RW-series-{submit_config.series}"
+                       f"-{submit_config.eigs}-eigs-{submit_config.noise}-noise"),
+                sched=sched_file,
+                cfg=submit_config.cfg
+            )
+            modules, schedule = fileio.build_xml_params(tasks, outfile_config, submit_config)
 
-            outfile_config = config.get_outfile_config(param)
+            xml_dict['grid']['modules'] = {"module": modules}
 
-            tasks = job_config.tasks
-            input_file = job_config.get_infile(run_config)
+            with open(f"in/{input_file}", "w") as f:
+                f.write(dxml(xml_dict))
 
-            # TODO: Move input file creation into fileio.py
-            if job_config.job_type == 'lmi':
-                sched_file = f"schedules/{input_file.removesuffix('.xml')}.sched"
+            with open(sched_file, 'w') as f:
+                f.write(str(len(schedule)) + "\n" + "\n".join(schedule))
+        elif job_config.job_type == 'contract':
+            assert isinstance(tasks, ContractTaskConfig)
+            assert isinstance(submit_config, SubmitContractConfig)
+            input_yaml = {'diagrams':{}}
+            for diagram in tasks.diagrams:
+                input_yaml['diagrams'][diagram] = submit_config.diagram_params[diagram]
+            for k, v in submit_config.__dict__.items():
+                if k != 'diagram_params':
+                    input_yaml[k] = v
+            with open(f"in/{input_file}", 'w') as f:
+                f.write(yaml.dump(input_yaml))
+        elif job_config.job_type == 'smear':
+            os.environ['SERIES'] = series
+            os.environ['CFG'] = cfgno
+            os.environ['ENS'] = submit_config.ens
+        input_files.append(input_file)
 
-                xml_dict = xml_templates.xml_wrapper(
-                    runid=(f"LMI-RW-series-{run_config.series}"
-                           f"-{run_config.eigs}-eigs-{run_config.noise}-noise"),
-                    sched=sched_file,
-                    cfg=run_config.cfg
-                )
-                modules, schedule = fileio.build_xml_params(tasks, outfile_config, run_config)
-
-                xml_dict['grid']['modules'] = {"module": modules}
-
-                with open("in/" + input_file, "w") as f:
-                    print(dxml(xml_dict), file=f)
-
-                with open(sched_file, 'w') as f:
-                    f.write(str(len(schedule)) + "\n" + "\n".join(schedule))
-
-            input_files.append(input_file)
-
-    os.environ['INPUTXMLLIST'] = " ".join(input_files)
+    os.environ['INPUTLIST'] = " ".join(input_files)
 
 
 ######################################################################

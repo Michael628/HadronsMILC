@@ -6,18 +6,22 @@ from python_scripts import (
 )
 from python_scripts.config import ConfigBase
 
-# ============Run Configuration===========
+
+# ============Submit Configuration===========
 @dataclass
-class RunConfig(ConfigBase):
+class SubmitConfig(ConfigBase):
     ens: str
-    series: str = ''
-    cfg: str = ''
+    time: int
+    series: str
+    cfg: str
+
+# ============Submit Hadrons Configuration===========
+@dataclass
+class SubmitHadronsConfig(SubmitConfig):
     dt: t.Optional[int] = None
     eigs: t.Optional[int] = None
     sourceeigs: t.Optional[int] = None
     noise: t.Optional[int] = None
-    mass: t.Dict[str,float] = field(default_factory=dict)
-    time: t.Optional[int] = None
     tstart: int = 0
     tstop: t.Optional[int] = None
     alpha: t.Optional[float] = None
@@ -29,12 +33,13 @@ class RunConfig(ConfigBase):
     multifile: bool =  False
     eigresid: float = 1e-8
     blocksize: int = 500
-    overwrite_sources: bool = True
+    _mass: t.Dict[str,float] = field(default_factory=dict)
+    _overwrite_sources: bool = True
 
     def __post_init__(self):
         if not self.mass:
             self.mass = {}
-        self.mass['zero'] = 0.0
+        self._mass['zero'] = 0.0
 
         if self.eigs:
             if not self.sourceeigs:
@@ -45,6 +50,9 @@ class RunConfig(ConfigBase):
         if self.time and not self.tstop:
             self.tstop = self.time - 1
 
+    @property
+    def mass(self):
+        return self._mass
 
     @property
     def tsource_range(self) -> t.List[int]:
@@ -57,24 +65,6 @@ class RunConfig(ConfigBase):
             res[k] = str(v).removeprefix('0.')
         return res
 
-    @property
-    def string_dict(self):
-        """Converts all attributes to strings or lists of strings.
-        Dictionary attributes are removed from output.
-        Returns a dictionary keyed by the attribute labels
-        """
-        res = {}
-        for k, v in self.__dict__.items():
-            if isinstance(v,t.Dict):
-                continue
-            elif isinstance(v,t.List):
-                res[k] = list(map(str,v))
-            elif isinstance(v,bool):
-                res[k] = str(v).lower()
-            else:
-                res[k] = str(v)
-
-        return res
 
 # ============Outfile Configuration===========
 @dataclass
@@ -96,7 +86,7 @@ class OutfileListConfig(ConfigBase):
     meson: t.Optional[OutfileConfig] = None
 
     @classmethod
-    def create(cls, params: t.Dict):
+    def create(cls, **kwargs):
         """Creates a new instance of OutfileConfigList from a dictionary."""
         extensions = {
             "fat_links": ".{cfg}",
@@ -110,13 +100,13 @@ class OutfileListConfig(ConfigBase):
             "contract": ".{cfg}.p"
         }
         outfiles = {}
-        home = params['home']
+        home = kwargs['home']
         for k in extensions:
-            if k in params:
+            if k in kwargs:
                 outfiles[k] = OutfileConfig(
-                    filestem=str(os.path.join(home,params[k]['filestem'])),
+                    filestem=str(os.path.join(home,kwargs[k]['filestem'])),
                     ext=extensions[k],
-                    good_size=params[k]['good_size']
+                    good_size=kwargs[k]['good_size']
                 )
 
         return OutfileListConfig(**outfiles)
@@ -143,12 +133,12 @@ class OpConfig(ConfigBase):
 
 
     @classmethod
-    def create(cls, params: t.Dict):
+    def create(cls, **kwargs):
         """Creates a new instance of OpConfig from a dictionary."""
-        m = params['mass']
+        m = kwargs['mass']
         if isinstance(m, str):
             m = [m]
-        gamma = Gamma[params['gamma'].upper()]
+        gamma = Gamma[kwargs['gamma'].upper()]
 
         return OpConfig(gamma=gamma, mass=m)
 
@@ -165,21 +155,21 @@ class OpListConfig(ConfigBase):
     operations: t.List[OpConfig]
 
     @classmethod
-    def create(cls, params: t.Dict):
+    def create(cls, **kwargs):
         """Creates a new instance of OpListConfig from a dictionary.
 
          Note
          ----
          Valid dictionary input formats:
 
-         params = {
+         kwargs = {
            'gamma': ['op1','op2','op3'],
            'mass': ['m1','m2']
          }
 
          or
 
-         params = {
+         kwargs = {
            'op1': {
              'mass': ['m1']
            },
@@ -189,17 +179,17 @@ class OpListConfig(ConfigBase):
          }
 
         """
-        if 'mass' not in params:
+        if 'mass' not in kwargs:
             operations = [
-                OpConfig.create({'gamma':key,'mass':val['mass']})
-                for key, val in params.items()
+                OpConfig.create(gamma=key,mass=val['mass'])
+                for key, val in kwargs.items()
             ]
         else:
-            gammas = params['gamma']
+            gammas = kwargs['gamma']
             if isinstance(gammas, str):
                 gammas = [gammas]
             operations = [
-                OpConfig.create({'gamma':gamma,'mass':params['mass']})
+                OpConfig.create(gamma=gamma,mass=kwargs['mass'])
                 for gamma in gammas
             ]
 
@@ -226,14 +216,14 @@ class LMITaskConfig(ConfigBase):
 
 
     @classmethod
-    def create(cls, params: t.Dict):
+    def create(cls, **kwargs):
         """Creates a new instance of LMITaskConfig from a dictionary.
         """
         # Assumes Valid class attributes labeled by corresponding strings in
         # `get_config_factory` function.
         config_params = {
-            key: get_config_factory(key)(val)
-            for key, val in params.items()
+            key: get_config_factory(key)(**val)
+            for key, val in kwargs.items()
         }
         return LMITaskConfig(**config_params)
     pass
@@ -253,6 +243,17 @@ class LMITaskConfig(ConfigBase):
         return list(set(res))
 
 
+# ============Submit Contraction Configuration===========
+@dataclass
+class ContractTaskConfig(ConfigBase):
+    diagrams: t.List[str]
+
+@dataclass
+class SubmitContractConfig(SubmitConfig):
+    diagram_params: t.Dict
+    hardware: t.Optional[str] = None
+    logging_level: t.Optional[str] = None
+
 # ============Job Configuration===========
 @dataclass
 class JobConfig(ConfigBase):
@@ -261,38 +262,39 @@ class JobConfig(ConfigBase):
     infile: str
     wall_time: str
     run: str
-    run_params: t.Optional[t.Dict] = None
+    params: t.Optional[t.Dict] = None
 
     @classmethod
-    def create(cls, params: t.Dict):
+    def create(cls, **kwargs):
         """Creates a new instance of JobConfig from a dictionary."""
-        res = {
-            'tasks': get_config_factory(params['job_type'])(params['tasks']),
-        }
-        res.update({k:v for k,v in params.items() if k not in res})
+        tasks = get_config_factory(kwargs['job_type'])(**kwargs['tasks'])
+        res = {k:v for k,v in kwargs.items() if k not in ['tasks', 'io']}
 
-        # Rename `input` label from parameter file to `infile` attribute
-        res['infile'] = res.pop('io')
+        return JobConfig(tasks=tasks, infile=kwargs['io'], **res)
 
-        return JobConfig(**res)
-
-    def get_infile(self, run_config: RunConfig) -> str:
+    def get_infile(self, submit_config: SubmitHadronsConfig) -> str:
         ext = {
-            'lmi':"{series}.{cfg}.xml"
+            'smear':"{series}.{cfg}.txt",
+            'lmi':"{series}.{cfg}.xml",
+            'contract':"{series}.{cfg}.yaml"
         }
-        return f"{self.infile}-{ext[self.job_type]}".format(**run_config.string_dict)
+        return f"{self.infile}-{ext[self.job_type]}".format(**submit_config.string_dict)
 
 
 # ============Convenience functions===========
 def get_config_factory(config_label: str):
     configs = {
-        'run_config': RunConfig.create,
+        'submit_smear': SubmitConfig.create,
+        'submit_lmi': SubmitHadronsConfig.create,
+        'submit_contract': SubmitContractConfig.create,
         'job_config': JobConfig.create,
         "epack": EpackTaskConfig.create,
         "meson": OpListConfig.create,
         "high_modes": OpListConfig.create,
         'lmi': LMITaskConfig.create,
         'outfile': OutfileListConfig.create,
+        'smear': ConfigBase.create,
+        'contract': ContractTaskConfig.create
     }
 
     if config_label in configs:
@@ -301,14 +303,22 @@ def get_config_factory(config_label: str):
         raise ValueError(f"No config implementation for `{config_label}`.")
 
 def get_job_config(param: t.Dict, step: str) -> JobConfig:
-    return get_config_factory('job_config')(param['job_setup'][step])
+    return get_config_factory('job_config')(**param['job_setup'][step])
 
-def get_run_config(param: t.Dict, job_config: JobConfig) -> RunConfig:
-    run_params = utils.deep_copy_dict(param['run_params'])
-    if job_config.run_params:
-        run_params.update(job_config.run_params)
+def get_submit_config(param: t.Dict, job_config: JobConfig, **kwargs) -> SubmitConfig:
+    submit_params = utils.deep_copy_dict(param['submit_params'])
+    submit_type = 'submit_' + job_config.job_type
+    if job_config.job_type == 'smear':
+        pass
+    elif job_config.job_type == 'contract':
+        submit_params.update(param['contract_params'])
+    else:
+        submit_params.update(param['hadrons_params'])
 
-    return get_config_factory('run_config')(run_params)
+    if job_config.params:
+        submit_params.update(job_config.params)
+
+    return get_config_factory(submit_type)(**submit_params, **kwargs)
 
 def get_outfile_config(param: t.Dict):
-    return get_config_factory('outfile')(param['files'])
+    return get_config_factory('outfile')(**param['files'])

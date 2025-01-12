@@ -77,29 +77,30 @@ class DataioConfig(ConfigBase):
         self.replacements = utils.process_params(**self.replacements)
 
     @classmethod
-    def create(cls, params: t.Dict):
+    def create(cls, **kwargs):
         """Returns an instance of DataioConfig from `params` dictionary.
 
                 Parameters
                 ----------
-                params: dict
+                kwargs
                     keys should correspond to class parameters (above).
                     `h5_params` and `array_params`, if provided,
                     should have dictionaries that can be passed to `create` static methods
                     in H5Params and ArrayParams, respectively.
                 """
-        config_params = utils.deep_copy_dict(params)
 
-        h5_params = config_params.pop('h5_params', {})
-        array_params = config_params.pop('array_params', {})
+
+        config_params: t.Dict = {}
+        h5_params = kwargs.get('h5_params', {})
+        array_params = kwargs.get('array_params', {})
         if h5_params:
-            config_params['h5_params'] = LoadH5Config.create(h5_params)
+            config_params['h5_params'] = LoadH5Config.create(**h5_params)
 
             config_params['array_params'] = {}
             for k, v in array_params.items():
-                config_params['array_params'][k] = LoadArrayConfig.create(v)
+                config_params['array_params'][k] = LoadArrayConfig.create(**v)
         elif array_params:
-            config_params['array_params'] = LoadArrayConfig.create(array_params)
+            config_params['array_params'] = LoadArrayConfig.create(**array_params)
 
         return DataioConfig(**config_params)
 
@@ -114,4 +115,4 @@ def get_config_factory(config_label: str):
         raise ValueError(f"No config implementation for `{config_label}`.")
 
 def get_dataio_config(params: t.Dict) -> DataioConfig:
-    return get_config_factory('dataio')(params)
+    return get_config_factory('dataio')(**params)

@@ -1,11 +1,13 @@
 from python_scripts.processing.dataio import DataLoad
+import python_scripts
 import python_scripts.utils as utils
 import copy
 import logging
-import sys
+
+import typing as t
 
 
-def main(param_input: dict | str):
+def main(param_input: t.Union[t.Dict,str]):
     try:
         params = utils.load_param(param_input)
     except TypeError:
@@ -41,19 +43,12 @@ def main(param_input: dict | str):
             datapaths=datapaths
         )
 
+        python_scripts.setup()
+
         logging_level = params['processing'].get('logging_level', logging.INFO)
 
-        logging.basicConfig(
-            format="%(asctime)s - %(levelname)-5s - %(message)s",
-            style="%",
-            datefmt="%Y-%m-%d %H:%M:%S",
-            level=logging_level,
-            handlers=[
-                logging.StreamHandler(sys.stdout)
-            ]
-        )
 
-        res[run_key] = loader.execute()
+        res[run_key] = loader.execute(,
 
     return res
 
