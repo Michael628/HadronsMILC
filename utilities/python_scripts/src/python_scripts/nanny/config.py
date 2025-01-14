@@ -1,28 +1,39 @@
 import os.path
 import typing as t
+from abc import abstractmethod, ABC
 from dataclasses import dataclass, field
+
 from python_scripts import (
-    Gamma, utils
+    Gamma, utils, config as c
 )
-from python_scripts.config import ConfigBase
 
-
+# SUBMISSION CLASSES
 # ============Submit Configuration===========
 @dataclass
-class SubmitConfig(ConfigBase):
+class SubmitConfig(c.ConfigBase):
     ens: str
     time: int
     series: str
     cfg: str
 
+# ============Submit Contraction Configuration===========
+@c.dataclass_with_getters
+class SubmitContractConfig(SubmitConfig):
+    _diagram_params: t.Dict
+    hardware: t.Optional[str] = None
+    logging_level: t.Optional[str] = None
+
 # ============Submit Hadrons Configuration===========
-@dataclass
+@c.dataclass_with_getters
 class SubmitHadronsConfig(SubmitConfig):
+    tstart: int = 0
+    eigresid: float = 1e-8
+    blocksize: int = 500
+    multifile: bool =  False
     dt: t.Optional[int] = None
     eigs: t.Optional[int] = None
     sourceeigs: t.Optional[int] = None
     noise: t.Optional[int] = None
-    tstart: int = 0
     tstop: t.Optional[int] = None
     alpha: t.Optional[float] = None
     beta: t.Optional[int] = None
@@ -30,9 +41,6 @@ class SubmitHadronsConfig(SubmitConfig):
     nstop: t.Optional[int] = None
     nk: t.Optional[int] = None
     nm: t.Optional[int] = None
-    multifile: bool =  False
-    eigresid: float = 1e-8
-    blocksize: int = 500
     _mass: t.Dict[str,float] = field(default_factory=dict)
     _overwrite_sources: bool = True
 
@@ -54,6 +62,12 @@ class SubmitHadronsConfig(SubmitConfig):
     def mass(self):
         return self._mass
 
+    @mass.setter
+    def mass(self, value: t.Dict[str, float]) -> t.Dict[str, float]:
+        assert isinstance(value,t.Dict)
+        self._mass = value
+        self._mass['zero'] = 0.0
+
     @property
     def tsource_range(self) -> t.List[int]:
         return list(range(self.tstart,self.tstop+1,self.dt))
@@ -66,24 +80,25 @@ class SubmitHadronsConfig(SubmitConfig):
         return res
 
 
-# ============Outfile Configuration===========
+# OUTFILE CLASSES
+# ============Outfile Parameters===========
 @dataclass
-class OutfileConfig(ConfigBase):
+class Outfile:
     filestem: str
     ext: str
     good_size: int
 
 
 @dataclass
-class OutfileListConfig(ConfigBase):
-    fat_links: t.Optional[OutfileConfig] = None
-    long_links: t.Optional[OutfileConfig] = None
-    gauge_links: t.Optional[OutfileConfig] = None
-    eig: t.Optional[OutfileConfig] = None
-    eigdir: t.Optional[OutfileConfig] = None
-    eval: t.Optional[OutfileConfig] = None
-    high_modes: t.Optional[OutfileConfig] = None
-    meson: t.Optional[OutfileConfig] = None
+class OutfileList:
+    fat_links: t.Optional[Outfile] = None
+    long_links: t.Optional[Outfile] = None
+    gauge_links: t.Optional[Outfile] = None
+    eig: t.Optional[Outfile] = None
+    eigdir: t.Optional[Outfile] = None
+    eval: t.Optional[Outfile] = None
+    high_modes: t.Optional[Outfile] = None
+    meson: t.Optional[Outfile] = None
 
     @classmethod
     def create(cls, **kwargs):
@@ -103,27 +118,35 @@ class OutfileListConfig(ConfigBase):
         home = kwargs['home']
         for k in extensions:
             if k in kwargs:
-                outfiles[k] = OutfileConfig(
+                outfiles[k] = Outfile(
                     filestem=str(os.path.join(home,kwargs[k]['filestem'])),
                     ext=extensions[k],
                     good_size=kwargs[k]['good_size']
                 )
 
-        return OutfileListConfig(**outfiles)
+        return OutfileList(**outfiles)
 
 
-# ============Epack Task Configuration===========
+# TASK CLASSES
+# ============Task Base===========
+class TaskBase:
+    @classmethod
+    def create(cls, **kwargs):
+        return cls(**kwargs)
+
+
+# ============Epack Task===========
 @dataclass
-class EpackTaskConfig(ConfigBase):
+class EpackTask(TaskBase):
     load: bool
     multifile: bool = False
     save_eigs:  bool = False
     save_evals: bool = True
 
 
-# ============Operator Configuration===========
+# ============Operator Task===========
 @dataclass
-class OpConfig(ConfigBase):
+class OpTask(TaskBase):
     """Configuration for a list of gamma operations and associated masses.
     Usually for the sake of performing a calculation for each `gamma` at each
     `mass`
@@ -140,11 +163,12 @@ class OpConfig(ConfigBase):
             m = [m]
         gamma = Gamma[kwargs['gamma'].upper()]
 
-        return OpConfig(gamma=gamma, mass=m)
+        return OpTask(gamma=gamma, mass=m)
 
 
+# ============Operator List Task===========
 @dataclass
-class OpListConfig(ConfigBase):
+class OpListTask(TaskBase):
     """Configuration for a list of gamma operations.
 
     Attributes
@@ -152,7 +176,7 @@ class OpListConfig(ConfigBase):
     operations: list
         List of gamma operations to be run.
     """
-    operations: t.List[OpConfig]
+    operations: t.List[OpTask]
 
     @classmethod
     def create(cls, **kwargs):
@@ -181,7 +205,7 @@ class OpListConfig(ConfigBase):
         """
         if 'mass' not in kwargs:
             operations = [
-                OpConfig.create(gamma=key,mass=val['mass'])
+                OpTask.create(gamma=key, mass=val['mass'])
                 for key, val in kwargs.items()
             ]
         else:
@@ -189,12 +213,11 @@ class OpListConfig(ConfigBase):
             if isinstance(gammas, str):
                 gammas = [gammas]
             operations = [
-                OpConfig.create(gamma=gamma,mass=kwargs['mass'])
+                OpTask.create(gamma=gamma, mass=kwargs['mass'])
                 for gamma in gammas
             ]
 
-        return OpListConfig(operations=operations)
-    pass
+        return OpListTask(operations=operations)
 
     @property
     def mass(self):
@@ -206,14 +229,12 @@ class OpListConfig(ConfigBase):
         return list(res)
 
 
-
-# ============LMI Task Configuration===========
+# ============LMI Task===========
 @dataclass
-class LMITaskConfig(ConfigBase):
-    epack: t.Optional[EpackTaskConfig] = None
-    meson: t.Optional[OpListConfig] = None
-    high_modes: t.Optional[OpListConfig] = None
-
+class LMITask(TaskBase):
+    epack: t.Optional[EpackTask] = None
+    meson: t.Optional[OpListTask] = None
+    high_modes: t.Optional[OpListTask] = None
 
     @classmethod
     def create(cls, **kwargs):
@@ -225,8 +246,7 @@ class LMITaskConfig(ConfigBase):
             key: get_config_factory(key)(**val)
             for key, val in kwargs.items()
         }
-        return LMITaskConfig(**config_params)
-    pass
+        return LMITask(**config_params)
 
     @property
     def mass(self):
@@ -243,21 +263,17 @@ class LMITaskConfig(ConfigBase):
         return list(set(res))
 
 
-# ============Submit Contraction Configuration===========
+# ============Contraction Task===========
 @dataclass
-class ContractTaskConfig(ConfigBase):
+class ContractTask(TaskBase):
     diagrams: t.List[str]
 
-@dataclass
-class SubmitContractConfig(SubmitConfig):
-    diagram_params: t.Dict
-    hardware: t.Optional[str] = None
-    logging_level: t.Optional[str] = None
 
+# JOB CLASS
 # ============Job Configuration===========
 @dataclass
-class JobConfig(ConfigBase):
-    tasks: ConfigBase
+class JobConfig:
+    tasks: TaskBase
     job_type: str
     infile: str
     wall_time: str
@@ -288,13 +304,13 @@ def get_config_factory(config_label: str):
         'submit_lmi': SubmitHadronsConfig.create,
         'submit_contract': SubmitContractConfig.create,
         'job_config': JobConfig.create,
-        "epack": EpackTaskConfig.create,
-        "meson": OpListConfig.create,
-        "high_modes": OpListConfig.create,
-        'lmi': LMITaskConfig.create,
-        'outfile': OutfileListConfig.create,
-        'smear': ConfigBase.create,
-        'contract': ContractTaskConfig.create
+        "epack": EpackTask.create,
+        "meson": OpListTask.create,
+        "high_modes": OpListTask.create,
+        'lmi': LMITask.create,
+        'outfile': OutfileList.create,
+        'smear': c.ConfigBase.create,
+        'contract': ContractTask.create
     }
 
     if config_label in configs:

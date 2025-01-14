@@ -575,7 +575,7 @@ def main(param_file: str):
         import numpy as xp
         globals()['xp'] = xp
 
-    overwrite = run_config.overwrite
+    overwrite = run_config.overwrite_correlators
 
     diagrams = run_config.diagrams
     for diagram_config in diagrams:

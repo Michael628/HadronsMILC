@@ -2,9 +2,8 @@ import functools
 import typing as t
 from dataclasses import dataclass
 from enum import Enum, auto
-from sympy.categories import Diagram
 
-from python_scripts.config import ConfigBase
+from python_scripts import config as c
 from mpi4py import MPI
 
 COMM = MPI.COMM_WORLD
@@ -13,14 +12,12 @@ class Diagrams(Enum):
     photex = auto()
     selfen = auto()
 
-@dataclass
-class DiagramConfig(ConfigBase):
+@c.dataclass_with_getters
+class DiagramConfig(c.ConfigBase):
     diagram_label: str
     contraction_type: str
     gammas: t.List[str]
     mass: str
-    _outfile: functools.partial
-    _mesonfile: functools.partial
     symmetric: bool = False
     newmass: t.Optional[str] = None
     high_count: t.Optional[int] = None
@@ -31,10 +28,12 @@ class DiagramConfig(ConfigBase):
     emseedstring: t.Optional[str] = None
     perms: t.Optional[t.List[str]] = None
     n_em: t.Optional[int] = None
-    _evalfile: t.Optional[str] = None
     _has_high: bool = False
     _has_low: bool = False
     _npoint: int = -1
+    _evalfile: t.Optional[str] = None
+    _outfile: t.Optional[functools.partial] = None
+    _mesonfile: t.Optional[functools.partial] = None
 
 
     def __post_init__(self):
@@ -66,34 +65,19 @@ class DiagramConfig(ConfigBase):
 
     @classmethod
     def create(cls, **kwargs):
-        class_vars = cls.__dataclass_fields__.keys()
-        public_vars = [x for x in class_vars if not x.startswith('_')]
-        public_vars = {
-            k:v
-            for k,v in kwargs.items()
-            if k in public_vars
-        }
-        run_vars = kwargs.get('run_vars',{})
-        mesonfile = functools.partial(kwargs['mesonfile'].format,**run_vars, **public_vars)
-        outfile = functools.partial(kwargs['outfile'].format, **run_vars, **public_vars)
-        if 'evalfile' in kwargs:
-            public_vars['_evalfile'] = kwargs['evalfile'].format(**run_vars, **public_vars)
+        obj_vars = kwargs.copy()
+        mesonfile = obj_vars.pop('mesonfile')
+        outfile = obj_vars.pop('outfile')
+        evalfile = obj_vars.pop('evalfile',None)
+        run_vars = obj_vars.pop('run_vars', {})
+        obj = super().create(**obj_vars)
+        obj.mesonfile = functools.partial(mesonfile.format,**run_vars, **obj.string_dict)
+        obj.outfile = functools.partial(outfile.format, **run_vars, **obj.string_dict)
+        if evalfile:
+            assert isinstance(evalfile,str)
+            obj.evalfile = evalfile.format(**run_vars, **obj.string_dict)
 
-        return DiagramConfig(_mesonfile=mesonfile,
-                             _outfile=outfile,
-                             **public_vars)
-
-    @property
-    def npoint(self):
-        return self._npoint
-
-    @property
-    def has_high(self):
-        return self._has_high
-
-    @property
-    def has_low(self):
-        return self._has_low
+        return obj
 
     @property
     def meson_params(self):
@@ -107,66 +91,33 @@ class DiagramConfig(ConfigBase):
         return self._outfile(**kwargs)
 
 
-@dataclass
-class RunContractConfig(ConfigBase):
+@c.dataclass_with_getters
+class RunContractConfig(c.ConfigBase):
     time: int
     ens: str
     series: str
     cfg: str
-    _diagrams: t.List[DiagramConfig]
+    _diagrams: t.Optional[t.List[DiagramConfig]] = None
     _overwrite_correlators: bool = True
     _hardware: str = 'cpu'
     _logging_level: str = 'INFO'
-
-    def __post_init__(self):
-        self._rank = COMM.Get_rank()
-        self._comm_size = COMM.Get_size()
-
-    @property
-    def rank(self):
-        return self._rank
-
-    @property
-    def logging_level(self):
-        return self._logging_level
-
-    @property
-    def hardware(self):
-        return self._hardware
-
-    @property
-    def comm_size(self):
-        return self._comm_size
-
-    @property
-    def diagrams(self):
-        return self._diagrams
-
-    @property
-    def overwrite(self):
-        return self._overwrite_correlators
+    _comm_size: int = -1
+    _rank: int = -1
 
     @classmethod
     def create(cls, **kwargs):
-        class_vars = cls.__dataclass_fields__.keys()
-        public_vars = [x for x in class_vars if not x.startswith('_')]
-        private_vars = [x for x in class_vars if x.startswith('_')]
+        obj_vars = kwargs.copy()
+        diagrams = obj_vars.pop('diagrams')
 
-        public_vars = {
-            k: v
-            for k, v in kwargs.items()
-            if k in public_vars
-        }
-        private_vars = {
-            f'_{k}': v
-            for k, v in kwargs.items()
-            if f"_{k}" in private_vars
-        }
-        private_vars['_diagrams'] = [
-            DiagramConfig.create(**v,run_vars=public_vars)
-            for k, v in kwargs['diagrams'].items()
+        obj = super().create(**obj_vars)
+        obj.diagrams = [
+            DiagramConfig.create(**v,run_vars=obj.string_dict)
+            for k, v in diagrams.items()
         ]
-        return RunContractConfig(**public_vars, **private_vars)
+        obj.rank = COMM.Get_rank()
+        obj.comm_size = COMM.Get_size()
+
+        return obj
 
 
 def get_contract_config(params: t.Dict) -> RunContractConfig:

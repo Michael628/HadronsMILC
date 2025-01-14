@@ -17,7 +17,7 @@ from functools import reduce
 
 from dict2xml import dict2xml as dxml
 
-from python_scripts.nanny.config import ContractTaskConfig, SubmitContractConfig, SubmitHadronsConfig
+from python_scripts.nanny.config import ContractTask, SubmitContractConfig, SubmitHadronsConfig
 
 
 # Nanny script for managing job queues
@@ -175,20 +175,23 @@ def make_inputs(param, step, cfgno_steps):
             with open(sched_file, 'w') as f:
                 f.write(str(len(schedule)) + "\n" + "\n".join(schedule))
         elif job_config.job_type == 'contract':
-            assert isinstance(tasks, ContractTaskConfig)
+            assert isinstance(tasks, ContractTask)
             assert isinstance(submit_config, SubmitContractConfig)
-            input_yaml = {'diagrams':{}}
+            input_yaml = submit_config.public_dict
+            input_yaml['diagrams'] = {}
             for diagram in tasks.diagrams:
                 input_yaml['diagrams'][diagram] = submit_config.diagram_params[diagram]
-            for k, v in submit_config.__dict__.items():
-                if k != 'diagram_params':
-                    input_yaml[k] = v
             with open(f"in/{input_file}", 'w') as f:
                 f.write(yaml.dump(input_yaml))
         elif job_config.job_type == 'smear':
+
             os.environ['SERIES'] = series
             os.environ['CFG'] = cfgno
             os.environ['ENS'] = submit_config.ens
+            if ncases > 0:
+                print("WARNING: No bundling of smearing jobs")
+                print("Will submit only one case")
+                break
         input_files.append(input_file)
 
     os.environ['INPUTLIST'] = " ".join(input_files)
