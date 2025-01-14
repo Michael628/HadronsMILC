@@ -99,6 +99,7 @@ def irl(name: str,
         nstop: str,
         nk: str,
         nm: str,
+        multifile: str,
         output: str) -> t.Dict:
     return {
         "id": {
@@ -125,7 +126,7 @@ def irl(name: str,
             "evenEigen": "false",
             "redBlack": "true",
             "output": output,
-            "multiFile": "false"
+            "multiFile": multifile
         }
     }
 

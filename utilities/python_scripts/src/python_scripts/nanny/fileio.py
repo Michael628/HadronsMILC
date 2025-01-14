@@ -148,6 +148,7 @@ def build_xml_params(tasks: LMITask,
                                              nstop=run_conf_dict['nstop'],
                                              nk=run_conf_dict['nk'],
                                              nm=run_conf_dict['nm'],
+                                             multifile=run_conf_dict['multifile'],
                                              output=epack_path))
 
         # Shift mass of eigenvalues
