@@ -132,10 +132,11 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
 
         # Load or generate eigenvectors
         if tasks.epack.load:
+            multifile = str(tasks.epack.multifile).lower()
             modules.append(hadrons.epack_load(name='epack',
                                               filestem=epack_path,
                                               size=run_conf_dict['sourceeigs'],
-                                              multifile=run_conf_dict['multifile']))
+                                              multifile=multifile))
         else:
             modules.append(hadrons.op('stag_op', 'stag_mass_zero'))
             modules.append(hadrons.irl(name='epack',
@@ -146,7 +147,7 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
                                        nstop=run_conf_dict['nstop'],
                                        nk=run_conf_dict['nk'],
                                        nm=run_conf_dict['nm'],
-                                       multifile=run_conf_dict['multifile'],
+                                       multifile=multifile,
                                        output=epack_path))
 
         # Shift mass of eigenvalues
