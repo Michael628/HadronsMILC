@@ -90,19 +90,19 @@ class DataioConfig(ConfigBase):
                 """
 
 
-        config_params: t.Dict = {}
-        h5_params = kwargs.get('h5_params', {})
-        array_params = kwargs.get('array_params', {})
+        obj_vars = kwargs.copy()
+        h5_params = obj_vars.pop('h5_params', {})
+        array_params = obj_vars.pop('array_params', {})
         if h5_params:
-            config_params['h5_params'] = LoadH5Config.create(**h5_params)
+            obj_vars['h5_params'] = LoadH5Config.create(**h5_params)
 
-            config_params['array_params'] = {}
+            obj_vars['array_params'] = {}
             for k, v in array_params.items():
-                config_params['array_params'][k] = LoadArrayConfig.create(**v)
+                obj_vars['array_params'][k] = LoadArrayConfig.create(**v)
         elif array_params:
-            config_params['array_params'] = LoadArrayConfig.create(**array_params)
+            obj_vars['array_params'] = LoadArrayConfig.create(**array_params)
 
-        return DataioConfig(**config_params)
+        return DataioConfig(**obj_vars)
 
 def get_config_factory(config_label: str):
     configs = {

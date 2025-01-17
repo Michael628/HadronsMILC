@@ -1,7 +1,6 @@
 import os.path
 import typing as t
-from abc import abstractmethod, ABC
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 
 from python_scripts import (
     Gamma, utils, config as c
@@ -83,14 +82,14 @@ class SubmitHadronsConfig(SubmitConfig):
 # OUTFILE CLASSES
 # ============Outfile Parameters===========
 @dataclass
-class Outfile:
-    filestem: str
-    ext: str
-    good_size: int
-
-
-@dataclass
 class OutfileList:
+
+    @dataclass
+    class Outfile:
+        filestem: str
+        ext: str
+        good_size: int
+
     fat_links: t.Optional[Outfile] = None
     long_links: t.Optional[Outfile] = None
     gauge_links: t.Optional[Outfile] = None
@@ -100,8 +99,7 @@ class OutfileList:
     high_modes: t.Optional[Outfile] = None
     meson: t.Optional[Outfile] = None
 
-    @classmethod
-    def create(cls, **kwargs):
+    def __init__(self, **kwargs):
         """Creates a new instance of OutfileConfigList from a dictionary."""
         extensions = {
             "fat_links": ".{cfg}",
@@ -114,139 +112,128 @@ class OutfileList:
             "meson": ".{cfg}/{gamma}_0_0_0.h5",
             "contract": ".{cfg}.p"
         }
-        outfiles = {}
         home = kwargs['home']
         for k in extensions:
             if k in kwargs:
-                outfiles[k] = Outfile(
+                outfile = self.Outfile(
                     filestem=str(os.path.join(home,kwargs[k]['filestem'])),
                     ext=extensions[k],
                     good_size=kwargs[k]['good_size']
                 )
+                setattr(self,k,outfile)
 
-        return OutfileList(**outfiles)
 
 
 # TASK CLASSES
 # ============Task Base===========
+@dataclass
 class TaskBase:
-    @classmethod
-    def create(cls, **kwargs):
-        return cls(**kwargs)
+    pass
 
-
-# ============Epack Task===========
+# ============Custom Task===========
 @dataclass
-class EpackTask(TaskBase):
-    load: bool
-    multifile: bool = False
-    save_eigs:  bool = False
-    save_evals: bool = True
-
-
-# ============Operator Task===========
-@dataclass
-class OpTask(TaskBase):
-    """Configuration for a list of gamma operations and associated masses.
-    Usually for the sake of performing a calculation for each `gamma` at each
-    `mass`
-    """
-    gamma: Gamma
-    mass: t.List[str]
-
-
-    @classmethod
-    def create(cls, **kwargs):
-        """Creates a new instance of OpConfig from a dictionary."""
-        m = kwargs['mass']
-        if isinstance(m, str):
-            m = [m]
-        gamma = Gamma[kwargs['gamma'].upper()]
-
-        return OpTask(gamma=gamma, mass=m)
-
-
-# ============Operator List Task===========
-@dataclass
-class OpListTask(TaskBase):
-    """Configuration for a list of gamma operations.
-
-    Attributes
-    ----------
-    operations: list
-        List of gamma operations to be run.
-    """
-    operations: t.List[OpTask]
-
-    @classmethod
-    def create(cls, **kwargs):
-        """Creates a new instance of OpListConfig from a dictionary.
-
-         Note
-         ----
-         Valid dictionary input formats:
-
-         kwargs = {
-           'gamma': ['op1','op2','op3'],
-           'mass': ['m1','m2']
-         }
-
-         or
-
-         kwargs = {
-           'op1': {
-             'mass': ['m1']
-           },
-           'op2': {
-             'mass': ['m2','m3']
-           }
-         }
-
-        """
-        if 'mass' not in kwargs:
-            operations = [
-                OpTask.create(gamma=key, mass=val['mass'])
-                for key, val in kwargs.items()
-            ]
-        else:
-            gammas = kwargs['gamma']
-            if isinstance(gammas, str):
-                gammas = [gammas]
-            operations = [
-                OpTask.create(gamma=gamma, mass=kwargs['mass'])
-                for gamma in gammas
-            ]
-
-        return OpListTask(operations=operations)
-
-    @property
-    def mass(self):
-        res: t.Set = set()
-        for op in self.operations:
-            for m in op.mass:
-                res.add(m)
-
-        return list(res)
-
+class CustomTask(TaskBase):
+    file: str
 
 # ============LMI Task===========
 @dataclass
 class LMITask(TaskBase):
-    epack: t.Optional[EpackTask] = None
-    meson: t.Optional[OpListTask] = None
-    high_modes: t.Optional[OpListTask] = None
 
-    @classmethod
-    def create(cls, **kwargs):
+    # ============Epack===========
+    @dataclass
+    class EpackTask:
+        load: bool
+        multifile: bool = False
+        save_eigs: bool = False
+        save_evals: bool = True
+
+    # ============Operator List===========
+    @dataclass
+    class OpList:
+        """Configuration for a list of gamma operations.
+
+        Attributes
+        ----------
+        operations: list
+            Gamma operations to be performed, usually for meson fields or high mode solves.
+        """
+
+        @dataclass
+        class Op:
+            """Parameters for a gamma operation and associated masses.
+            """
+            gamma: Gamma
+            mass: t.List[str]
+
+        operations: t.List[Op]
+
+        def __init__(self, **kwargs):
+            """Creates a new instance of OpList from a dictionary.
+
+             Note
+             ----
+             Valid dictionary input formats:
+
+             kwargs = {
+               'gamma': ['op1','op2','op3'],
+               'mass': ['m1','m2']
+             }
+
+             or
+
+             kwargs = {
+               'op1': {
+                 'mass': ['m1']
+               },
+               'op2': {
+                 'mass': ['m2','m3']
+               }
+             }
+
+            """
+            if 'mass' not in kwargs:
+                operations = []
+                for key, val in kwargs.items():
+                    mass = val['mass']
+                    if isinstance(mass, str):
+                        mass = [mass]
+                    gamma = Gamma[key.upper()]
+                    operations.append(self.Op(gamma=gamma, mass=mass))
+            else:
+                gammas = kwargs['gamma']
+                mass = kwargs['mass']
+                if isinstance(mass, str):
+                    mass = [mass]
+                if isinstance(gammas, str):
+                    gammas = [gammas]
+                operations = [
+                    self.Op(gamma=Gamma[g.upper()], mass=mass)
+                    for g in gammas
+                ]
+            self.operations = operations
+
+        @property
+        def mass(self):
+            res: t.Set = set()
+            for op in self.operations:
+                for m in op.mass:
+                    res.add(m)
+
+            return list(res)
+
+    epack: t.Optional[EpackTask] = None
+    meson: t.Optional[OpList] = None
+    high_modes: t.Optional[OpList] = None
+
+    def __init__(self, **kwargs):
         """Creates a new instance of LMITaskConfig from a dictionary.
         """
-        # Assumes Valid class attributes labeled by corresponding strings in
-        # `get_config_factory` function.
-        config_params = {
-            key: get_config_factory(key)(**val)
-            for key, val in kwargs.items()
-        }
-        return LMITask(**config_params)
+        for f in fields(self):
+            field_name = f.name
+            field_type = t.get_args(f.type)[0]
+            if field_name in kwargs:
+                setattr(self,field_name,field_type(**kwargs[field_name]))
+
 
     @property
     def mass(self):
@@ -274,24 +261,30 @@ class ContractTask(TaskBase):
 @dataclass
 class JobConfig:
     tasks: TaskBase
-    job_type: str
     infile: str
     wall_time: str
     run: str
+    job_type: str  = 'hadrons'
+    task_type: str  = 'lmi'
     params: t.Optional[t.Dict] = None
 
-    @classmethod
-    def create(cls, **kwargs):
+    def __init__(self, **kwargs):
         """Creates a new instance of JobConfig from a dictionary."""
-        tasks = get_config_factory(kwargs['job_type'])(**kwargs['tasks'])
-        res = {k:v for k,v in kwargs.items() if k not in ['tasks', 'io']}
+        for f in fields(self):
+            field_name = f.name
+            if field_name == 'tasks':
+                task_type = kwargs.get('task_type',self.task_type)
+                self.tasks = get_config_factory(task_type)(**kwargs['tasks'])
+            elif field_name == 'infile':
+                self.infile = kwargs['io']
+            elif field_name in kwargs:
+                setattr(self,field_name,kwargs.get(field_name,f.default))
 
-        return JobConfig(tasks=tasks, infile=kwargs['io'], **res)
 
     def get_infile(self, submit_config: SubmitHadronsConfig) -> str:
         ext = {
             'smear':"{series}.{cfg}.txt",
-            'lmi':"{series}.{cfg}.xml",
+            'hadrons':"{series}.{cfg}.xml",
             'contract':"{series}.{cfg}.yaml"
         }
         return f"{self.infile}-{ext[self.job_type]}".format(**submit_config.string_dict)
@@ -301,16 +294,14 @@ class JobConfig:
 def get_config_factory(config_label: str):
     configs = {
         'submit_smear': SubmitConfig.create,
-        'submit_lmi': SubmitHadronsConfig.create,
+        'submit_hadrons': SubmitHadronsConfig.create,
         'submit_contract': SubmitContractConfig.create,
-        'job_config': JobConfig.create,
-        "epack": EpackTask.create,
-        "meson": OpListTask.create,
-        "high_modes": OpListTask.create,
-        'lmi': LMITask.create,
-        'outfile': OutfileList.create,
+        'job_config': JobConfig,
+        'outfile': OutfileList,
+        'custom': CustomTask,
+        'lmi': LMITask,
         'smear': c.ConfigBase.create,
-        'contract': ContractTask.create
+        'contract': ContractTask,
     }
 
     if config_label in configs:
@@ -324,12 +315,9 @@ def get_job_config(param: t.Dict, step: str) -> JobConfig:
 def get_submit_config(param: t.Dict, job_config: JobConfig, **kwargs) -> SubmitConfig:
     submit_params = utils.deep_copy_dict(param['submit_params'])
     submit_type = 'submit_' + job_config.job_type
-    if job_config.job_type == 'smear':
-        pass
-    elif job_config.job_type == 'contract':
-        submit_params.update(param['contract_params'])
-    else:
-        submit_params.update(param['hadrons_params'])
+    additional_params = job_config.job_type + '_params'
+    if additional_params in param:
+        submit_params.update(param[additional_params])
 
     if job_config.params:
         submit_params.update(job_config.params)
@@ -338,3 +326,11 @@ def get_submit_config(param: t.Dict, job_config: JobConfig, **kwargs) -> SubmitC
 
 def get_outfile_config(param: t.Dict):
     return get_config_factory('outfile')(**param['files'])
+
+
+if __name__ == '__main__':
+    a = LMITask(**{
+        'epack': {'load':False},
+        'meson':{'gamma':'onelink','mass':'l'}
+    })
+

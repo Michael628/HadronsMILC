@@ -8,9 +8,12 @@ import os
 import subprocess
 import typing as t
 from python_scripts.nanny import (
-    fileio, xml_templates, config,
-    todo_utils, checkjobs
+    config,
+    todo_utils,
+    checkjobs,
+    runio
 )
+from python_scripts.nanny.runio import hadrons
 from python_scripts import utils
 
 from functools import reduce
@@ -151,21 +154,20 @@ def make_inputs(param, step, cfgno_steps):
 
         outfile_config = config.get_outfile_config(param)
 
-        tasks = job_config.tasks
         input_file = job_config.get_infile(submit_config)
 
-        # TODO: Move input file creation into fileio.py
-        if job_config.job_type == 'lmi':
+        # TODO: Move input file creation into __init__.py
+        if job_config.job_type == 'hadrons':
             assert isinstance(submit_config, SubmitHadronsConfig)
             sched_file = f"schedules/{input_file.removesuffix('.xml')}.sched"
 
-            xml_dict = xml_templates.xml_wrapper(
+            xml_dict = hadrons.xml_wrapper(
                 runid=(f"LMI-RW-series-{submit_config.series}"
                        f"-{submit_config.eigs}-eigs-{submit_config.noise}-noise"),
                 sched=sched_file,
                 cfg=submit_config.cfg
             )
-            modules, schedule = fileio.build_xml_params(tasks, outfile_config, submit_config)
+            modules, schedule = runio.build_params(submit_config, job_config, outfile_config)
 
             xml_dict['grid']['modules'] = {"module": modules}
 
@@ -175,6 +177,7 @@ def make_inputs(param, step, cfgno_steps):
             with open(sched_file, 'w') as f:
                 f.write(str(len(schedule)) + "\n" + "\n".join(schedule))
         elif job_config.job_type == 'contract':
+            tasks = job_config.tasks
             assert isinstance(tasks, ContractTask)
             assert isinstance(submit_config, SubmitContractConfig)
             input_yaml = submit_config.public_dict

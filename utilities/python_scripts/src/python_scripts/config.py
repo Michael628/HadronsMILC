@@ -57,8 +57,6 @@ class ConfigBase:
         Checks for dataclass fields stored in the class object.
         If kwargs match a dataclass field apart from a leading underscore,
         e.g. kwargs['mass'] and _mass, the value gets assigned to the underscored object attribute.
-        Any kwargs with a double underscore, `dunder_vars`, are presumed to have come from a subclass
-        `create` call and are copied directly into the corresponding dunder attribute.
         """
 
         conflicts = [k for k in kwargs.keys() if k in kwargs and f"_{k}" in kwargs and not k.startswith('_')]
@@ -88,7 +86,7 @@ class ConfigBase:
 
     @property
     def string_dict(self):
-        """Converts all attributes to strings or lists of strings.
+        """Converts all attributes without leading underscore to strings or lists of strings.
         Dictionary attributes are removed from output.
         Returns a dictionary keyed by the attribute labels
         """
@@ -108,8 +106,7 @@ class ConfigBase:
 
     @property
     def public_dict(self):
-        """Converts all attributes to strings or lists of strings.
-        Dictionary attributes are removed from output.
+        """Converts object attributes to dictionary, removing attributes with leading underscore
         Returns a dictionary keyed by the attribute labels
         """
         res = {}

@@ -4,128 +4,126 @@ import re
 
 import pandas as pd
 
-from python_scripts.nanny import xml_templates
+from python_scripts.nanny.runio import hadrons
 from python_scripts import Gamma, utils
 from python_scripts.nanny.config import OutfileList, SubmitHadronsConfig, LMITask
 import typing as t
 
 
-def build_schedule(module_info, run_config):
-    gammas = ['pion_local', 'vec_local', 'vec_onelink']
+def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
+                 outfile_config_list: OutfileList) -> t.Tuple[t.List[t.Dict], t.Optional[t.List[str]]]:
+    def build_schedule(module_names: t.List[str]) -> t.List[str]:
+        gammas = ['pion_local', 'vec_local', 'vec_onelink']
 
-    def pop_conditional(mi, cond):
-        indices = [
-            i
-            for i, item in enumerate(mi)
-            if cond(item)
-        ]
-        # Pop in reverse order but return in original order
-        return [mi.pop(i) for i in indices[::-1]][::-1]
+        def pop_conditional(mi, cond):
+            indices = [
+                i
+                for i, item in enumerate(mi)
+                if cond(item)
+            ]
+            # Pop in reverse order but return in original order
+            return [mi.pop(i) for i in indices[::-1]][::-1]
 
-    def get_mf_inputs(x):
-        is_action = x['type'].endswith('ImprovedStaggeredMILC')
-        is_evec = 'ModifyEigenPack' in x['type']
-        has_sea_mass = "mass_l" in x['name']
-        return (is_action or is_evec) and has_sea_mass
+        def get_mf_inputs(x):
+            is_action = x['type'].endswith('ImprovedStaggeredMILC')
+            is_evec = 'ModifyEigenPack' in x['type']
+            has_sea_mass = "mass_l" in x['name']
+            return (is_action or is_evec) and has_sea_mass
 
-    dp_gauges = pop_conditional(
-        module_info,
-        lambda x: 'LoadIldg' in x['type']
-    )
-    sp_gauges = pop_conditional(
-        module_info,
-        lambda x: 'PrecisionCast' in x['type']
-    )
-    meson_fields = pop_conditional(
-        module_info,
-        lambda x: 'A2AMesonField' in x['type']
-    )
-    meson_field_inputs = pop_conditional(module_info, get_mf_inputs)
+        dp_gauges = pop_conditional(
+            module_names,
+            lambda x: 'LoadIldg' in x['type']
+        )
+        sp_gauges = pop_conditional(
+            module_names,
+            lambda x: 'PrecisionCast' in x['type']
+        )
+        meson_fields = pop_conditional(
+            module_names,
+            lambda x: 'A2AMesonField' in x['type']
+        )
+        meson_field_inputs = pop_conditional(module_names, get_mf_inputs)
 
-    indep_mass_tslice = pop_conditional(
-        module_info,
-        lambda x: ("mass" not in x['name'] or "mass_zero" in x['name']) and "_t" not in x['name']
-    )
+        indep_mass_tslice = pop_conditional(
+            module_names,
+            lambda x: ("mass" not in x['name'] or "mass_zero" in x['name']) and "_t" not in x['name']
+        )
 
-    sorted_modules = dp_gauges + indep_mass_tslice
-    sorted_modules += meson_field_inputs + meson_fields
-    sorted_modules += sp_gauges
+        sorted_modules = dp_gauges + indep_mass_tslice
+        sorted_modules += meson_field_inputs + meson_fields
+        sorted_modules += sp_gauges
 
-    def gamma_order(x):
-        for i, gamma in enumerate(gammas):
-            if gamma in x['name']:
-                return i
-        return -1
-
-    def mass_order(x):
-        for i, mass in enumerate(run_config.mass.keys()):
-            if f"mass_{mass}" in x['name']:
-                return i
-        return -1
-
-    def mixed_mass_last(x):
-        return len(re.findall(r'_mass', x['name']))
-
-    def tslice_order(x):
-        time = re.findall(r'_t(\d+)', x['name'])
-        if len(time):
-            return int(time[0])
-        else:
+        def gamma_order(x):
+            for i, gamma in enumerate(gammas):
+                if gamma in x['name']:
+                    return i
             return -1
 
-    module_info = sorted(module_info, key=gamma_order)
-    module_info = sorted(module_info, key=mass_order)
-    module_info = sorted(module_info, key=mixed_mass_last)
-    module_info = sorted(module_info, key=tslice_order)
+        def mass_order(x):
+            for i, mass in enumerate(submit_config.mass.keys()):
+                if f"mass_{mass}" in x['name']:
+                    return i
+            return -1
 
-    sorted_modules += module_info
+        def mixed_mass_last(x):
+            return len(re.findall(r'_mass', x['name']))
 
-    return [m['name'] for m in sorted_modules]
+        def tslice_order(x):
+            time = re.findall(r'_t(\d+)', x['name'])
+            if len(time):
+                return int(time[0])
+            else:
+                return -1
 
+        module_names = sorted(module_names, key=gamma_order)
+        module_names = sorted(module_names, key=mass_order)
+        module_names = sorted(module_names, key=mixed_mass_last)
+        module_names = sorted(module_names, key=tslice_order)
 
-def build_xml_params(tasks: LMITask,
-                     outfile_config_list: OutfileList,
-                     run_config: SubmitHadronsConfig):
-    run_conf_dict = run_config.string_dict
+        sorted_modules += module_names
 
-    if not run_config.overwrite_sources:
-        all_files = catalog_files(tasks, outfile_config_list, run_config)
+        return [m['name'] for m in sorted_modules]
+
+    run_conf_dict = submit_config.string_dict
+
+    if not submit_config.overwrite_sources:
+        all_files = catalog_files(submit_config, tasks, outfile_config_list)
         missing_files = all_files[all_files['exists'] != True]
         run_tsources = []
-        for t in run_config.tsource_range:
-            if any(missing_files['tsource'] == str(t)):
-                run_tsources.append(str(t))
+        for tsource in submit_config.tsource_range:
+            if any(missing_files['tsource'] == str(tsource)):
+                run_tsources.append(str(tsource))
     else:
-        run_tsources = list(map(str, run_config.tsource_range))
+        run_tsources = list(map(str, submit_config.tsource_range))
 
     gauge_filepath = outfile_config_list.gauge_links.filestem.format(**run_conf_dict)
     gauge_fat_filepath = outfile_config_list.fat_links.filestem.format(**run_conf_dict)
     gauge_long_filepath = outfile_config_list.long_links.filestem.format(**run_conf_dict)
 
     modules = [
-        xml_templates.load_gauge('gauge', gauge_filepath),
-        xml_templates.load_gauge('gauge_fat', gauge_fat_filepath),
-        xml_templates.load_gauge('gauge_long', gauge_long_filepath),
-        xml_templates.cast_gauge('gauge_fatf', 'gauge_fat'),
-        xml_templates.cast_gauge('gauge_longf', 'gauge_long')
+        hadrons.load_gauge('gauge', gauge_filepath),
+        hadrons.load_gauge('gauge_fat', gauge_fat_filepath),
+        hadrons.load_gauge('gauge_long', gauge_long_filepath),
+        hadrons.cast_gauge('gauge_fatf', 'gauge_fat'),
+        hadrons.cast_gauge('gauge_longf', 'gauge_long')
     ]
 
     for mass_label in tasks.mass:
         name = f"stag_mass_{mass_label}"
-        mass = str(run_config.mass[mass_label])
-        modules.append(xml_templates.action(name=name,
-                                            mass=mass,
-                                            gauge_fat='gauge_fat',
-                                            gauge_long='gauge_long'))
+        mass = str(submit_config.mass[mass_label])
+        modules.append(hadrons.action(name=name,
+                                      mass=mass,
+                                      gauge_fat='gauge_fat',
+                                      gauge_long='gauge_long'))
 
     if tasks.high_modes:
         for mass_label in tasks.high_modes.mass:
             name = f"istag_mass_{mass_label}"
-            mass = str(run_config.mass[mass_label])
-            modules.append(xml_templates.action_float(name=name,
-                                                      mass=mass,
-                                                      gauge_fat='gauge_fatf',
-                                                      gauge_long='gauge_longf'))
+            mass = str(submit_config.mass[mass_label])
+            modules.append(hadrons.action_float(name=name,
+                                                mass=mass,
+                                                gauge_fat='gauge_fatf',
+                                                gauge_long='gauge_longf'))
 
     if tasks.epack:
         epack_path = ''
@@ -134,37 +132,37 @@ def build_xml_params(tasks: LMITask,
 
         # Load or generate eigenvectors
         if tasks.epack.load:
-            modules.append(xml_templates.epack_load(name='epack',
-                                                    filestem=epack_path,
-                                                    size=run_conf_dict['sourceeigs'],
-                                                    multifile=run_conf_dict['multifile']))
+            modules.append(hadrons.epack_load(name='epack',
+                                              filestem=epack_path,
+                                              size=run_conf_dict['sourceeigs'],
+                                              multifile=run_conf_dict['multifile']))
         else:
-            modules.append(xml_templates.op('stag_op', 'stag_mass_zero'))
-            modules.append(xml_templates.irl(name='epack',
-                                             op='stag_op_schur',
-                                             alpha=run_conf_dict['alpha'],
-                                             beta=run_conf_dict['beta'],
-                                             npoly=run_conf_dict['npoly'],
-                                             nstop=run_conf_dict['nstop'],
-                                             nk=run_conf_dict['nk'],
-                                             nm=run_conf_dict['nm'],
-                                             multifile=run_conf_dict['multifile'],
-                                             output=epack_path))
+            modules.append(hadrons.op('stag_op', 'stag_mass_zero'))
+            modules.append(hadrons.irl(name='epack',
+                                       op='stag_op_schur',
+                                       alpha=run_conf_dict['alpha'],
+                                       beta=run_conf_dict['beta'],
+                                       npoly=run_conf_dict['npoly'],
+                                       nstop=run_conf_dict['nstop'],
+                                       nk=run_conf_dict['nk'],
+                                       nm=run_conf_dict['nm'],
+                                       multifile=run_conf_dict['multifile'],
+                                       output=epack_path))
 
         # Shift mass of eigenvalues
         for mass_label in tasks.mass:
             if mass_label == "zero":
                 continue
-            mass = str(run_config.mass[mass_label])
-            modules.append(xml_templates.epack_modify(name=f"evecs_mass_{mass_label}",
-                                                      eigen_pack='epack',
-                                                      mass=mass))
+            mass = str(submit_config.mass[mass_label])
+            modules.append(hadrons.epack_modify(name=f"evecs_mass_{mass_label}",
+                                                eigen_pack='epack',
+                                                mass=mass))
 
         if tasks.epack.save_evals:
             eval_path = outfile_config_list.eval.filestem.format(**run_conf_dict)
-            modules.append(xml_templates.eval_save(name='eval_save',
-                                                   eigen_pack='epack',
-                                                   output=eval_path))
+            modules.append(hadrons.eval_save(name='eval_save',
+                                             eigen_pack='epack',
+                                             output=eval_path))
 
     if tasks.meson:
         meson_path = outfile_config_list.meson.filestem
@@ -173,10 +171,10 @@ def build_xml_params(tasks: LMITask,
             gauge = "" if op.gamma == Gamma.LOCAL else "gauge"
             for mass_label in op.mass:
                 output = meson_path.format(
-                    mass=run_config.mass_out_label[mass_label],
+                    mass=submit_config.mass_out_label[mass_label],
                     **run_conf_dict
                 )
-                modules.append(xml_templates.meson_field(
+                modules.append(hadrons.meson_field(
                     name=f"mf_{op_type}_mass_{mass_label}",
                     action=f"stag_mass_{mass_label}",
                     block=run_conf_dict['blocksize'],
@@ -197,10 +195,10 @@ def build_xml_params(tasks: LMITask,
         def m1_ge_m2(x):
             return x[-2] >= x[-1]
 
-        modules.append(xml_templates.sink(name='sink', mom='0 0 0'))
+        modules.append(hadrons.sink(name='sink', mom='0 0 0'))
 
         for tsource in run_tsources:
-            modules.append(xml_templates.noise_rw(
+            modules.append(hadrons.noise_rw(
                 name=f"noise_t{tsource}",
                 nsrc=run_conf_dict['noise'],
                 t0=tsource,
@@ -229,7 +227,7 @@ def build_xml_params(tasks: LMITask,
                 else:
                     guess = ""
 
-                modules.append(xml_templates.quark_prop(
+                modules.append(hadrons.quark_prop(
                     name=quark,
                     source=source,
                     solver=solver,
@@ -247,11 +245,11 @@ def build_xml_params(tasks: LMITask,
 
                 if m1label == m2label:
                     mass_label = f"mass_{m1label}"
-                    mass_output = f"{run_config.mass_out_label[m1label]}"
+                    mass_output = f"{submit_config.mass_out_label[m1label]}"
                 else:
                     mass_label = f"mass_{m1label}_mass_{m2label}"
-                    mass_output = (f"{run_config.mass_out_label[m1label]}"
-                                   f"_m{run_config.mass_out_label[m2label]}")
+                    mass_output = (f"{submit_config.mass_out_label[m1label]}"
+                                   f"_m{submit_config.mass_out_label[m2label]}")
 
                 output = high_path.format(
                     mass=mass_output,
@@ -261,7 +259,7 @@ def build_xml_params(tasks: LMITask,
                     **run_conf_dict
                 )
 
-                modules.append(xml_templates.prop_contract(
+                modules.append(hadrons.prop_contract(
                     name=f"corr_{slabel}_{glabel}_{mass_label}_t{tsource}",
                     source=quark1,
                     sink=quark2,
@@ -275,7 +273,7 @@ def build_xml_params(tasks: LMITask,
                 ))
 
         for mass_label in tasks.high_modes.mass:
-            modules.append(xml_templates.mixed_precision_cg(
+            modules.append(hadrons.mixed_precision_cg(
                 name=f"stag_ama_mass_{mass_label}",
                 outer_action=f"stag_mass_{mass_label}",
                 inner_action=f"istag_mass_{mass_label}",
@@ -283,26 +281,25 @@ def build_xml_params(tasks: LMITask,
             ))
 
             if tasks.epack:
-                modules.append(xml_templates.lma_solver(
+                modules.append(hadrons.lma_solver(
                     name=f"stag_ranLL_mass_{mass_label}",
                     action=f"stag_mass_{mass_label}",
                     low_modes=f"evecs_mass_{mass_label}"
                 ))
 
     module_info = [m["id"] for m in modules]
-    schedule = build_schedule(module_info, run_config)
+    schedule = build_schedule(module_info)
 
     return modules, schedule
 
 
-def catalog_files(task_config: LMITask,
-                  outfile_config_list: OutfileList,
-                  run_config: SubmitHadronsConfig) -> pd.DataFrame:
+def catalog_files(submit_config: SubmitHadronsConfig,
+                  task_config: LMITask, outfile_config_list: OutfileList) -> pd.DataFrame:
     def generate_outfile_formatting():
         if task_config.epack:
             if task_config.epack.save_eigs:
                 if task_config.epack.multifile:
-                    yield {'eig_index': list(range(int(run_config.eigs)))}, outfile_config_list.eigdir
+                    yield {'eig_index': list(range(int(submit_config.eigs)))}, outfile_config_list.eigdir
                 else:
                     yield {}, outfile_config_list.eig
             if task_config.epack.save_eigs:
@@ -312,11 +309,11 @@ def catalog_files(task_config: LMITask,
             res: t.Dict = {}
             for op in task_config.meson.operations:
                 res['gamma'] = op.gamma.gamma_list
-                res['mass'] = [run_config.mass_out_label[m] for m in op.mass]
+                res['mass'] = [submit_config.mass_out_label[m] for m in op.mass]
                 yield res, outfile_config_list.meson
 
         if task_config.high_modes:
-            res = {'tsource': list(map(str,run_config.tsource_range))}
+            res = {'tsource': list(map(str, submit_config.tsource_range))}
             if task_config.epack:
                 res['dset'] = ['ama', 'ranLL']
             else:
@@ -324,7 +321,7 @@ def catalog_files(task_config: LMITask,
 
             for op in task_config.high_modes.operations:
                 res['gamma'] = op.gamma.name.lower()
-                res['mass'] = [run_config.mass_out_label[m] for m in op.mass]
+                res['mass'] = [submit_config.mass_out_label[m] for m in op.mass]
                 yield res, outfile_config_list.high_modes
 
     def build_row(filepath: str, repls: t.Dict[str, str]) -> t.Dict[str, str]:
@@ -332,7 +329,7 @@ def catalog_files(task_config: LMITask,
         return repls
 
     outfile_generator = generate_outfile_formatting()
-    replacements = run_config.string_dict
+    replacements = submit_config.string_dict
 
     df = []
     for task_replacements, outfile_config in outfile_generator:
@@ -350,7 +347,7 @@ def catalog_files(task_config: LMITask,
         new_df['good_size'] = outfile_config.good_size
         new_df['exists'] = new_df['filepath'].apply(os.path.exists)
         new_df['file_size'] = None
-        new_df.loc[new_df['exists'],'file_size'] = new_df[new_df['exists']]['filepath'].apply(os.path.getsize)
+        new_df.loc[new_df['exists'], 'file_size'] = new_df[new_df['exists']]['filepath'].apply(os.path.getsize)
         df.append(new_df)
 
     df = pd.concat(df, ignore_index=True)
@@ -358,10 +355,8 @@ def catalog_files(task_config: LMITask,
     return df
 
 
-def find_bad_files(task_config: LMITask,
-                   outfile_config_list: OutfileList,
-                   run_config: SubmitHadronsConfig) -> t.List[str]:
-
-    df = catalog_files(task_config, outfile_config_list, run_config)
+def bad_files(submit_config: SubmitHadronsConfig,
+              task_config: LMITask, outfile_config_list: OutfileList) -> t.List[str]:
+    df = catalog_files(submit_config, task_config, outfile_config_list)
 
     return list(df[(df['file_size'] >= df['good_size']) != True]['filepath'])

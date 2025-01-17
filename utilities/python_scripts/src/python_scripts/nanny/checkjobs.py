@@ -10,8 +10,8 @@ from python_scripts import utils
 import typing as t
 from python_scripts.nanny import (
     config,
-    fileio,
-    todo_utils
+    todo_utils,
+    runio
 )
 
 ######################################################################
@@ -261,10 +261,9 @@ def good_output(step: str, cfgno: str, param: t.Dict) -> bool:
     run_config = config.get_submit_config(param, job_config)
     run_config.series = cfgno.split('.')[0]
     run_config.cfg = cfgno.split('.')[1]
-    task_config = job_config.tasks
     outfile_config_list = config.get_outfile_config(param)
 
-    bad_files = fileio.find_bad_files(task_config, outfile_config_list, run_config)
+    bad_files = runio.bad_files(run_config, job_config, outfile_config_list)
     if bad_files:
         logging.warning(f"File `{bad_files[0]}` not found or not of correct file size.")
         return False
