@@ -221,9 +221,20 @@ class LMITask(TaskBase):
 
             return list(res)
 
+    @dataclass
+    class HighModes(OpList):
+        skip_cg: bool = False
+
+        def __init__(self, **kwargs):
+            obj_vars = kwargs.copy()
+
+            self.skip_cg = obj_vars.pop('skip_cg',self.skip_cg)
+
+            super().__init__(**obj_vars)
+
     epack: t.Optional[EpackTask] = None
     meson: t.Optional[OpList] = None
-    high_modes: t.Optional[OpList] = None
+    high_modes: t.Optional[HighModes] = None
 
     def __init__(self, **kwargs):
         """Creates a new instance of LMITaskConfig from a dictionary.

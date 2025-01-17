@@ -127,12 +127,12 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
 
     if tasks.epack:
         epack_path = ''
+        multifile = str(tasks.epack.multifile).lower()
         if tasks.epack.load or tasks.epack.save_eigs:
             epack_path = outfile_config_list.eig.filestem.format(**run_conf_dict)
 
         # Load or generate eigenvectors
         if tasks.epack.load:
-            multifile = str(tasks.epack.multifile).lower()
             modules.append(hadrons.epack_load(name='epack',
                                               filestem=epack_path,
                                               size=run_conf_dict['sourceeigs'],
@@ -206,7 +206,11 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
                 tstep=run_conf_dict['time']
             ))
 
-        solver_labels = ["ranLL", "ama"] if tasks.epack else ['ama']
+        solver_labels = []
+        if tasks.epack:
+            solver_labels.append("ranLL")
+        if tasks.high_modes and not tasks.high_modes.skip_cg:
+            solver_labels.append("ama")
 
         high_path = outfile_config_list.high_modes.filestem
         for op in tasks.high_modes.operations:
@@ -274,14 +278,15 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
                 ))
 
         for mass_label in tasks.high_modes.mass:
-            modules.append(hadrons.mixed_precision_cg(
-                name=f"stag_ama_mass_{mass_label}",
-                outer_action=f"stag_mass_{mass_label}",
-                inner_action=f"istag_mass_{mass_label}",
-                residual='1e-8'
-            ))
+            if 'ama' in solver_labels:
+                modules.append(hadrons.mixed_precision_cg(
+                    name=f"stag_ama_mass_{mass_label}",
+                    outer_action=f"stag_mass_{mass_label}",
+                    inner_action=f"istag_mass_{mass_label}",
+                    residual='1e-8'
+                ))
 
-            if tasks.epack:
+            if 'ranLL' in solver_labels:
                 modules.append(hadrons.lma_solver(
                     name=f"stag_ranLL_mass_{mass_label}",
                     action=f"stag_mass_{mass_label}",
