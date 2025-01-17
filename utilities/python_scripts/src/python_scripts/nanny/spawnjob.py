@@ -190,12 +190,14 @@ def make_inputs(param, step, cfgno_steps):
 
             os.environ['SERIES'] = series
             os.environ['CFG'] = cfgno
-            os.environ['ENS'] = submit_config.ens
+
             if ncases > 0:
                 print("WARNING: No bundling of smearing jobs")
                 print("Will submit only one case")
                 break
         input_files.append(input_file)
+
+        os.environ['ENS'] = submit_config.ens
 
     os.environ['INPUTLIST'] = " ".join(input_files)
 
