@@ -1,6 +1,6 @@
 import os.path
 import typing as t
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field, fields, MISSING
 
 from python_scripts import (
     Gamma, utils, config as c
@@ -289,13 +289,20 @@ class JobConfig:
         """Creates a new instance of JobConfig from a dictionary."""
         for f in fields(self):
             field_name = f.name
+
+            field_default = None
+            if f.default_factory is not MISSING:
+                field_default = f.default_factory()
+            elif f.default is not MISSING:
+                field_default = f.default
+
             if field_name == 'tasks':
                 task_type = kwargs.get('task_type',self.task_type)
                 self.tasks = get_config_factory(task_type)(**kwargs['tasks'])
             elif field_name == 'infile':
                 self.infile = kwargs['io']
-            elif field_name in kwargs:
-                setattr(self,field_name,kwargs.get(field_name,f.default))
+            else:
+                setattr(self,field_name,kwargs.get(field_name,field_default))
 
     def __post_init__(self):
         if 'run_id' not in self.params:
