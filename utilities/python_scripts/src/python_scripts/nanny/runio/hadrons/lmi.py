@@ -84,7 +84,7 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
 
         return [m['name'] for m in sorted_modules]
 
-    submit_conf_dict = submit_config.string_dict
+    submit_conf_dict = submit_config.string_dict()
 
     if not submit_config.overwrite_sources:
         all_files = catalog_files(submit_config, tasks, outfile_config_list)
@@ -335,7 +335,7 @@ def catalog_files(submit_config: SubmitHadronsConfig,
         return repls
 
     outfile_generator = generate_outfile_formatting()
-    replacements = submit_config.string_dict
+    replacements = submit_config.string_dict()
 
     df = []
     for task_replacements, outfile_config in outfile_generator:

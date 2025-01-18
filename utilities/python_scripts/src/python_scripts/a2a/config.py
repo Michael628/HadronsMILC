@@ -71,11 +71,11 @@ class DiagramConfig(c.ConfigBase):
         evalfile = obj_vars.pop('evalfile',None)
         run_vars = obj_vars.pop('run_vars', {})
         obj = super().create(**obj_vars)
-        obj.mesonfile = functools.partial(mesonfile.format,**run_vars, **obj.string_dict)
-        obj.outfile = functools.partial(outfile.format, **run_vars, **obj.string_dict)
+        obj.mesonfile = functools.partial(mesonfile.format,**run_vars, **obj.string_dict())
+        obj.outfile = functools.partial(outfile.format, **run_vars, **obj.string_dict())
         if evalfile:
             assert isinstance(evalfile,str)
-            obj.evalfile = evalfile.format(**run_vars, **obj.string_dict)
+            obj.evalfile = evalfile.format(**run_vars, **obj.string_dict())
 
         return obj
 
@@ -111,7 +111,7 @@ class RunContractConfig(c.ConfigBase):
 
         obj = super().create(**obj_vars)
         obj.diagrams = [
-            DiagramConfig.create(**v,run_vars=obj.string_dict)
+            DiagramConfig.create(**v,run_vars=obj.string_dict())
             for k, v in diagrams.items()
         ]
         obj.rank = COMM.Get_rank()

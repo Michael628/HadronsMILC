@@ -61,7 +61,7 @@ class SubmitHadronsConfig(SubmitConfig):
 
     @property
     def run_id(self):
-        return self._run_id.format(**self.string_dict)
+        return self._run_id.format(**self.string_dict())
 
     @property
     def mass(self):
@@ -313,7 +313,7 @@ class JobConfig:
             'hadrons':"{series}.{cfg}.xml",
             'contract':"{series}.{cfg}.yaml"
         }
-        return f"{self.infile}-{ext[self.job_type]}".format(**submit_config.string_dict)
+        return f"{self.infile}-{ext[self.job_type]}".format(**submit_config.string_dict())
 
 
 # ============Convenience functions===========

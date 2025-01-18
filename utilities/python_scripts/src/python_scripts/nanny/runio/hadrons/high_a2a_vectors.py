@@ -14,7 +14,7 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: TaskBase,
 
      modules = []
 
-     submit_conf_dict = submit_config.string_dict
+     submit_conf_dict = submit_config.string_dict()
 
      run_tsources = list(map(str, submit_config.tsource_range))
 

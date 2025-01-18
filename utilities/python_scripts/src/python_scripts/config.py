@@ -36,11 +36,11 @@ def dataclass_with_getters(cls):
                 lambda self, value, n=private_name: setattr(self, n, value)
             )
 
-            # Set the property on the class
-            setattr(cls, public_name, setter)
-        else:
-            # Set the property on the class
-            setattr(cls, public_name, getter)
+            # Set the property on the class if one hasn't already been defined
+            try:
+                getattr(cls, public_name)
+            except:
+                setattr(cls, public_name, setter)
 
     return cls
 
@@ -84,7 +84,6 @@ class ConfigBase:
 
         return obj
 
-    @property
     def string_dict(self):
         """Converts all attributes without leading underscore to strings or lists of strings.
         Dictionary attributes are removed from output.
