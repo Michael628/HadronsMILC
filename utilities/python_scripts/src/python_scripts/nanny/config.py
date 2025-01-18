@@ -40,6 +40,7 @@ class SubmitHadronsConfig(SubmitConfig):
     nstop: t.Optional[int] = None
     nk: t.Optional[int] = None
     nm: t.Optional[int] = None
+    _run_id: str = ''
     _mass: t.Dict[str,float] = field(default_factory=dict)
     _overwrite_sources: bool = True
 
@@ -56,6 +57,11 @@ class SubmitHadronsConfig(SubmitConfig):
 
         if self.time and not self.tstop:
             self.tstop = self.time - 1
+
+
+    @property
+    def run_id(self):
+        return self._run_id.format(**self.string_dict)
 
     @property
     def mass(self):
@@ -277,7 +283,7 @@ class JobConfig:
     run: str
     job_type: str  = 'hadrons'
     task_type: str  = 'lmi'
-    params: t.Optional[t.Dict] = None
+    params: t.Dict = field(default_factory=dict)
 
     def __init__(self, **kwargs):
         """Creates a new instance of JobConfig from a dictionary."""
@@ -291,6 +297,9 @@ class JobConfig:
             elif field_name in kwargs:
                 setattr(self,field_name,kwargs.get(field_name,f.default))
 
+    def __post_init__(self):
+        if 'run_id' not in self.params:
+            self.params['run_id'] = "LMI-RW-series-{series}-{eigs}-eigs-{noise}-noise"
 
     def get_infile(self, submit_config: SubmitHadronsConfig) -> str:
         ext = {

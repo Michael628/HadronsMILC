@@ -162,8 +162,7 @@ def make_inputs(param, step, cfgno_steps):
             sched_file = f"schedules/{input_file.removesuffix('.xml')}.sched"
 
             xml_dict = hadrons.xml_wrapper(
-                runid=(f"LMI-RW-series-{submit_config.series}"
-                       f"-{submit_config.eigs}-eigs-{submit_config.noise}-noise"),
+                runid=submit_config.run_id,
                 sched=sched_file,
                 cfg=submit_config.cfg
             )
