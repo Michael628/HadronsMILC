@@ -304,7 +304,6 @@ class JobConfig:
             else:
                 setattr(self,field_name,kwargs.get(field_name,field_default))
 
-    def __post_init__(self):
         if 'run_id' not in self.params:
             self.params['run_id'] = "LMI-RW-series-{series}-{eigs}-eigs-{noise}-noise"
 
