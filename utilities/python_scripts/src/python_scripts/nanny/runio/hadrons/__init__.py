@@ -1,5 +1,4 @@
 import typing as t
-from python_scripts.nanny import config
 
 def xml_wrapper(runid: str, sched: str, cfg: str) -> dict:
     params = {

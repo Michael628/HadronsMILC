@@ -84,7 +84,7 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
 
         return [m['name'] for m in sorted_modules]
 
-    run_conf_dict = submit_config.string_dict
+    submit_conf_dict = submit_config.string_dict
 
     if not submit_config.overwrite_sources:
         all_files = catalog_files(submit_config, tasks, outfile_config_list)
@@ -96,9 +96,9 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
     else:
         run_tsources = list(map(str, submit_config.tsource_range))
 
-    gauge_filepath = outfile_config_list.gauge_links.filestem.format(**run_conf_dict)
-    gauge_fat_filepath = outfile_config_list.fat_links.filestem.format(**run_conf_dict)
-    gauge_long_filepath = outfile_config_list.long_links.filestem.format(**run_conf_dict)
+    gauge_filepath = outfile_config_list.gauge_links.filestem.format(**submit_conf_dict)
+    gauge_fat_filepath = outfile_config_list.fat_links.filestem.format(**submit_conf_dict)
+    gauge_long_filepath = outfile_config_list.long_links.filestem.format(**submit_conf_dict)
 
     modules = [
         hadrons.load_gauge('gauge', gauge_filepath),
@@ -129,24 +129,24 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
         epack_path = ''
         multifile = str(tasks.epack.multifile).lower()
         if tasks.epack.load or tasks.epack.save_eigs:
-            epack_path = outfile_config_list.eig.filestem.format(**run_conf_dict)
+            epack_path = outfile_config_list.eig.filestem.format(**submit_conf_dict)
 
         # Load or generate eigenvectors
         if tasks.epack.load:
             modules.append(hadrons.epack_load(name='epack',
                                               filestem=epack_path,
-                                              size=run_conf_dict['sourceeigs'],
+                                              size=submit_conf_dict['sourceeigs'],
                                               multifile=multifile))
         else:
             modules.append(hadrons.op('stag_op', 'stag_mass_zero'))
             modules.append(hadrons.irl(name='epack',
                                        op='stag_op_schur',
-                                       alpha=run_conf_dict['alpha'],
-                                       beta=run_conf_dict['beta'],
-                                       npoly=run_conf_dict['npoly'],
-                                       nstop=run_conf_dict['nstop'],
-                                       nk=run_conf_dict['nk'],
-                                       nm=run_conf_dict['nm'],
+                                       alpha=submit_conf_dict['alpha'],
+                                       beta=submit_conf_dict['beta'],
+                                       npoly=submit_conf_dict['npoly'],
+                                       nstop=submit_conf_dict['nstop'],
+                                       nk=submit_conf_dict['nk'],
+                                       nm=submit_conf_dict['nm'],
                                        multifile=multifile,
                                        output=epack_path))
 
@@ -160,7 +160,7 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
                                                 mass=mass))
 
         if tasks.epack.save_evals:
-            eval_path = outfile_config_list.eval.filestem.format(**run_conf_dict)
+            eval_path = outfile_config_list.eval.filestem.format(**submit_conf_dict)
             modules.append(hadrons.eval_save(name='eval_save',
                                              eigen_pack='epack',
                                              output=eval_path))
@@ -173,12 +173,12 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
             for mass_label in op.mass:
                 output = meson_path.format(
                     mass=submit_config.mass_out_label[mass_label],
-                    **run_conf_dict
+                    **submit_conf_dict
                 )
                 modules.append(hadrons.meson_field(
                     name=f"mf_{op_type}_mass_{mass_label}",
                     action=f"stag_mass_{mass_label}",
-                    block=run_conf_dict['blocksize'],
+                    block=submit_conf_dict['blocksize'],
                     gammas=op.gamma.gamma_string,
                     apply_g5='false',
                     gauge=gauge,
@@ -201,9 +201,9 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
         for tsource in run_tsources:
             modules.append(hadrons.noise_rw(
                 name=f"noise_t{tsource}",
-                nsrc=run_conf_dict['noise'],
+                nsrc=submit_conf_dict['noise'],
                 t0=tsource,
-                tstep=run_conf_dict['time']
+                tstep=submit_conf_dict['time']
             ))
 
         solver_labels = []
@@ -261,7 +261,7 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
                     dset=slabel,
                     gamma=glabel,
                     tsource=tsource,
-                    **run_conf_dict
+                    **submit_conf_dict
                 )
 
                 modules.append(hadrons.prop_contract(
@@ -283,7 +283,7 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
                     name=f"stag_ama_mass_{mass_label}",
                     outer_action=f"stag_mass_{mass_label}",
                     inner_action=f"istag_mass_{mass_label}",
-                    residual='1e-8'
+                    residual=submit_conf_dict['cg_residual']
                 ))
 
             if 'ranLL' in solver_labels:
