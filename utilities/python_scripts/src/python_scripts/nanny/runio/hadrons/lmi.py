@@ -1,15 +1,144 @@
 import itertools
 import os.path
 import re
+from dataclasses import dataclass, fields
 
 import pandas as pd
 
-from python_scripts.nanny.runio import hadrons
 from python_scripts import Gamma, utils
-from python_scripts.nanny.config import OutfileList, SubmitHadronsConfig, LMITask
+from python_scripts.nanny.config import OutfileList
+from python_scripts.nanny.runio.hadrons import templates, SubmitHadronsConfig
+from python_scripts.nanny import TaskBase
 import typing as t
 
 
+# ============LMI Task Configuration===========
+@dataclass
+class LMITask(TaskBase):
+
+    # ============Epack===========
+    @dataclass
+    class EpackTask:
+        load: bool
+        multifile: bool = False
+        save_eigs: bool = False
+        save_evals: bool = True
+
+    # ============Operator List===========
+    @dataclass
+    class OpList:
+        """Configuration for a list of gamma operations.
+
+        Attributes
+        ----------
+        operations: list
+            Gamma operations to be performed, usually for meson fields or high mode solves.
+        """
+
+        @dataclass
+        class Op:
+            """Parameters for a gamma operation and associated masses.
+            """
+            gamma: Gamma
+            mass: t.List[str]
+
+        operations: t.List[Op]
+
+        def __init__(self, **kwargs):
+            """Creates a new instance of OpList from a dictionary.
+
+             Note
+             ----
+             Valid dictionary input formats:
+
+             kwargs = {
+               'gamma': ['op1','op2','op3'],
+               'mass': ['m1','m2']
+             }
+
+             or
+
+             kwargs = {
+               'op1': {
+                 'mass': ['m1']
+               },
+               'op2': {
+                 'mass': ['m2','m3']
+               }
+             }
+
+            """
+            if 'mass' not in kwargs:
+                operations = []
+                for key, val in kwargs.items():
+                    mass = val['mass']
+                    if isinstance(mass, str):
+                        mass = [mass]
+                    gamma = Gamma[key.upper()]
+                    operations.append(self.Op(gamma=gamma, mass=mass))
+            else:
+                gammas = kwargs['gamma']
+                mass = kwargs['mass']
+                if isinstance(mass, str):
+                    mass = [mass]
+                if isinstance(gammas, str):
+                    gammas = [gammas]
+                operations = [
+                    self.Op(gamma=Gamma[g.upper()], mass=mass)
+                    for g in gammas
+                ]
+            self.operations = operations
+
+        @property
+        def mass(self):
+            res: t.Set = set()
+            for op in self.operations:
+                for m in op.mass:
+                    res.add(m)
+
+            return list(res)
+
+    @dataclass
+    class HighModes(OpList):
+        skip_cg: bool = False
+
+        def __init__(self, **kwargs):
+            obj_vars = kwargs.copy()
+
+            self.skip_cg = obj_vars.pop('skip_cg',self.skip_cg)
+
+            super().__init__(**obj_vars)
+
+    epack: t.Optional[EpackTask] = None
+    meson: t.Optional[OpList] = None
+    high_modes: t.Optional[HighModes] = None
+
+    def __init__(self, **kwargs):
+        """Creates a new instance of LMITaskConfig from a dictionary.
+        """
+        for f in fields(self):
+            field_name = f.name
+            field_type = t.get_args(f.type)[0]
+            if field_name in kwargs:
+                setattr(self,field_name,field_type(**kwargs[field_name]))
+
+
+    @property
+    def mass(self):
+        """Returns list of labels for masses required by task components."""
+        res = []
+
+        if self.epack and not self.epack.load:
+            res.append('zero')
+        if self.meson:
+            res += self.meson.mass
+        if self.high_modes:
+            res += self.high_modes.mass
+
+        return list(set(res))
+
+
+# ============Functions for building params and checking outfiles===========
 def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
                  outfile_config_list: OutfileList) -> t.Tuple[t.List[t.Dict], t.Optional[t.List[str]]]:
     def build_schedule(module_names: t.List[str]) -> t.List[str]:
@@ -101,17 +230,17 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
     gauge_long_filepath = outfile_config_list.long_links.filestem.format(**submit_conf_dict)
 
     modules = [
-        hadrons.load_gauge('gauge', gauge_filepath),
-        hadrons.load_gauge('gauge_fat', gauge_fat_filepath),
-        hadrons.load_gauge('gauge_long', gauge_long_filepath),
-        hadrons.cast_gauge('gauge_fatf', 'gauge_fat'),
-        hadrons.cast_gauge('gauge_longf', 'gauge_long')
+        templates.load_gauge('gauge', gauge_filepath),
+        templates.load_gauge('gauge_fat', gauge_fat_filepath),
+        templates.load_gauge('gauge_long', gauge_long_filepath),
+        templates.cast_gauge('gauge_fatf', 'gauge_fat'),
+        templates.cast_gauge('gauge_longf', 'gauge_long')
     ]
 
     for mass_label in tasks.mass:
         name = f"stag_mass_{mass_label}"
         mass = str(submit_config.mass[mass_label])
-        modules.append(hadrons.action(name=name,
+        modules.append(templates.action(name=name,
                                       mass=mass,
                                       gauge_fat='gauge_fat',
                                       gauge_long='gauge_long'))
@@ -120,7 +249,7 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
         for mass_label in tasks.high_modes.mass:
             name = f"istag_mass_{mass_label}"
             mass = str(submit_config.mass[mass_label])
-            modules.append(hadrons.action_float(name=name,
+            modules.append(templates.action_float(name=name,
                                                 mass=mass,
                                                 gauge_fat='gauge_fatf',
                                                 gauge_long='gauge_longf'))
@@ -133,13 +262,13 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
 
         # Load or generate eigenvectors
         if tasks.epack.load:
-            modules.append(hadrons.epack_load(name='epack',
+            modules.append(templates.epack_load(name='epack',
                                               filestem=epack_path,
                                               size=submit_conf_dict['sourceeigs'],
                                               multifile=multifile))
         else:
-            modules.append(hadrons.op('stag_op', 'stag_mass_zero'))
-            modules.append(hadrons.irl(name='epack',
+            modules.append(templates.op('stag_op', 'stag_mass_zero'))
+            modules.append(templates.irl(name='epack',
                                        op='stag_op_schur',
                                        alpha=submit_conf_dict['alpha'],
                                        beta=submit_conf_dict['beta'],
@@ -155,13 +284,13 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
             if mass_label == "zero":
                 continue
             mass = str(submit_config.mass[mass_label])
-            modules.append(hadrons.epack_modify(name=f"evecs_mass_{mass_label}",
+            modules.append(templates.epack_modify(name=f"evecs_mass_{mass_label}",
                                                 eigen_pack='epack',
                                                 mass=mass))
 
         if tasks.epack.save_evals:
             eval_path = outfile_config_list.eval.filestem.format(**submit_conf_dict)
-            modules.append(hadrons.eval_save(name='eval_save',
+            modules.append(templates.eval_save(name='eval_save',
                                              eigen_pack='epack',
                                              output=eval_path))
 
@@ -175,7 +304,7 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
                     mass=submit_config.mass_out_label[mass_label],
                     **submit_conf_dict
                 )
-                modules.append(hadrons.meson_field(
+                modules.append(templates.meson_field(
                     name=f"mf_{op_type}_mass_{mass_label}",
                     action=f"stag_mass_{mass_label}",
                     block=submit_conf_dict['blocksize'],
@@ -196,10 +325,10 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
         def m1_ge_m2(x):
             return x[-2] >= x[-1]
 
-        modules.append(hadrons.sink(name='sink', mom='0 0 0'))
+        modules.append(templates.sink(name='sink', mom='0 0 0'))
 
         for tsource in run_tsources:
-            modules.append(hadrons.noise_rw(
+            modules.append(templates.noise_rw(
                 name=f"noise_t{tsource}",
                 nsrc=submit_conf_dict['noise'],
                 t0=tsource,
@@ -232,7 +361,7 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
                 else:
                     guess = ""
 
-                modules.append(hadrons.quark_prop(
+                modules.append(templates.quark_prop(
                     name=quark,
                     source=source,
                     solver=solver,
@@ -264,7 +393,7 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
                     **submit_conf_dict
                 )
 
-                modules.append(hadrons.prop_contract(
+                modules.append(templates.prop_contract(
                     name=f"corr_{slabel}_{glabel}_{mass_label}_t{tsource}",
                     source=quark1,
                     sink=quark2,
@@ -279,7 +408,7 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
 
         for mass_label in tasks.high_modes.mass:
             if 'ama' in solver_labels:
-                modules.append(hadrons.mixed_precision_cg(
+                modules.append(templates.mixed_precision_cg(
                     name=f"stag_ama_mass_{mass_label}",
                     outer_action=f"stag_mass_{mass_label}",
                     inner_action=f"istag_mass_{mass_label}",
@@ -287,7 +416,7 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
                 ))
 
             if 'ranLL' in solver_labels:
-                modules.append(hadrons.lma_solver(
+                modules.append(templates.lma_solver(
                     name=f"stag_ranLL_mass_{mass_label}",
                     action=f"stag_mass_{mass_label}",
                     low_modes=f"evecs_mass_{mass_label}"
@@ -366,3 +495,6 @@ def bad_files(submit_config: SubmitHadronsConfig,
     df = catalog_files(submit_config, task_config, outfile_config_list)
 
     return list(df[(df['file_size'] >= df['good_size']) != True]['filepath'])
+
+def get_task_factory():
+    return LMITask

@@ -3,6 +3,7 @@ import typing as t
 from dataclasses import dataclass
 from enum import Enum, auto
 
+import python_scripts
 from python_scripts import config as c
 from mpi4py import MPI
 
@@ -13,7 +14,7 @@ class Diagrams(Enum):
     selfen = auto()
 
 @c.dataclass_with_getters
-class DiagramConfig(c.ConfigBase):
+class DiagramConfig(python_scripts.ConfigBase):
     diagram_label: str
     contraction_type: str
     gammas: t.List[str]
@@ -92,7 +93,7 @@ class DiagramConfig(c.ConfigBase):
 
 
 @c.dataclass_with_getters
-class RunContractConfig(c.ConfigBase):
+class RunContractConfig(python_scripts.ConfigBase):
     time: int
     ens: str
     series: str

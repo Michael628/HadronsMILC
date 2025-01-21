@@ -2,9 +2,8 @@ import typing as t
 from dataclasses import dataclass
 
 from python_scripts import (
-    utils
+    utils, ConfigBase
 )
-from python_scripts.config import ConfigBase
 
 
 @dataclass

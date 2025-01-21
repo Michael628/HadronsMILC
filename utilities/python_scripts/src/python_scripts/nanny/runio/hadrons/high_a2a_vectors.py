@@ -1,18 +1,27 @@
-import itertools
-import os.path
-import re
+# This file generates xml parameters for the HadronsMILC app.
+# Tasks performed:
+#
+# 1: Load eigenvectors
+# 2: Generate noise sources
+# 3: Solve low-mode propagation of sources
+# 4: Solve CG on result of step 3
+# 5: Subtract 3 from 4
+# 6: Save result of 5 to disk
 
-import pandas as pd
-
-from python_scripts.nanny.runio import hadrons
-from python_scripts import Gamma, utils
-from python_scripts.nanny.config import OutfileList, SubmitHadronsConfig, TaskBase
+from dataclasses import dataclass
+import logging
+from python_scripts.nanny.config import OutfileList
+from python_scripts.nanny.runio.hadrons import SubmitHadronsConfig, templates
+from python_scripts.nanny import TaskBase
 import typing as t
 
-def build_params(submit_config: SubmitHadronsConfig, tasks: TaskBase,
-                 outfile_config_list: OutfileList) -> t.Tuple[t.List[t.Dict], t.Optional[t.List[str]]]:
+@dataclass
+class A2AVecTask(TaskBase):
+    mass: str
+    subtract: bool
 
-     modules = []
+def build_params(submit_config: SubmitHadronsConfig, tasks: A2AVecTask,
+                 outfile_config_list: OutfileList) -> t.Tuple[t.List[t.Dict], t.Optional[t.List[str]]]:
 
      submit_conf_dict = submit_config.string_dict()
 
@@ -23,82 +32,103 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: TaskBase,
      gauge_long_filepath = outfile_config_list.long_links.filestem.format(**submit_conf_dict)
 
      modules = [
-          hadrons.load_gauge('gauge', gauge_filepath),
-          hadrons.load_gauge('gauge_fat', gauge_fat_filepath),
-          hadrons.load_gauge('gauge_long', gauge_long_filepath),
-          hadrons.cast_gauge('gauge_fatf', 'gauge_fat'),
-          hadrons.cast_gauge('gauge_longf', 'gauge_long')
+          templates.load_gauge('gauge', gauge_filepath),
+          templates.load_gauge('gauge_fat', gauge_fat_filepath),
+          templates.load_gauge('gauge_long', gauge_long_filepath),
+          templates.cast_gauge('gauge_fatf', 'gauge_fat'),
+          templates.cast_gauge('gauge_longf', 'gauge_long')
      ]
 
      epack_path = outfile_config_list.eig.filestem.format(**submit_conf_dict)
 
-     # Load or generate eigenvectors
-     modules.append(hadrons.epack_load(name='epack',
+     # Load eigenvectors
+     modules.append(templates.epack_load(name='epack',
                                        filestem=epack_path,
                                        size=submit_conf_dict['sourceeigs'],
                                        multifile=submit_conf_dict['multifile']))
 
-     mass_label = 'l'
+     mass_label = tasks.mass
      name = f"stag_mass_{mass_label}"
      mass = str(submit_config.mass[mass_label])
-     modules.append(hadrons.action(name=name,
+     modules.append(templates.action(name=name,
                                    mass=mass,
                                    gauge_fat='gauge_fat',
                                    gauge_long='gauge_long'))
 
-     modules.append(hadrons.epack_modify(name=f"evecs_mass_{mass_label}",
+     modules.append(templates.epack_modify(name=f"evecs_mass_{mass_label}",
                                          eigen_pack='epack',
                                          mass=mass))
 
      name = f"istag_mass_{mass_label}"
-     modules.append(hadrons.action_float(name=name,
+     modules.append(templates.action_float(name=name,
                                          mass=mass,
                                          gauge_fat='gauge_fatf',
                                          gauge_long='gauge_longf'))
 
-     modules.append(hadrons.lma_solver(
+     modules.append(templates.lma_solver(
           name=f"stag_ranLL_mass_{mass_label}",
           action=f"stag_mass_{mass_label}",
           low_modes=f"evecs_mass_{mass_label}"
      ))
 
-     modules.append(hadrons.mixed_precision_cg(
+     modules.append(templates.mixed_precision_cg(
           name=f"stag_ama_mass_{mass_label}",
           outer_action=f"stag_mass_{mass_label}",
           inner_action=f"istag_mass_{mass_label}",
           residual='1e-8'
      ))
 
-     gamma_label="G1_G1"
-     gamma="(G1 G1)"
-     modules.append(hadrons.a2a_vector(
-          name="a2avec",
-          noise='noise',
-          action=f'stag_{mass_label}',
-          low_modes=f"quark_ranLL_{gamma_label}_{mass_string}" + gamma_label,
-          solver,
-          high_output
-     ))
+     for seed_index in range(submit_config.noise):
+          modules.append(templates.time_diluted_noise(f'noise_{seed_index}',str(seed_index)))
 
-     module_info = [m["id"] for m in modules]
-     schedule = build_schedule(module_info)
+          vec_path = outfile_config_list.a2avec.filestem
+          for tsource in run_tsources:
+               modules.append(templates.noise_rw(
+                    name=f"noise_{seed_index}_t{tsource}",
+                    nsrc=1,
+                    t0=tsource,
+                    tstep=submit_conf_dict['time'],
+                    noise='td_noise'
+               ))
+               for slabel in ['ranLL', 'ama']:
+                    quark = f"quark_{slabel}_mass_{mass_label}_n{seed_index}_t{tsource}"
+                    source = f"noise_t{tsource}"
+                    if slabel == "ama":
+                         solver = f"stag_{slabel}_mass_{mass_label}"
+                         if tasks.subtract:
+                             solver += "_subtract"
+                         guess = f"quark_ranLL_mass_{mass_label}_n{seed_index}_t{tsource}"
+                    else:
+                         solver = f"stag_{slabel}_mass_{mass_label}"
+                         guess = ""
 
-     module = copy.deepcopy(module_templates["a2aVector"])
-     module["options"]["action"] = f"stag_{mass_string}"
-     module["options"]["lowModes"] =
-     module["options"]["solver"] = f"stag_ama_{mass_string}"
-     module["options"]["highOutput"] = f"data/vectors/{env['SEED']}"
-     module["options"]["highMultiFile"] = "true"
-     module["options"]["norm2"] = env['NOISE']
-     modules.append(module)
+                    modules.append(templates.quark_prop(
+                         name=quark,
+                         source=source,
+                         solver=solver,
+                         guess=guess,
+                         gammas='(G1 G1)',
+                         apply_g5='false',
+                         gauge=""
+                    ))
+
+                    if slabel == 'ama':
+                         output = vec_path.format(mass=submit_config.mass_out_label[mass_label],
+                                                  tsource=tsource,
+                                                  seed_index=str(seed_index),
+                                                  **submit_conf_dict)
+                         modules.append(templates.save_vector(f'{quark}_save',quark,output))
 
 
-     params["grid"]["modules"] = {"module":modules}
-     
-     moduleList = [m["id"]["name"] for m in modules]
 
-     f = open(schedule_file, "w")
-     f.write(str(len(moduleList)) + "\n" + "\n".join(moduleList))
-     f.close()
+     schedule = [m["id"]['name'] for m in modules]
 
-     return params
+     return modules, schedule
+
+def bad_files(submit_config: SubmitHadronsConfig,
+              task_config: TaskBase, outfile_config_list: OutfileList) -> t.List[str]:
+    logging.warning("Check completion succeeds automatically. No implementation of bad_files function in `hadrons_a2a_vectors.py`.")
+    return []
+
+def get_task_factory():
+    return A2AVecTask

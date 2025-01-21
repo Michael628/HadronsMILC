@@ -13,14 +13,14 @@ from python_scripts.nanny import (
     checkjobs,
     runio
 )
-from python_scripts.nanny.runio import hadrons
 from python_scripts import utils
 
 from functools import reduce
 
 from dict2xml import dict2xml as dxml
 
-from python_scripts.nanny.config import ContractTask, SubmitContractConfig, SubmitHadronsConfig
+from python_scripts.nanny.runio.contract import SubmitContractConfig, ContractTask
+from python_scripts.nanny.runio.hadrons import templates, SubmitHadronsConfig
 
 
 # Nanny script for managing job queues
@@ -156,17 +156,17 @@ def make_inputs(param, step, cfgno_steps):
 
         input_file = job_config.get_infile(submit_config)
 
-        # TODO: Move input file creation into __init__.py
+        # TODO: Move input file creation into runio module
         if job_config.job_type == 'hadrons':
             assert isinstance(submit_config, SubmitHadronsConfig)
             sched_file = f"schedules/{input_file.removesuffix('.xml')}.sched"
 
-            xml_dict = hadrons.xml_wrapper(
+            xml_dict = templates.xml_wrapper(
                 runid=submit_config.run_id,
                 sched=sched_file,
                 cfg=submit_config.cfg
             )
-            modules, schedule = runio.build_params(submit_config, job_config, outfile_config)
+            modules, schedule = config.build_params(submit_config, job_config, outfile_config)
 
             xml_dict['grid']['modules'] = {"module": modules}
 

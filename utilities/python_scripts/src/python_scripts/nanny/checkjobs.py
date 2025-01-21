@@ -258,12 +258,12 @@ def good_output(step: str, cfgno: str, param: t.Dict) -> bool:
     except KeyError:
         raise NotImplementedError("Todo: return fallback branching code for legacy output checker.")
 
-    run_config = config.get_submit_config(param, job_config)
-    run_config.series = cfgno.split('.')[0]
-    run_config.cfg = cfgno.split('.')[1]
+    (series, cfg) = cfgno.split(".")
+
+    submit_config = config.get_submit_config(param, job_config, series=series, cfg=cfg)
     outfile_config_list = config.get_outfile_config(param)
 
-    bad_files = runio.bad_files(run_config, job_config, outfile_config_list)
+    bad_files = config.bad_files(submit_config, job_config, outfile_config_list)
     if bad_files:
         logging.warning(f"File `{bad_files[0]}` not found or not of correct file size.")
         return False
