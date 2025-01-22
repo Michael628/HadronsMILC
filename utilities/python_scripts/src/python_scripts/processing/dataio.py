@@ -286,7 +286,7 @@ def load(io_config: config.DataioConfig) -> pd.DataFrame:
     )
 
     actions: t.Dict = io_config.actions
-    _ = [
+    df = [
         processor.execute(elem, actions=actions)
         for elem in df
     ]
@@ -323,12 +323,16 @@ def write_data(df: pd.DataFrame, filestem: str,
             os.makedirs(os.path.dirname(filename), exist_ok=True)
 
             out_cols = [c for c in df_group.columns if c not in repl_keys]
+
             write_fn(
                 df_group[out_cols],
                 filename
             )
 
     else:
+        filename = filestem
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+
         write_fn(df, filestem)
 
 

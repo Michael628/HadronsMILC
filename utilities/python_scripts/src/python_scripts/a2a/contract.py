@@ -30,7 +30,7 @@ COMM = MPI.COMM_WORLD
 def convert_to_numpy(corr: xp.ndarray):
     """Converts a cupy array to a numpy array"""
     if hasattr(xp, 'asnumpy'):
-        xp.asnumpy(corr)
+        return xp.asnumpy(corr)
     else:
         return corr
 

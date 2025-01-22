@@ -9,14 +9,40 @@ import numpy as np
 import gvar as gv
 import gvar.dataset as ds
 import typing as t
+from python_scripts.a2a import contract as a2a
 
-ACTION_ORDER = ['real', 'build_high', 'fold', 'stdjackknife', 'average',
+ACTION_ORDER = ['build_high', 'average', 'sum', 'time_average', 'real', 'permkey_average',
                 'normalize', 'index', 'drop', 'gvar']
 
-GROUPED_ACTIONS = {
-    'fold': ['dt'],
-    'stdjackknife': ['series', 'cfg']
-}
+
+def stdjackknife(series: pd.Series) -> pd.Series:
+    """Builds an array of standard deviations,
+    which you can take the mean and standard deviation
+    from for the error and the error on the error
+    """
+    marray = np.ma.array(series.to_numpy(), mask=False)
+    array_out = np.empty_like(marray)
+
+    marray.mask[0] = True
+    for i in range(len(array_out)):
+        marray.mask[:] = False
+        marray.mask[i] = True
+        array_out[i] = marray.std()
+
+    return pd.Series(array_out, index=series.index)
+
+
+def group_apply(df: pd.DataFrame, func: t.Callable, data_col: str,
+                ungrouped_cols: t.List) -> pd.DataFrame:
+
+    all_cols = list(df.index.names) + list(df.columns)
+
+    ungrouped = ungrouped_cols + [data_col]
+    grouped = [x for x in all_cols if x not in ungrouped]
+
+    return df.reset_index().groupby(by=grouped)[
+        ungrouped
+    ].apply(func)
 
 
 def gvar(df: pd.DataFrame) -> pd.DataFrame:
@@ -133,101 +159,79 @@ def normalize(df, data_col, divisor):
 def sum(df: pd.DataFrame, data_col, *sum_indices) -> pd.DataFrame:
     """Sums `data_col` column in `df` over columns or indices specified in `avg_indices`
         """
-    assert all([isinstance(x, str) for x in sum_indices])
-    assert all([
-        i in df.index.names or
-        i in df.columns
-        for i in sum_indices
-    ])
-    df_group_keys: t.List[str]
-    df_group_keys = [k for k in df.index.names if k not in sum_indices]
-    df_group_keys += [k for k in df.columns if k not in sum_indices]
-    df_group_keys.remove(data_col)
-    df_out = df.reset_index().groupby(by=df_group_keys, sort=False)[data_col].sum().to_frame(data_col)
-
-    return df_out
+    return group_apply(df,lambda x: x[data_col].mean(), data_col,list(sum_indices))
 
 
 def average(df: pd.DataFrame, data_col, *avg_indices) -> pd.DataFrame:
     """Averages `data_col` column in `df` over columns or indices specified in `avg_indices`,
     one at a time.
     """
-    if not avg_indices:
-        return df
+    df_out = df
+    for col in avg_indices:
+        df_out = group_apply(df_out,lambda x: x[data_col].mean(), data_col,[col]).to_frame(data_col)
 
-    avg_index = avg_indices[0]
-    assert isinstance(avg_index, str)
-    assert avg_index in df.index.names or avg_index in df.columns
+    return df_out
 
-    df_group_keys: t.List[str]
-    df_group_keys = [k for k in df.index.names if k != avg_index]
-    df_group_keys += [k for k in df.columns if k != avg_index]
-    df_group_keys.remove(data_col)
-    df_out = df.reset_index().groupby(by=df_group_keys, sort=False)[data_col].mean().to_frame(data_col)
+def permkey_average(df: pd.DataFrame, data_col, permkey_col: str = 'permkey') -> pd.DataFrame:
+    if permkey_col in df.index.names:
+        df.reset_index(permkey_col, inplace=True)
 
-    return average(df_out,data_col,*avg_indices[1:])
+    df[permkey_col] = df[permkey_col].str.replace('e', '')
+    df[permkey_col] = df[permkey_col].str.replace('v[0-9]+', ',', regex=True)
+    df[permkey_col] = df[permkey_col].str.replace('w', '')
+    df[permkey_col] = df[permkey_col].str.rstrip(',')
+    df[permkey_col] = df[permkey_col].str.lstrip(',')
+    key_len = len(df.iloc[0][permkey_col])
+    assert all(df[permkey_col].str.len() == key_len)
+    n_high = int((key_len + 1) / 2)
 
-
-def fold(df: pd.DataFrame, apply_fold: bool = True) -> pd.DataFrame:
-
-    if not apply_fold:
-        return df
-
-    assert len(df.columns) == 2
-
-    data_col = df.columns[-1]
-
-    array = df.sort_values('dt')[data_col].to_numpy()
-    nt = len(array)
-    folded_len = nt // 2 + 1
-    array[1:nt // 2] = (array[1:nt // 2] + array[-1:nt // 2:-1]) / 2.0
-
-    return pd.DataFrame(
-        array[:folded_len],
-        index=pd.Index(range(folded_len), name='dt'),
-        columns=[data_col]
-    )
+    df[[f'{permkey_col}{i}' for i in range(n_high)]] = df[permkey_col].str.split(',', expand=True)
+    df.drop(permkey_col, inplace=True, axis='columns')
+    return average(df,data_col,*[f'{permkey_col}{i}' for i in range(n_high)])
 
 
-def stdjackknife(series: pd.Series) -> pd.Series:
-    """Builds an array of standard deviations,
-    which you can take the mean and standard deviation
-    from for the error and the error on the error
+def time_average(df: pd.DataFrame, data_col: str, *avg_indices) -> pd.DataFrame:
+    """Averages `data_col` column in `df` over columns or indices specified in `avg_indices`,
+    one at a time.
     """
-    marray = np.ma.array(series.to_numpy(), mask=False)
-    array_out = np.empty_like(marray)
+    assert len(avg_indices) == 2
 
-    marray.mask[0] = True
-    for i in range(len(array_out)):
-        marray.mask[:] = False
-        marray.mask[i] = True
-        array_out[i] = marray.std()
-
-    return pd.Series(array_out, index=series.index)
+    def apply_func(x):
+        nt = int(np.sqrt(len(x)))
+        assert nt ** 2 == len(x)
+        corr = x[data_col].to_numpy().reshape((nt, nt))
+        return pd.DataFrame({data_col: a2a.time_average(corr)}, index=pd.Index(range(nt), name='dt'))
 
 
-def group_apply(df: pd.DataFrame, func: t.Callable, data_col: str,
-                ungrouped_cols: t.List, *args, **kwargs) -> pd.DataFrame:
+    return group_apply(df,apply_func,data_col,list(avg_indices))
 
-    df.reset_index(inplace=True)
-
-    ungrouped = ungrouped_cols + [data_col]
-    grouped = [x for x in df.columns if x not in ungrouped]
-
-    return df.groupby(by=grouped)[
-        ungrouped
-    ].apply(lambda x: func(x, *args, **kwargs))
-
+# def fold(df: pd.DataFrame, apply_fold: bool = True) -> pd.DataFrame:
+#
+#     if not apply_fold:
+#         return df
+#
+#     assert len(df.columns) == 2
+#
+#     data_col = df.columns[-1]
+#
+#     array = df.sort_values('dt')[data_col].to_numpy()
+#     nt = len(array)
+#     folded_len = nt // 2 + 1
+#     array[1:nt // 2] = (array[1:nt // 2] + array[-1:nt // 2:-1]) / 2.0
+#
+#     return pd.DataFrame(
+#         array[:folded_len],
+#         index=pd.Index(range(folded_len), name='dt'),
+#         columns=[data_col]
+#     )
+#
+#
 
 def call(df, func_name, data_col, *args, **kwargs):
 
     func = globals().get(func_name, None)
     if callable(func):
-        if func_name in GROUPED_ACTIONS:
-            return group_apply(
-                df, func, data_col, GROUPED_ACTIONS[func_name], *args, **kwargs)
-        else:
-            return func(df, data_col, *args, **kwargs)
+        return func(df, data_col, *args, **kwargs)
     else:
         raise AttributeError(
             f"Function '{func_name}' not found or is not callable.")
@@ -247,7 +251,7 @@ def execute(df: pd.DataFrame, actions: t.Dict) -> pd.DataFrame:
             df_out = call(df_out, key, data_col, *param)
         else:
             if param:
-                df_out = call(df_out, key, data_col, *[param])
+                df_out = call(df_out, key, data_col, param)
             else:
                 df_out = call(df_out, key, data_col)
 
