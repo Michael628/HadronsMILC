@@ -502,7 +502,7 @@ def a2a_vector(name: str, noise: str, action: str, low_modes: str, solver: str, 
     }
 
 
-def load_vectors(name: str, filestem: str, size: str) -> t.Dict:
+def load_vectors(name: str, filestem: str, size: str, multifile: str = 'false') -> t.Dict:
     return {
         "id": {
             "name": name,
@@ -510,7 +510,7 @@ def load_vectors(name: str, filestem: str, size: str) -> t.Dict:
         },
         "options": {
             "filestem": filestem,
-            "multiFile": "false",
+            "multiFile": multifile,
             "size": size
 
         },

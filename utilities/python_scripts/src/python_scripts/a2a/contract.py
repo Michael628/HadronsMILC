@@ -583,7 +583,7 @@ def main(param_file: str):
         nmesons = diagram_config.npoint
 
         low_min = 0 if diagram_config.has_high else nmesons
-        low_max = nmesons + 1 if diagram_config.has_low else 0
+        low_max = nmesons + 1 if diagram_config.has_low else 1
 
         perms = sum([
             list(multiset_permutations(['L'] * nlow + ['H'] * (nmesons - nlow)))

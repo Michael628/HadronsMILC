@@ -7,9 +7,6 @@ import typing as t
 
 def get_builder_module(job_type: str, task_type: t.Optional[str] = None):
     module_path = 'python_scripts.nanny.runio'
-    if job_type != 'hadrons':
-        raise NotImplementedError
-
     module_path += f'.{job_type}'
     if task_type:
         module_path += f'.{task_type}'
@@ -45,7 +42,7 @@ if __name__ == '__main__':
 
     param = utils.load_param('params.yaml')
 
-    jc = config.get_job_config(param, 'L')
+    jc = config.get_job_config(param, 'SIB')
     sc = config.get_submit_config(param,jc, series='a', cfg='100')
 
     fc = config.get_outfile_config(param)

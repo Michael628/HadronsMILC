@@ -59,7 +59,7 @@ class JobConfig:
     wall_time: str
     run: str
     job_type: str  = 'hadrons'
-    task_type: str  = 'lmi'
+    task_type: t.Optional[str]  = None
     params: t.Dict = field(default_factory=dict)
 
     def __init__(self, **kwargs):
@@ -79,6 +79,9 @@ class JobConfig:
                 self.infile = kwargs['io']
             else:
                 setattr(self,field_name,kwargs.get(field_name,field_default))
+
+        if not self.task_type and self.job_type == 'hadrons':
+            self.task_type = 'lmi'
 
         task_params = kwargs.get('tasks', {})
         task_builder: t.Callable = runio.get_task_factory(self.job_type, self.task_type)

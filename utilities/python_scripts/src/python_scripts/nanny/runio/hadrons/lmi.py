@@ -15,7 +15,6 @@ import typing as t
 # ============LMI Task Configuration===========
 @dataclass
 class LMITask(TaskBase):
-
     # ============Epack===========
     @dataclass
     class EpackTask:
@@ -105,7 +104,7 @@ class LMITask(TaskBase):
         def __init__(self, **kwargs):
             obj_vars = kwargs.copy()
 
-            self.skip_cg = obj_vars.pop('skip_cg',self.skip_cg)
+            self.skip_cg = obj_vars.pop('skip_cg', self.skip_cg)
 
             super().__init__(**obj_vars)
 
@@ -120,8 +119,7 @@ class LMITask(TaskBase):
             field_name = f.name
             field_type = t.get_args(f.type)[0]
             if field_name in kwargs:
-                setattr(self,field_name,field_type(**kwargs[field_name]))
-
+                setattr(self, field_name, field_type(**kwargs[field_name]))
 
     @property
     def mass(self):
@@ -241,18 +239,18 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
         name = f"stag_mass_{mass_label}"
         mass = str(submit_config.mass[mass_label])
         modules.append(templates.action(name=name,
-                                      mass=mass,
-                                      gauge_fat='gauge_fat',
-                                      gauge_long='gauge_long'))
+                                        mass=mass,
+                                        gauge_fat='gauge_fat',
+                                        gauge_long='gauge_long'))
 
     if tasks.high_modes:
         for mass_label in tasks.high_modes.mass:
             name = f"istag_mass_{mass_label}"
             mass = str(submit_config.mass[mass_label])
             modules.append(templates.action_float(name=name,
-                                                mass=mass,
-                                                gauge_fat='gauge_fatf',
-                                                gauge_long='gauge_longf'))
+                                                  mass=mass,
+                                                  gauge_fat='gauge_fatf',
+                                                  gauge_long='gauge_longf'))
 
     if tasks.epack:
         epack_path = ''
@@ -263,21 +261,21 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
         # Load or generate eigenvectors
         if tasks.epack.load:
             modules.append(templates.epack_load(name='epack',
-                                              filestem=epack_path,
-                                              size=submit_conf_dict['sourceeigs'],
-                                              multifile=multifile))
+                                                filestem=epack_path,
+                                                size=submit_conf_dict['sourceeigs'],
+                                                multifile=multifile))
         else:
             modules.append(templates.op('stag_op', 'stag_mass_zero'))
             modules.append(templates.irl(name='epack',
-                                       op='stag_op_schur',
-                                       alpha=submit_conf_dict['alpha'],
-                                       beta=submit_conf_dict['beta'],
-                                       npoly=submit_conf_dict['npoly'],
-                                       nstop=submit_conf_dict['nstop'],
-                                       nk=submit_conf_dict['nk'],
-                                       nm=submit_conf_dict['nm'],
-                                       multifile=multifile,
-                                       output=epack_path))
+                                         op='stag_op_schur',
+                                         alpha=submit_conf_dict['alpha'],
+                                         beta=submit_conf_dict['beta'],
+                                         npoly=submit_conf_dict['npoly'],
+                                         nstop=submit_conf_dict['nstop'],
+                                         nk=submit_conf_dict['nk'],
+                                         nm=submit_conf_dict['nm'],
+                                         multifile=multifile,
+                                         output=epack_path))
 
         # Shift mass of eigenvalues
         for mass_label in tasks.mass:
@@ -285,14 +283,14 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
                 continue
             mass = str(submit_config.mass[mass_label])
             modules.append(templates.epack_modify(name=f"evecs_mass_{mass_label}",
-                                                eigen_pack='epack',
-                                                mass=mass))
+                                                  eigen_pack='epack',
+                                                  mass=mass))
 
         if tasks.epack.save_evals:
             eval_path = outfile_config_list.eval.filestem.format(**submit_conf_dict)
             modules.append(templates.eval_save(name='eval_save',
-                                             eigen_pack='epack',
-                                             output=eval_path))
+                                               eigen_pack='epack',
+                                               output=eval_path))
 
     if tasks.meson:
         meson_path = outfile_config_list.meson.filestem
@@ -495,6 +493,7 @@ def bad_files(submit_config: SubmitHadronsConfig,
     df = catalog_files(submit_config, task_config, outfile_config_list)
 
     return list(df[(df['file_size'] >= df['good_size']) != True]['filepath'])
+
 
 def get_task_factory():
     return LMITask
