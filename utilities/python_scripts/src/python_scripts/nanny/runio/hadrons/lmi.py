@@ -448,9 +448,9 @@ def catalog_files(submit_config: SubmitHadronsConfig,
         if task_config.high_modes:
             res = {'tsource': list(map(str, submit_config.tsource_range))}
             if task_config.epack:
-                res['dset'] = ['ama', 'ranLL']
-            else:
-                res['dset'] = ['ama']
+                res['dset'] = ['ranLL']
+            if not task_config.high_modes.skip_cg:
+                res['dset'].append('ama')
 
             for op in task_config.high_modes.operations:
                 res['gamma'] = op.gamma.name.lower()
