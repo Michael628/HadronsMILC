@@ -4,12 +4,21 @@ import sys
 from dataclasses import fields
 from enum import Enum, auto
 
+
 class Gamma(Enum):
     ONELINK = auto()
     LOCAL = auto()
     VEC_ONELINK = auto()
     VEC_LOCAL = auto()
     PION_LOCAL = auto()
+    G1_G1 = auto()
+    GX_GX = auto()
+    GY_GY = auto()
+    GZ_GZ = auto()
+    G5_G5 = auto()
+    GX_G1 = auto()
+    GY_G1 = auto()
+    GZ_G1 = auto()
 
     @property
     def gamma_list(self) -> t.List[str]:
@@ -22,7 +31,8 @@ class Gamma(Enum):
         if self == Gamma.PION_LOCAL:
             return ["G5_G5"]
         else:
-            raise ValueError(f"Unexpected Gamma value for mesons: {self}")
+            return [self.name]
+            # raise ValueError(f"Unexpected Gamma value: {self}")
 
     @property
     def gamma_string(self) -> str:
@@ -33,8 +43,18 @@ class Gamma(Enum):
         return gammas
 
     @property
+    def _local_gammas(self) -> t.List:
+        return [Gamma.LOCAL, Gamma.PION_LOCAL, Gamma.VEC_LOCAL,
+                Gamma.G1_G1,
+                Gamma.GX_GX,
+                Gamma.GY_GY,
+                Gamma.GZ_GZ,
+                Gamma.G5_G5
+                ]
+
+    @property
     def local(self) -> bool:
-        if self in [Gamma.LOCAL, Gamma.PION_LOCAL, Gamma.VEC_LOCAL]:
+        if self in self._local_gammas:
             return True
         else:
             return False
@@ -59,6 +79,8 @@ def setup():
 
 
 T = t.TypeVar('T', bound='ConfigBase')
+
+
 class ConfigBase:
 
     @classmethod
@@ -75,12 +97,13 @@ class ConfigBase:
         conflicts = [k for k in kwargs.keys() if k in kwargs and f"_{k}" in kwargs and not k.startswith('_')]
 
         if any(conflicts):
-            raise ValueError(f"Conflict in parameters. Both {conflicts[0]} and _{conflicts[0]} passed to {cls} `create`.")
+            raise ValueError(
+                f"Conflict in parameters. Both {conflicts[0]} and _{conflicts[0]} passed to {cls} `create`.")
 
         class_vars = [f.name for f in fields(cls)]
         obj_vars = {}
         new_vars = {}
-        for k,v in kwargs.items():
+        for k, v in kwargs.items():
             if k in class_vars:
                 obj_vars[k] = v
             elif f"_{k}" in class_vars and not k.startswith('_'):
@@ -92,8 +115,8 @@ class ConfigBase:
 
         obj = cls(**obj_vars)
 
-        for k,v in new_vars.items():
-            setattr(obj,k,v)
+        for k, v in new_vars.items():
+            setattr(obj, k, v)
 
         return obj
 
@@ -106,9 +129,9 @@ class ConfigBase:
         for k, v in self.__dict__.items():
             if k.startswith("_") or isinstance(v, t.Dict):
                 continue
-            elif isinstance(v,t.List):
-                res[k] = list(map(str,v))
-            elif isinstance(v,bool):
+            elif isinstance(v, t.List):
+                res[k] = list(map(str, v))
+            elif isinstance(v, bool):
                 res[k] = str(v).lower()
             else:
                 if v is not None:

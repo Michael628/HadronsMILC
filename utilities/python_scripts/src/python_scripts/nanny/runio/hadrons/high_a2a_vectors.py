@@ -20,6 +20,7 @@ import typing as t
 class A2AVecTask(TaskBase):
     mass: str
     subtract: bool
+    nstart: int = 0
 
 
 def build_params(submit_config: SubmitHadronsConfig, tasks: A2AVecTask,
@@ -81,12 +82,12 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: A2AVecTask,
 
     vec_path = outfile_config_list.a2avec.filestem
 
-    for seed_index in range(submit_config.noise):
-        modules.append(templates.time_diluted_noise(f'noise_{seed_index}', 1))
+    for seed_index in range(tasks.nstart,tasks.nstart+submit_config.noise):
+        modules.append(templates.time_diluted_noise(f'w{seed_index}', 1))
 
         for slabel in ['ranLL', 'ama']:
             quark = f"quark_{slabel}_mass_{mass_label}_n{seed_index}"
-            source = f"noise_{seed_index}_vec"
+            source = f"w{seed_index}_vec"
             if slabel == "ama":
                 solver = f"stag_{slabel}_mass_{mass_label}"
                 if tasks.subtract:

@@ -56,8 +56,8 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: A2ASIBTask,
     meson_path = outfile_config_list.meson.filestem
 
     for w_index, v_index in pairings:
-        v_name = f"v{submit_config.seed}{v_index}"
-        w_name = f"w{submit_config.seed}{w_index}"
+        v_name = f"v{v_index}"
+        w_name = f"w{w_index}"
 
         if w_name not in module_set:
             module_set.add(w_name)
@@ -80,8 +80,8 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: A2ASIBTask,
                                                   multifile='true' if tasks.multifile else 'false'))
 
         outfile = meson_path.format(mass=submit_config.mass_out_label[mass_label],
-                                    w_index=w_name,
-                                    v_index=v_name,
+                                    w_index=w_index,
+                                    v_index=v_index,
                                     **submit_conf_dict)
 
         modules.append(templates.meson_field(name=f'mf_{w_index}_{v_index}',

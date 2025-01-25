@@ -25,6 +25,7 @@ class OutfileList:
     high_modes: t.Optional[Outfile] = None
     meson: t.Optional[Outfile] = None
     a2avec: t.Optional[Outfile] = None
+    seq_modes: t.Optional[Outfile] = None
 
     def __init__(self, **kwargs):
         """Creates a new instance of OutfileConfigList from a dictionary."""
@@ -36,6 +37,7 @@ class OutfileList:
             "eigdir": ".{cfg}/v{eig_index}.bin",
             "eval": ".{cfg}.h5",
             "high_modes": ".{cfg}.h5",
+            "seq_modes": ".{cfg}.h5",
             "meson": ".{cfg}/{gamma}_0_0_0.h5",
             "contract": ".{cfg}.p",
             "a2avec": ".{cfg}.bin"

@@ -454,7 +454,7 @@ def seq_aslash(name: str, q: str, ta: str, tb: str, em_field: str, mom: str) -> 
     }
 
 
-def seq_gamma(name: str, q: str, ta: str, tb: str, mom: str) -> t.Dict:
+def seq_gamma(name: str, q: str, ta: str, tb: str, gammas: str, gauge: str, apply_g5: str, mom: str) -> t.Dict:
     return {
         "id": {
             "name": name,
@@ -465,6 +465,12 @@ def seq_gamma(name: str, q: str, ta: str, tb: str, mom: str) -> t.Dict:
             "tA": ta,
             "tB": tb,
             "mom": mom,
+            "spinTaste": {
+                "gammas": gammas,
+                "gauge": gauge,
+                "applyG5": apply_g5
+
+            },
         },
     }
 

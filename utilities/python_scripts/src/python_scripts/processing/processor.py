@@ -11,7 +11,7 @@ import gvar.dataset as ds
 import typing as t
 from python_scripts.a2a import contract as a2a
 
-ACTION_ORDER = ['build_high', 'average', 'sum', 'time_average', 'real', 'permkey_average',
+ACTION_ORDER = ['build_high', 'average', 'sum', 'time_average', 'real', 'permkey_average', 'permkey_normalize',
                 'normalize', 'index', 'drop', 'gvar']
 
 
@@ -33,16 +33,25 @@ def stdjackknife(series: pd.Series) -> pd.Series:
 
 
 def group_apply(df: pd.DataFrame, func: t.Callable, data_col: str,
-                ungrouped_cols: t.List) -> pd.DataFrame:
+                ungrouped_cols: t.List, invert=False) -> pd.DataFrame:
 
     all_cols = list(df.index.names) + list(df.columns)
 
-    ungrouped = ungrouped_cols + [data_col]
-    grouped = [x for x in all_cols if x not in ungrouped]
+    if not invert:
+        ungrouped = ungrouped_cols + [data_col]
+        grouped = [x for x in all_cols if x not in ungrouped]
+    else:
+        grouped = ungrouped_cols
+        ungrouped = [x for x in all_cols if x not in grouped] + [data_col]
 
-    return df.reset_index().groupby(by=grouped)[
+    df_out = df.reset_index().groupby(by=grouped)[
         ungrouped
     ].apply(func)
+
+    while None in df_out.index.names:
+        df_out = df_out.droplevel(df_out.index.names.index(None))
+
+    return df_out
 
 
 def gvar(df: pd.DataFrame) -> pd.DataFrame:
@@ -172,7 +181,7 @@ def average(df: pd.DataFrame, data_col, *avg_indices) -> pd.DataFrame:
 
     return df_out
 
-def permkey_average(df: pd.DataFrame, data_col, permkey_col: str = 'permkey') -> pd.DataFrame:
+def permkey_split(df: pd.DataFrame, data_col, permkey_col: str = 'permkey') -> pd.DataFrame:
     if permkey_col in df.index.names:
         df.reset_index(permkey_col, inplace=True)
 
@@ -181,13 +190,44 @@ def permkey_average(df: pd.DataFrame, data_col, permkey_col: str = 'permkey') ->
     df[permkey_col] = df[permkey_col].str.replace('w', '')
     df[permkey_col] = df[permkey_col].str.rstrip(',')
     df[permkey_col] = df[permkey_col].str.lstrip(',')
-    key_len = len(df.iloc[0][permkey_col])
-    assert all(df[permkey_col].str.len() == key_len)
-    n_high = int((key_len + 1) / 2)
+    key_len = df.iloc[0][permkey_col].count(',')
+    assert all(df[permkey_col].str.count(',') == key_len)
+    n_high = int(key_len + 1)
 
     df[[f'{permkey_col}{i}' for i in range(n_high)]] = df[permkey_col].str.split(',', expand=True)
+    df.rename({f'{permkey_col}{n_high-1}':'noise_max'})
     df.drop(permkey_col, inplace=True, axis='columns')
-    return average(df,data_col,*[f'{permkey_col}{i}' for i in range(n_high)])
+    return df
+
+def permkey_normalize(df: pd.DataFrame, data_col, permkey_col: str = 'permkey') -> pd.DataFrame:
+    df_out = df
+    if f'{permkey_col}0' not in df.columns:
+        df_out = permkey_split(df_out, data_col, permkey_col)
+
+    perm_cols = [x for x in df_out.columns if permkey_col in x]
+
+    assert 'noise_max' in df.columns
+    n_high_modes = df['noise_max'].max()
+    n_unique_comb = df[perm_cols+['noise_max']].drop_duplicates().count()
+    index0_max = (n_high_modes - len(perm_cols))
+    df[data_col] = df[data_col]*n_unique_comb/index0_max
+
+    def norm_func(x):
+        x[data_col] = x[data_col] / x[data_col].count()
+        return x
+
+    for p in perm_cols:
+        p_inv = [x for x in perm_cols if x != p]
+        df_out = group_apply(df_out,norm_func, data_col,p_inv)
+
+    return df_out
+
+
+def permkey_average(df: pd.DataFrame, data_col, permkey_col: str = 'permkey') -> pd.DataFrame:
+    df_out = permkey_split(df, data_col, permkey_col)
+    perm_cols = [x for x in df_out.columns if permkey_col in x]
+
+    return average(df_out, data_col, *perm_cols)
 
 
 def time_average(df: pd.DataFrame, data_col: str, *avg_indices) -> pd.DataFrame:

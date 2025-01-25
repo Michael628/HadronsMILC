@@ -79,7 +79,7 @@ def process_params(**params) -> t.Dict:
 
     param_out = deep_copy_dict(params)
 
-    for key, val in param_out.items():
+    for key, val in params.items():
 
         if isinstance(val, str):
             if '..' in val:
