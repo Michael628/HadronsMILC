@@ -154,28 +154,10 @@ def make_inputs(param, step, cfgno_steps):
 
         outfile_config = config.get_outfile_config(param)
 
-        input_file = job_config.get_infile(submit_config)
+        input_file: str = job_config.get_infile(submit_config)
 
         # TODO: Move input file creation into runio module
-        if job_config.job_type == 'hadrons':
-            assert isinstance(submit_config, SubmitHadronsConfig)
-            sched_file = f"schedules/{input_file.removesuffix('.xml')}.sched"
-
-            xml_dict = templates.xml_wrapper(
-                runid=submit_config.run_id,
-                sched=sched_file,
-                cfg=submit_config.cfg
-            )
-            modules, schedule = config.build_params(submit_config, job_config, outfile_config)
-
-            xml_dict['grid']['modules'] = {"module": modules}
-
-            with open(f"in/{input_file}", "w") as f:
-                f.write(dxml(xml_dict))
-
-            with open(sched_file, 'w') as f:
-                f.write(str(len(schedule)) + "\n" + "\n".join(schedule))
-        elif job_config.job_type == 'contract':
+        if job_config.job_type == 'contract':
             tasks = job_config.tasks
             assert isinstance(tasks, ContractTask)
             assert isinstance(submit_config, SubmitContractConfig)
@@ -185,18 +167,34 @@ def make_inputs(param, step, cfgno_steps):
                 input_yaml['diagrams'][diagram] = submit_config.diagram_params[diagram]
             with open(f"in/{input_file}", 'w') as f:
                 f.write(yaml.dump(input_yaml))
-        elif job_config.job_type == 'smear':
+        else:
+            input_params, schedule = config.build_params(submit_config, job_config, outfile_config)
 
-            os.environ['SERIES'] = series
-            os.environ['CFG'] = cfgno
+            if job_config.job_type == 'hadrons':
+                assert isinstance(submit_config, SubmitHadronsConfig)
 
-            if ncases > 0:
-                print("WARNING: No bundling of smearing jobs")
-                print("Will submit only one case")
-                break
+                if schedule:
+                    sched_file = f"schedules/{input_file[:-len('.xml')]}.sched"
+                    with open(sched_file, 'w') as f:
+                        f.write(str(len(schedule)) + "\n" + "\n".join(schedule))
+                else:
+                    sched_file = ''
+
+                xml_dict = templates.xml_wrapper(
+                    runid=submit_config.run_id,
+                    sched=sched_file,
+                    cfg=submit_config.cfg
+                )
+
+                xml_dict['grid']['modules'] = {"module": input_params}
+                input_string = dxml(xml_dict)
+            else:
+                input_string = input_params
+
+            with open(f"in/{input_file}", "w") as f:
+                f.write(input_string)
+
         input_files.append(input_file)
-
-        os.environ['ENS'] = submit_config.ens
 
     os.environ['INPUTLIST'] = " ".join(input_files)
 

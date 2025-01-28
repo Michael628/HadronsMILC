@@ -64,7 +64,7 @@ class SubmitHadronsConfig(SubmitConfig):
     def mass_out_label(self):
         res = {}
         for k, v in self.mass.items():
-            res[k] = str(v).removeprefix('0.')
+            res[k] = str(v)[len('0.'):]
         return res
 
 

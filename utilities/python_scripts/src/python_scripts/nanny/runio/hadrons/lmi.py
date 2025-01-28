@@ -117,7 +117,7 @@ class LMITask(TaskBase):
         """
         for f in fields(self):
             field_name = f.name
-            field_type = t.get_args(f.type)[0]
+            field_type = f.type.__args__[0]
             if field_name in kwargs:
                 setattr(self, field_name, field_type(**kwargs[field_name]))
 
