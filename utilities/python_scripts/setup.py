@@ -1,5 +1,8 @@
 from setuptools import setup
 
+with open('requirements.txt') as f:
+    requirements = f.read().splitlines()
+
 setup(
     name='python_scripts',
     version='0.1.0',
@@ -10,5 +13,6 @@ setup(
     license='',
     author='Michael Lynch',
     author_email='michaellynch628@gmail.com',
-    description='Nanny, postprocessing, and A2A contraction scripts'
+    description='Nanny, postprocessing, and A2A contraction scripts',
+    install_requires=requirements
 )
