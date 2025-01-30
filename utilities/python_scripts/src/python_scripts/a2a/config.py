@@ -1,13 +1,15 @@
 import functools
 import typing as t
-from dataclasses import dataclass
 from enum import Enum, auto
 
 import python_scripts
 from python_scripts import config as c
-from mpi4py import MPI
+try:
+    from mpi4py import MPI
+    COMM = MPI.COMM_WORLD
+except ImportError:
+    pass
 
-COMM = MPI.COMM_WORLD
 
 class Diagrams(Enum):
     photex = auto()

@@ -21,7 +21,7 @@ class ContractTask(TaskBase):
 def bad_files(submit_config: SubmitContractConfig,
               task_config: ContractTask, outfile_config_list: OutfileList) -> t.List[str]:
     logging.warning(
-        f"Check completion succeeds automatically. No implementation of bad_files function in `{__file__}.py`.")
+        f"Check completion succeeds automatically. No implementation of bad_files function in `{__file__}`.")
     return []
 
 

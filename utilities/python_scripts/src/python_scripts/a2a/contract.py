@@ -18,13 +18,15 @@ except ImportError:
 from time import perf_counter
 from dataclasses import dataclass, field
 from sympy.utilities.iterables import multiset_permutations
-from mpi4py import MPI
+try:
+    from mpi4py import MPI
+    COMM = MPI.COMM_WORLD
+except ImportError:
+    pass
 
 import python_scripts
 from python_scripts import utils
 from python_scripts.a2a import config
-
-COMM = MPI.COMM_WORLD
 
 
 def convert_to_numpy(corr: xp.ndarray):
@@ -360,9 +362,9 @@ def execute(contraction: t.Tuple[str], diagram_config: config.DiagramConfig, run
                 COMM.Reduce(cij, temp, op=MPI.SUM, root=0)
 
                 if run_config.rank == 0:
-                    corr[gamma] = convert_to_numpy(time_average(temp))
+                    corr[gamma] = convert_to_numpy(temp)
             else:
-                corr[gamma] = convert_to_numpy(time_average(cij))
+                corr[gamma] = convert_to_numpy(cij)
 
             del m1, m2
         return corr
