@@ -129,7 +129,7 @@ void TTimeDilutedSpinColorDiagonalMILC<FImpl>::execute(void)
 
     noisevec.resize(nferm,envGetGrid(FermionField));
     for (int i=0;i<nferm;i++) {
-        noisevec[i] = noise.getFerm((i%nsc)+(i/nsc)*tStep);
+        noisevec[i] = noise.getFerm((i%nsc)+((i/nsc)*nsc*tStep));
     }
 
     auto &time_shift = envGet(std::vector<Integer>,getName()+"_shift");
