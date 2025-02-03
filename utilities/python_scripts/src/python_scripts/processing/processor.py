@@ -195,30 +195,23 @@ def permkey_split(df: pd.DataFrame, data_col, permkey_col: str = 'permkey') -> p
     n_high = int(key_len + 1)
 
     df[[f'{permkey_col}{i}' for i in range(n_high)]] = df[permkey_col].str.split(',', expand=True)
-    df.rename({f'{permkey_col}{n_high-1}':'noise_max'})
     df.drop(permkey_col, inplace=True, axis='columns')
     return df
 
 def permkey_normalize(df: pd.DataFrame, data_col, permkey_col: str = 'permkey') -> pd.DataFrame:
     df_out = df
-    if f'{permkey_col}0' not in df.columns:
+    if f'{permkey_col}0' not in df_out.columns:
         df_out = permkey_split(df_out, data_col, permkey_col)
 
     perm_cols = [x for x in df_out.columns if permkey_col in x]
 
-    assert 'noise_max' in df.columns
-    n_high_modes = df['noise_max'].max()
-    n_unique_comb = df[perm_cols+['noise_max']].drop_duplicates().count()
-    index0_max = (n_high_modes - len(perm_cols))
-    df[data_col] = df[data_col]*n_unique_comb/index0_max
-
-    def norm_func(x):
-        x[data_col] = x[data_col] / x[data_col].count()
-        return x
-
-    for p in perm_cols:
-        p_inv = [x for x in perm_cols if x != p]
-        df_out = group_apply(df_out,norm_func, data_col,p_inv)
+    n_high_modes = df_out[f'{permkey_col}{len(perm_cols) - 1}'].astype(int).max() + 1
+    n_unique_comb = df_out[perm_cols].drop_duplicates()[f'{permkey_col}0'].count()
+    n_index_modes = n_high_modes - (len(perm_cols) - 1)
+    df_out[data_col] = df_out[data_col] * n_unique_comb / n_index_modes
+    for p in perm_cols[:-1]:
+        n_index_modes += 1
+        df_out[data_col] = df_out[data_col] / (n_index_modes - df_out[p].astype(int) - 1)
 
     return df_out
 
