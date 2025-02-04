@@ -1,6 +1,6 @@
 #include <Hadrons/Application.hpp>
 #include <Hadrons/Modules.hpp>
-#include "src/HadronsMILC/Modules.cpp"
+#include <HadronsMILC/Modules.hpp>
 // #include "cpp/modules/A2AVectors.cpp"
 
 using namespace Grid;

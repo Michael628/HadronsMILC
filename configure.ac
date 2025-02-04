@@ -1,28 +1,26 @@
 AC_PREREQ([2.69])
-AC_INIT([my-hadrons-app], [0.1], [name@domain.suf])
+AC_INIT([HadronsMILC], [0.1], [michaellynch628@gmail.com])
 AC_CANONICAL_BUILD
 AC_CANONICAL_HOST
 AC_CANONICAL_TARGET
 AC_CONFIG_SRCDIR([main.cpp])
 AC_CONFIG_MACRO_DIR([.buildutils/m4])
 AC_CONFIG_HEADERS([config.h])
-AM_INIT_AUTOMAKE([-Wall -Werror foreign])
+AM_INIT_AUTOMAKE([-Wall -Werror foreign subdir-objects])
 m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
 
-# Checks for programs.
-AC_PROG_CXX
-AC_PROG_CC
-AC_PROG_RANLIB
-AM_PROG_AR
-AC_LANG([C++])
-
+AC_ARG_WITH([grid],
+    [AS_HELP_STRING([--with-grid=<prefix>],
+    [try this for a non-standard install prefix of Grid])],
+    [PATH="$with_grid/bin$PATH_SEPARATOR$PATH"]
+    [CXXFLAGS="$CXXFLAGS -I$with_grid/include"]
+    [LDFLAGS="$LDFLAGS -L$with_grid/lib"])
 AC_ARG_WITH([hadrons],
     [AS_HELP_STRING([--with-hadrons=<prefix>],
     [try this for a non-standard install prefix of Hadrons])],
     [PATH="$with_hadrons/bin$PATH_SEPARATOR$PATH"]
     [CXXFLAGS="$CXXFLAGS -I$with_hadrons/include"]
     [LDFLAGS="$LDFLAGS -L$with_hadrons/lib"])
-
 AC_CHECK_PROG([HADCONF],[hadrons-config],[yes])
 if test x"$HADCONF" != x"yes" ; then
     AC_MSG_ERROR([hadrons-config not found])
@@ -38,12 +36,13 @@ elif test "$CXXLD" != "`hadrons-config --cxxld`" ; then
     AC_MSG_WARN([CXXLD differs from that reported by hadrons-config])
 fi
 
-AC_ARG_WITH([grid],
-    [AS_HELP_STRING([--with-grid=<prefix>],
-    [try this for a non-standard install prefix of Grid])],
-    [PATH="$with_grid/bin$PATH_SEPARATOR$PATH"]
-    [CXXFLAGS="$CXXFLAGS -I$with_grid/include"]
-    [LDFLAGS="$LDFLAGS -L$with_grid/lib"])
+# Checks for programs.
+AC_PROG_CXX
+AC_PROG_CC
+AC_PROG_RANLIB
+AM_PROG_AR
+AC_LANG([C++])
+
 CXXFLAGS="$CXXFLAGS `hadrons-config --cxxflags`"
 LDFLAGS="$LDFLAGS `hadrons-config --ldflags`"
 CXXFLAGS="$AM_CXXFLAGS $CXXFLAGS"
@@ -78,5 +77,6 @@ AC_SUBST([CXXLD])
 AC_SUBST([AM_CXXFLAGS])
 AC_SUBST([AM_LDFLAGS])
 AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([src/HadronsMILC/Makefile])
 AC_CONFIG_FILES([utilities/Makefile])
 AC_OUTPUT

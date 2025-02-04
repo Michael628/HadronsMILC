@@ -1,9 +1,7 @@
+AM_LDFLAGS += -L$(top_builddir)/HadronsMILC
+AM_CXXFLAGS += -I$(top_srcdir)
 
- include $(srcdir)/../src/HadronsMILC/modules.inc
+bin_PROGRAMS = HadronsContractor
 
- ACLOCAL_AMFLAGS = -I .buildutils/m4
- 
- bin_PROGRAMS = HadronsContractor
-
-HadronsContractor_SOURCES = ContractorMILC.cpp \
-    $(modules_cpp)
+HadronsContractor_SOURCES = ContractorMILC.cpp
+HadronsContractor_LDADD = -lHadronsMILC
