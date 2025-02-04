@@ -1,7 +1,9 @@
+SUBDIRS = src/HadronsMILC utilities
 
- include $(srcdir)/src/HadronsMILC/modules.inc
+AM_LDFLAGS += -L$(top_builddir)/HadronsMILC
+AM_CXXFLAGS += -I$(top_srcdir)/HadronsMILC
 
- bin_PROGRAMS = HadronsMILC
+bin_PROGRAMS = HadronsMILC
 
- HadronsMILC_SOURCES = main.cpp \
-    $(modules_cpp)
+HadronsMILC_SOURCES = main.cpp
+HadronsMILC_LDADD = -lHadronsMILC
