@@ -5,6 +5,7 @@
 #include <Hadrons/Module.hpp>
 #include <Hadrons/ModuleFactory.hpp>
 #include <Hadrons/EigenPack.hpp>
+#include <Hadrons/Solver.hpp>
 
 BEGIN_HADRONS_NAMESPACE
 

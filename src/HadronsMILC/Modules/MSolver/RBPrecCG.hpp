@@ -87,7 +87,7 @@ private:
     bool isEven_ {false};
 };
 
-MODULE_REGISTER_TMP(StagRBPrecCG, ARG(TRBPrecCGMILC<STAGIMPL>), MSolver);
+MODULE_REGISTER_TMP(RBPrecCGMILC, ARG(TRBPrecCGMILC<STAGIMPL>), MSolver);
 
 /******************************************************************************
  *                      TRBPrecCGMILC template implementation                     *
