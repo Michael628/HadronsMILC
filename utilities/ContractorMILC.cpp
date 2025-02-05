@@ -24,7 +24,7 @@
 
 /*  END LEGAL */
 #include <Hadrons/Global.hpp>
-#include <Hadrons/A2AMatrixMILC.hpp>
+#include <src/HadronsMILC/A2AMatrix.hpp>
 #include <Hadrons/DiskVector.hpp>
 #include <Hadrons/Module.hpp>
 #include <Hadrons/TimerArray.hpp>
@@ -358,7 +358,7 @@ int main(int argc, char* argv[])
                     PackRecord record;
                     std::string filename = p.epack.fileStem + "." + std::to_string(traj) + (p.epack.multiFile ? "" : ".bin");
                     EigenPackIo::readEvals(evals,record,0,p.epack.nEigs,filename,
-                       p.epack.multiFile, grid);
+                       p.epack.multiFile);
 
                 }
                 nEvals = evals.size();
@@ -511,9 +511,9 @@ int main(int argc, char* argv[])
 
                             tAr.startTimer("A*B total");
                             tAr.startTimer("A*B algebra");
-                            A2AContractionMILC::mul(tmp, prod, ref);
+                            A2AContraction::mul(tmp, prod, ref);
                             tAr.stopTimer("A*B algebra");
-                            flops += A2AContractionMILC::mulFlops(prod, ref);
+                            flops += A2AContraction::mulFlops(prod, ref);
                             prod   = tmp;
                             tAr.stopTimer("A*B total");
                             bytes += 3.*tmp.rows()*tmp.cols()*sizeof(ComplexD);
@@ -532,9 +532,9 @@ int main(int argc, char* argv[])
                         for (unsigned int tLast = 0; tLast < par.global.nt; ++tLast)
                         {
                             tAr.startTimer("tr(A*B)");
-                            A2AContractionMILC::accTrMul(result.correlator[TIME_MOD(tLast - dt)], prod, lastTerm[tLast]);
+                            A2AContraction::accTrMul(result.correlator[TIME_MOD(tLast - dt)], prod, lastTerm[tLast]);
                             tAr.stopTimer("tr(A*B)");
-                            flops += A2AContractionMILC::accTrMulFlops(prod, lastTerm[tLast]);
+                            flops += A2AContraction::accTrMulFlops(prod, lastTerm[tLast]);
                             bytes += 2.*prod.rows()*prod.cols()*sizeof(ComplexD);
                         }
                         tAr.stopTimer("Linear algebra");

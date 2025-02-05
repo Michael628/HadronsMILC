@@ -103,7 +103,7 @@ public:
     bool isEven_ {false};
 };
 
-MODULE_REGISTER_TMP(StagMixedPrecisionRBPrecCG, ARG(TMixedPrecisionRBPrecCGMILC<STAGIMPLF,STAGIMPL>), MSolver);
+MODULE_REGISTER_TMP(MixedPrecisionRBPrecCGMILC, ARG(TMixedPrecisionRBPrecCGMILC<STAGIMPLF,STAGIMPL>), MSolver);
 
 /******************************************************************************
  *                 TMixedPrecisionRBPrecCGMILC implementation                     *
