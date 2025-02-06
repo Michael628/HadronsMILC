@@ -1,7 +1,7 @@
 SUBDIRS = src/HadronsMILC utilities
 
 AM_LDFLAGS += -L$(top_builddir)/src/HadronsMILC
-AM_CXXFLAGS += -I$(top_srcdir)/HadronsMILC
+AM_CXXFLAGS += -I$(top_srcdir)/src/HadronsMILC
 
 bin_PROGRAMS = HadronsMILC
 
