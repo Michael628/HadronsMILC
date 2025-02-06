@@ -1,5 +1,4 @@
-#ifndef GRID_QCD_STAGGAMMA_H
-#define GRID_QCD_STAGGAMMA_H
+#pragma once
 
 #include <array>
 #include <iostream>
@@ -152,8 +151,31 @@ class StagGamma {
     inline void toggleNegation() { _negated = !_negated; }
   public:
     static constexpr unsigned int nGamma = 16;
-    static const std::array<const char *, nGamma>                name;
-    static const std::array<const StagAlgebra, 4>                gmu;
+// TXYZ convention
+    static inline const std::array<const char *, nGamma>  name = {{
+	"G1" ,
+	"GZ" ,
+	"GY" ,
+	"GYZ",
+	"GX" ,
+	"GZX",
+	"GXY",
+	"G5T",
+	"GT" ,
+	"GZT",
+	"GYT",
+	"G5X",
+	"GXT",
+	"G5Y",
+	"G5Z",
+	"G5"
+    }};
+    static inline const std::array<const StagAlgebra, 4>  gmu = {{
+	StagGamma::StagAlgebra::GX,
+	StagGamma::StagAlgebra::GY,
+	StagGamma::StagAlgebra::GZ,
+	StagGamma::StagAlgebra::GT,
+      }};
     friend inline StagGamma operator*(const StagGamma& g1,const StagGamma& g2);
   public:
     StagAlgebra                               _spin, _taste;
@@ -370,12 +392,6 @@ inline Lattice<obj> operator*(const Lattice<obj> &lat, const StagGamma &g1) {
 }
 
 // Array used to keep Grid ordering, XYZT
-const std::array<const StagGamma::StagAlgebra, 4> StagGamma::gmu = {{
-    StagGamma::StagAlgebra::GX,
-    StagGamma::StagAlgebra::GY,
-    StagGamma::StagAlgebra::GZ,
-    StagGamma::StagAlgebra::GT,
-}};
 
 // XYZT convention
 /*const std::array<const char *, StagGamma::nGamma> StagGamma::name = {{
@@ -397,25 +413,5 @@ const std::array<const StagGamma::StagAlgebra, 4> StagGamma::gmu = {{
      "G5" }};
      */
 
-// TXYZ convention
-const std::array<const char *, StagGamma::nGamma> StagGamma::name = {{
-     "G1" ,
-     "GZ" ,
-     "GY" ,
-     "GYZ",
-     "GX" ,
-     "GZX",
-     "GXY",
-     "G5T",
-     "GT" ,
-     "GZT",
-     "GYT",
-     "G5X",
-     "GXT",
-     "G5Y",
-     "G5Z",
-     "G5" }};
 
 NAMESPACE_END(Grid)
-
-#endif // GRID_QCD_STAGGAMMA_H

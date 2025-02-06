@@ -1,5 +1,6 @@
 #include <Hadrons/Application.hpp>
 #include <Hadrons/Modules.hpp>
+#include <src/HadronsMILC/Modules.hpp>
 
 using namespace Grid;
 using namespace Hadrons;
