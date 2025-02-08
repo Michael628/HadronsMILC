@@ -47,7 +47,8 @@ class OutfileList:
             "mesonLH": ".{cfg}/{gamma}_0_0_0.h5",
             "mesonLL": ".{cfg}/{gamma}_0_0_0.h5",
             "contract": ".{cfg}.p",
-            "a2avec": ".{cfg}.bin"
+            "a2a_vec": ".{cfg}.bin",
+            "a2a_vec_seq": ".{cfg}.bin"
         }
         home = kwargs['home']
         for k in extensions:
