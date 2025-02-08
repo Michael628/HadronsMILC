@@ -23,7 +23,10 @@ class OutfileList:
     eigdir: t.Optional[Outfile] = None
     eval: t.Optional[Outfile] = None
     high_modes: t.Optional[Outfile] = None
-    meson: t.Optional[Outfile] = None
+    mesonHH: t.Optional[Outfile] = None
+    mesonLL: t.Optional[Outfile] = None
+    mesonLH: t.Optional[Outfile] = None
+    mesonHL: t.Optional[Outfile] = None
     a2avec: t.Optional[Outfile] = None
     seq_modes: t.Optional[Outfile] = None
 
@@ -38,7 +41,10 @@ class OutfileList:
             "eval": ".{cfg}.h5",
             "high_modes": ".{cfg}.h5",
             "seq_modes": ".{cfg}.h5",
-            "meson": ".{cfg}/{gamma}_0_0_0.h5",
+            "mesonHH": ".{cfg}/{gamma}_0_0_0.h5",
+            "mesonHL": ".{cfg}/{gamma}_0_0_0.h5",
+            "mesonLH": ".{cfg}/{gamma}_0_0_0.h5",
+            "mesonLL": ".{cfg}/{gamma}_0_0_0.h5",
             "contract": ".{cfg}.p",
             "a2avec": ".{cfg}.bin"
         }
