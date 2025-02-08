@@ -27,7 +27,8 @@ class OutfileList:
     mesonLL: t.Optional[Outfile] = None
     mesonLH: t.Optional[Outfile] = None
     mesonHL: t.Optional[Outfile] = None
-    a2avec: t.Optional[Outfile] = None
+    a2a_vec: t.Optional[Outfile] = None
+    a2a_vec_seq: t.Optional[Outfile] = None
     seq_modes: t.Optional[Outfile] = None
 
     def __init__(self, **kwargs):
