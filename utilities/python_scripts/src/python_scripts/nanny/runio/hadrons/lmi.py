@@ -443,7 +443,7 @@ def catalog_files(submit_config: SubmitHadronsConfig,
             for op in task_config.meson.operations:
                 res['gamma'] = op.gamma.gamma_list
                 res['mass'] = [submit_config.mass_out_label[m] for m in op.mass]
-                yield res, outfile_config_list.mesonHH
+                yield res, outfile_config_list.mesonLL
 
         if task_config.high_modes:
             res = {'tsource': list(map(str, submit_config.tsource_range))}
