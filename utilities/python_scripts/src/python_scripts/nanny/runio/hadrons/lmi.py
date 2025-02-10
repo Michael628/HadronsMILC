@@ -293,7 +293,7 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
                                                output=eval_path))
 
     if tasks.meson:
-        meson_path = outfile_config_list.mesonLL.filestem
+        meson_path = outfile_config_list.meson_ll.filestem
         for op in tasks.meson.operations:
             op_type = op.gamma.name.lower()
             gauge = "" if op.gamma == Gamma.LOCAL else "gauge"
@@ -443,7 +443,7 @@ def catalog_files(submit_config: SubmitHadronsConfig,
             for op in task_config.meson.operations:
                 res['gamma'] = op.gamma.gamma_list
                 res['mass'] = [submit_config.mass_out_label[m] for m in op.mass]
-                yield res, outfile_config_list.mesonLL
+                yield res, outfile_config_list.meson_ll
 
         if task_config.high_modes:
             res = {'tsource': list(map(str, submit_config.tsource_range))}

@@ -18,8 +18,10 @@ except ImportError:
 from time import perf_counter
 from dataclasses import dataclass, field
 from sympy.utilities.iterables import multiset_permutations
+
 try:
     from mpi4py import MPI
+
     COMM = MPI.COMM_WORLD
 except ImportError:
     pass
@@ -36,6 +38,7 @@ def convert_to_numpy(corr: xp.ndarray):
     else:
         return corr
 
+
 def make_contraction_key(contraction: t.Tuple[str], diagram_config: config.DiagramConfig):
     con_key = "".join(contraction)
 
@@ -46,6 +49,7 @@ def make_contraction_key(contraction: t.Tuple[str], diagram_config: config.Diagr
         con_key = con_key.replace(diagram_config.low_label, "e")
 
     return con_key
+
 
 def time_average(cij: xp.ndarray, open_indices: t.Tuple = (0, -1)) -> xp.ndarray:
     """Takes an array with dim >= 2 and returns an array of (dim-1) where the
@@ -86,13 +90,13 @@ def time_average(cij: xp.ndarray, open_indices: t.Tuple = (0, -1)) -> xp.ndarray
     t_end = tuple(t_end)
 
     t_mask = xp.mod(t_range[t_end] * ones
-                      - t_range[t_start] * ones, xp.array([nt]))
+                    - t_range[t_start] * ones, xp.array([nt]))
 
     time_removed_indices = tuple(
         slice(None) if t_start[i] == t_end[i] else 0 for i in range(dim))
 
     corr = xp.zeros(cij[time_removed_indices].shape
-                      + (nt,), dtype=xp.complex128)
+                    + (nt,), dtype=xp.complex128)
 
     corr[:] = xp.array([cij[t_mask == t].sum() for t in range(nt)])
 
@@ -146,14 +150,14 @@ class MesonLoader:
                     f['/evals'][()].view(xp.float64), dtype=xp.float64)
             except KeyError:
                 evals = xp.array(f['/EigenValueFile/evals']
-                                   [()].view(xp.float64), dtype=xp.float64)
+                                 [()].view(xp.float64), dtype=xp.float64)
 
         evals = xp.sqrt(evals)
 
         mult_factor = 2. if self.milc_mass else 1.
         eval_scaling = xp.zeros((len(evals), 2), dtype=xp.complex128)
         eval_scaling[:, 0] = xp.divide(mult_factor * self.oldmass + 1.j * evals,
-                                         mult_factor * self.newmass + 1.j * evals)
+                                       mult_factor * self.newmass + 1.j * evals)
         eval_scaling[:, 1] = xp.conjugate(eval_scaling[:, 0])
         eval_scaling = eval_scaling.reshape((-1,))
 
@@ -184,8 +188,8 @@ class MesonLoader:
 
             temp = f[a_group_key]['a2aMatrix']
             temp = xp.array(temp[
-                                  time, self.wmax_index, self.vmax_index].view(xp.complex64),
-                              dtype=xp.complex128)
+                                time, self.wmax_index, self.vmax_index].view(xp.complex64),
+                            dtype=xp.complex128)
 
         t2 = perf_counter()
         logging.debug(f"Loaded array {temp.shape} in {t2 - t1} sec")
@@ -327,7 +331,6 @@ def execute(contraction: t.Tuple[str], diagram_config: config.DiagramConfig, run
                             int((ti + 1) * tspacing)) for ti in times]
                      for times in slice_indices)
 
-
     def conn_2pt():
         corr = {}
 
@@ -335,9 +338,9 @@ def execute(contraction: t.Tuple[str], diagram_config: config.DiagramConfig, run
 
         for gamma in diagram_config.gammas:
 
-            mesonfiles = tuple(diagram_config.mesonfile(w=contraction[i],
-                                                        v=contraction[i + 1],
-                                                        gamma=gamma) for i in [0, 2])
+            mesonfiles = tuple(m_path(w=contraction[i],
+                                      v=contraction[i + 1],
+                                      gamma=gamma) for i, m_path in zip([0, 2], diagram_config.mesonfiles))
 
             mat_gen = MesonLoader(mesonfiles=mesonfiles,
                                   times=times, **diagram_config.meson_params)
@@ -369,7 +372,6 @@ def execute(contraction: t.Tuple[str], diagram_config: config.DiagramConfig, run
             del m1, m2
         return corr
 
-
     def sib_conn_3pt():
         corr = {}
 
@@ -378,10 +380,10 @@ def execute(contraction: t.Tuple[str], diagram_config: config.DiagramConfig, run
         for gamma in diagram_config.gammas:
 
             mesonfiles = tuple(
-                diagram_config.mesonfile(w=contraction[i],
-                                         v=contraction[i + 1],
-                                         gamma=g)
-                for i, g in zip([0, 2, 4], [gamma, "G1_G1", gamma])
+                m_path(w=contraction[i],
+                       v=contraction[i + 1],
+                       gamma=g)
+                for i, g, m_path in zip([0, 2, 4], [gamma, "G1_G1", gamma], diagram_config.mesonfiles)
             )
 
             mat_gen = MesonLoader(mesonfiles=mesonfiles,
@@ -415,7 +417,6 @@ def execute(contraction: t.Tuple[str], diagram_config: config.DiagramConfig, run
 
         return corr
 
-
     def qed_conn_4pt(subdiagram: config.Diagrams) -> pd.DataFrame:
         corr = pd.DataFrame()
 
@@ -432,16 +433,16 @@ def execute(contraction: t.Tuple[str], diagram_config: config.DiagramConfig, run
                 else:
                     raise ValueError("Invalid qed diagram.")
                 mesonfiles = tuple(
-                    diagram_config.mesonfile(w=contraction[i],
-                                             v=contraction[i + 1],
-                                             gamma=g)
-                    for i, g in zip([0, 2, 4, 6], ops)
+                    m_path(w=contraction[i],
+                           v=contraction[i + 1],
+                           gamma=g)
+                    for i, g, m_path in zip([0, 2, 4, 6], ops, diagram_config.mesonfiles)
                 )
 
                 mat_gen = MesonLoader(mesonfiles=mesonfiles,
                                       times=times, **diagram_config.meson_params)
 
-                cij = xp.zeros((run_config.time,)*4, dtype=xp.complex128)
+                cij = xp.zeros((run_config.time,) * 4, dtype=xp.complex128)
 
                 for (t1, m1), (t2, m2), (t3, m3), (t4, m4) in mat_gen:
 
@@ -468,7 +469,6 @@ def execute(contraction: t.Tuple[str], diagram_config: config.DiagramConfig, run
                     corr[gamma] = convert_to_numpy(cij)  # time_average(cij)
 
         return corr
-
 
     # def qed_conn_4pt():
     #     cij = xp.zeros((run_config.time,)*4,
@@ -562,8 +562,8 @@ def execute(contraction: t.Tuple[str], diagram_config: config.DiagramConfig, run
 
     return run()
 
-def main(param_file: str):
 
+def main(param_file: str):
     params = utils.load_param(param_file)
 
     run_config = config.get_contract_config(params)

@@ -23,42 +23,53 @@ class OutfileList:
     eigdir: t.Optional[Outfile] = None
     eval: t.Optional[Outfile] = None
     high_modes: t.Optional[Outfile] = None
-    mesonHH: t.Optional[Outfile] = None
-    mesonLL: t.Optional[Outfile] = None
-    mesonLH: t.Optional[Outfile] = None
-    mesonHL: t.Optional[Outfile] = None
+    meson_hh: t.Optional[Outfile] = None
+    meson_ll: t.Optional[Outfile] = None
+    meson_lh: t.Optional[Outfile] = None
+    meson_hl: t.Optional[Outfile] = None
+    meson_seq_hh: t.Optional[Outfile] = None
+    meson_seq_ll: t.Optional[Outfile] = None
+    meson_seq_lh: t.Optional[Outfile] = None
+    meson_seq_hl: t.Optional[Outfile] = None
     a2a_vec: t.Optional[Outfile] = None
     a2a_vec_seq: t.Optional[Outfile] = None
     seq_modes: t.Optional[Outfile] = None
 
     def __init__(self, **kwargs):
         """Creates a new instance of OutfileConfigList from a dictionary."""
-        extensions = {
-            "fat_links": ".{cfg}",
-            "long_links": ".{cfg}",
-            "gauge_links": ".{cfg}",
-            "eig": ".{cfg}.bin",
-            "eigdir": ".{cfg}/v{eig_index}.bin",
-            "eval": ".{cfg}.h5",
-            "high_modes": ".{cfg}.h5",
-            "seq_modes": ".{cfg}.h5",
-            "mesonHH": ".{cfg}/{gamma}_0_0_0.h5",
-            "mesonHL": ".{cfg}/{gamma}_0_0_0.h5",
-            "mesonLH": ".{cfg}/{gamma}_0_0_0.h5",
-            "mesonLL": ".{cfg}/{gamma}_0_0_0.h5",
-            "contract": ".{cfg}.p",
-            "a2a_vec": ".{cfg}.bin",
-            "a2a_vec_seq": ".{cfg}.bin"
-        }
+        def get_extension(fname: str) -> str:
+            extensions = {
+                "cfg": ".{cfg}",
+                "cfg_bin": ".{cfg}.bin",
+                "cfg_bin_multi": ".{cfg}/v{eig_index}.bin",
+                "cfg_h5": ".{cfg}.h5",
+                "cfg_gamma_h5": ".{cfg}/{gamma}_0_0_0.h5",
+                "cfg_pickle": ".{cfg}.p"
+            }
+
+            if fname.endswith('links'):
+                return extensions['cfg']
+            if fname.startswith('meson'):
+                return extensions['cfg_gamma_h5']
+            if fname == 'eig' or fname.startswith('a2a_vec'):
+                return extensions['cfg_bin']
+            if fname == 'contract':
+                return extensions['cfg_pickle']
+            if fname.endswith('modes') or fname == 'eval':
+                return extensions['cfg_h5']
+            if fname == "eigdir":
+                return extensions['cfg_bin_multi']
+            raise ValueError(f"No outfile definition for {fname}.")
+
         home = kwargs['home']
-        for k in extensions:
-            if k in kwargs:
+        for f in fields(self):
+            if f.name in kwargs:
                 outfile = self.Outfile(
-                    filestem=str(os.path.join(home,kwargs[k]['filestem'])),
-                    ext=extensions[k],
-                    good_size=kwargs[k]['good_size']
+                    filestem=str(os.path.join(home,kwargs[f.name]['filestem'])),
+                    ext=get_extension(f.name),
+                    good_size=kwargs[f.name]['good_size']
                 )
-                setattr(self,k,outfile)
+                setattr(self,f.name,outfile)
 
 
 # ============Job Configuration===========

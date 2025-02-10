@@ -157,29 +157,7 @@ def make_inputs(param, step, cfgno_steps):
         input_file: str = job_config.get_infile(submit_config)
 
         # TODO: Move input file creation into runio module
-        if job_config.job_type == 'hadrons':
-            assert isinstance(submit_config, SubmitHadronsConfig)
-
-            modules, schedule = config.build_params(submit_config, job_config, outfile_config)
-            if schedule:
-                sched_file = f"schedules/{input_file.removesuffix('.xml')}.sched"
-                with open(sched_file, 'w') as f:
-                    f.write(str(len(schedule)) + "\n" + "\n".join(schedule))
-            else:
-                sched_file = ''
-
-            xml_dict = templates.xml_wrapper(
-                runid=submit_config.run_id,
-                sched=sched_file,
-                cfg=submit_config.cfg
-            )
-
-            xml_dict['grid']['modules'] = {"module": modules}
-
-            with open(f"in/{input_file}", "w") as f:
-                f.write(dxml(xml_dict))
-
-        elif job_config.job_type == 'contract':
+        if job_config.job_type == 'contract':
             tasks = job_config.tasks
             assert isinstance(tasks, ContractTask)
             assert isinstance(submit_config, SubmitContractConfig)
@@ -187,6 +165,7 @@ def make_inputs(param, step, cfgno_steps):
             input_yaml['diagrams'] = {}
             for diagram in tasks.diagrams:
                 input_yaml['diagrams'][diagram] = submit_config.diagram_params[diagram]
+            input_yaml['files'] = param['files']
             with open(f"in/{input_file}", 'w') as f:
                 f.write(yaml.dump(input_yaml))
         else:

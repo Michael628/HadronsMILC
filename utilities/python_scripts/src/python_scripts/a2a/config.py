@@ -4,6 +4,8 @@ from enum import Enum, auto
 
 import python_scripts
 from python_scripts import config as c
+from python_scripts.nanny.config import OutfileList
+
 try:
     from mpi4py import MPI
     COMM = MPI.COMM_WORLD
@@ -36,7 +38,7 @@ class DiagramConfig(python_scripts.ConfigBase):
     _npoint: int = -1
     _evalfile: t.Optional[str] = None
     _outfile: t.Optional[functools.partial] = None
-    _mesonfile: t.Optional[functools.partial] = None
+    _mesonfiles: t.Optional[functools.partial] = None
 
 
     def __post_init__(self):
@@ -67,15 +69,30 @@ class DiagramConfig(python_scripts.ConfigBase):
             self._meson_params['evalfile'] = self.evalfile
 
     @classmethod
-    def create(cls, **kwargs):
+    def create(cls, outfile_config: OutfileList, **kwargs):
         obj_vars = kwargs.copy()
-        mesonfile = obj_vars.pop('mesonfile')
+        mesonfiles = obj_vars.pop('mesonfiles')
         outfile = obj_vars.pop('outfile')
         evalfile = obj_vars.pop('evalfile',None)
         run_vars = obj_vars.pop('run_vars', {})
+
         obj = super().create(**obj_vars)
-        obj.mesonfile = functools.partial(mesonfile.format,**run_vars, **obj.string_dict())
+        if isinstance(mesonfiles,str):
+            mesonfiles = getattr(outfile_config, mesonfiles, mesonfiles)
+            obj.mesonfiles = [
+                functools.partial(mesonfiles.format,**run_vars, **obj.string_dict())
+                for _ in range(obj.npoint)
+            ]
+        else:
+            assert obj.npoint == len(mesonfiles)
+            mesonfiles = [getattr(outfile_config,m,m) for m in mesonfiles]
+            obj.mesonfiles = [
+                functools.partial(m.format,**run_vars, **obj.string_dict())
+                for m in mesonfiles
+            ]
+
         obj.outfile = functools.partial(outfile.format, **run_vars, **obj.string_dict())
+
         if evalfile:
             assert isinstance(evalfile,str)
             obj.evalfile = evalfile.format(**run_vars, **obj.string_dict())
@@ -86,8 +103,8 @@ class DiagramConfig(python_scripts.ConfigBase):
     def meson_params(self):
         return self._meson_params
 
-    def mesonfile(self, **kwargs) -> str:
-        return self._mesonfile(**kwargs)
+    def mesonfiles(self, **kwargs) -> str:
+        return self._mesonfiles(**kwargs)
 
 
     def outfile(self, **kwargs) -> str:
@@ -111,10 +128,10 @@ class RunContractConfig(python_scripts.ConfigBase):
     def create(cls, **kwargs):
         obj_vars = kwargs.copy()
         diagrams = obj_vars.pop('diagrams')
-
+        outfile_config = OutfileList(**obj_vars.pop('files'))
         obj = super().create(**obj_vars)
         obj.diagrams = [
-            DiagramConfig.create(**v,run_vars=obj.string_dict())
+            DiagramConfig.create(outfile_config, **v,run_vars=obj.string_dict())
             for k, v in diagrams.items()
         ]
         obj.rank = COMM.Get_rank()

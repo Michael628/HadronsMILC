@@ -28,7 +28,7 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: TestTask,
 
     modules = []
 
-    meson_path = outfile_config_list.meson.filestem
+    meson_path = outfile_config_list.meson_ll.filestem
 
     nvecs = str(3 * submit_config.time)
 
