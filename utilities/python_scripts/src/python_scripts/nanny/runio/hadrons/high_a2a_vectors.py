@@ -80,7 +80,7 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: A2AVecTask,
         residual='1e-8'
     ))
 
-    vec_path = outfile_config_list.a2avec.filestem
+    vec_path = outfile_config_list.a2a_vec.filestem
 
     for seed_index in range(tasks.nstart,tasks.nstart+submit_config.noise):
         modules.append(templates.time_diluted_noise(f'w{seed_index}', 1))
