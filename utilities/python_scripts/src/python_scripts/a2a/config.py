@@ -78,14 +78,19 @@ class DiagramConfig(python_scripts.ConfigBase):
 
         obj = super().create(**obj_vars)
         if isinstance(mesonfiles,str):
-            mesonfiles = getattr(outfile_config, mesonfiles, mesonfiles)
+            if hasattr(outfile_config, mesonfiles):
+                mesonfiles = getattr(outfile_config, mesonfiles).filename
             obj.mesonfiles = [
                 functools.partial(mesonfiles.format,**run_vars, **obj.string_dict())
                 for _ in range(obj.npoint)
             ]
         else:
             assert obj.npoint == len(mesonfiles)
-            mesonfiles = [getattr(outfile_config,m,m) for m in mesonfiles]
+            mesonfiles = [
+                getattr(outfile_config,m).filename
+                if hasattr(outfile_config,m) else m
+                for m in mesonfiles
+            ]
             obj.mesonfiles = [
                 functools.partial(m.format,**run_vars, **obj.string_dict())
                 for m in mesonfiles
