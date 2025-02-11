@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-
+import typing as t
 import python_scripts
 
 
@@ -14,3 +14,7 @@ class SubmitConfig(python_scripts.ConfigBase):
     time: int
     series: str
     cfg: str
+    noise: t.Optional[int] = None
+    dt: t.Optional[int] = None
+    eigs: t.Optional[int] = None
+

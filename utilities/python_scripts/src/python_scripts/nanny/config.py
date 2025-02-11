@@ -16,6 +16,10 @@ class OutfileList:
         ext: str
         good_size: int
 
+        @property
+        def filename(self) -> str:
+            return self.filestem + self.ext
+
     fat_links: t.Optional[Outfile] = None
     long_links: t.Optional[Outfile] = None
     gauge_links: t.Optional[Outfile] = None
