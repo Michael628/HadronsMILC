@@ -40,13 +40,13 @@ def convert_to_numpy(corr: xp.ndarray):
 
 
 def make_contraction_key(contraction: t.Tuple[str], diagram_config: config.DiagramConfig):
-    con_key = "".join(contraction)
+    con_key = "_".join(contraction)
 
-    if diagram_config.has_high:
-        con_key = con_key.replace(diagram_config.high_label, "")
+    # if diagram_config.has_high:
+    #     con_key = con_key.replace(diagram_config.high_label, "")
 
-    if diagram_config.has_low:
-        con_key = con_key.replace(diagram_config.low_label, "e")
+    # if diagram_config.has_low:
+    #     con_key = con_key.replace(diagram_config.low_label, "e")
 
     return con_key
 
@@ -338,8 +338,8 @@ def execute(contraction: t.Tuple[str], diagram_config: config.DiagramConfig, run
 
         for gamma in diagram_config.gammas:
 
-            mesonfiles = tuple(m_path(w=contraction[i],
-                                      v=contraction[i + 1],
+            mesonfiles = tuple(m_path(w_index=contraction[i],
+                                      v_index=contraction[i + 1],
                                       gamma=gamma) for i, m_path in zip([0, 2], diagram_config.mesonfiles))
 
             mat_gen = MesonLoader(mesonfiles=mesonfiles,
@@ -380,8 +380,8 @@ def execute(contraction: t.Tuple[str], diagram_config: config.DiagramConfig, run
         for gamma in diagram_config.gammas:
 
             mesonfiles = tuple(
-                m_path(w=contraction[i],
-                       v=contraction[i + 1],
+                m_path(w_index=contraction[i],
+                       v_index=contraction[i + 1],
                        gamma=g)
                 for i, g, m_path in zip([0, 2, 4], [gamma, "G1_G1", gamma], diagram_config.mesonfiles)
             )
@@ -433,8 +433,8 @@ def execute(contraction: t.Tuple[str], diagram_config: config.DiagramConfig, run
                 else:
                     raise ValueError("Invalid qed diagram.")
                 mesonfiles = tuple(
-                    m_path(w=contraction[i],
-                           v=contraction[i + 1],
+                    m_path(w_index=contraction[i],
+                           v_index=contraction[i + 1],
                            gamma=g)
                     for i, g, m_path in zip([0, 2, 4, 6], ops, diagram_config.mesonfiles)
                 )
@@ -636,12 +636,21 @@ def main(param_file: str):
                 logging.info(f'Skipping write. File exists: {outfile}')
                 continue
 
+            # contraction_list = [
+            #     [
+            #         diagram_config.low_label
+            #         if seed[i] is None else
+            #         ('w' if i % 2 == 0 else 'v')
+            #         + diagram_config.high_label + s
+            #         for i, s in enumerate(map(str, seed))
+            #     ]
+            #     for seed in seeds
+            # ]
             contraction_list = [
                 [
-                    diagram_config.low_label
+                    'e'
                     if seed[i] is None else
-                    ('w' if i % 2 == 0 else 'v')
-                    + diagram_config.high_label + s
+                    s
                     for i, s in enumerate(map(str, seed))
                 ]
                 for seed in seeds
