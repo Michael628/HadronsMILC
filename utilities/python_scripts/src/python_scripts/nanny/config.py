@@ -35,6 +35,7 @@ class OutfileList:
     meson_seq_ll: t.Optional[Outfile] = None
     meson_seq_lh: t.Optional[Outfile] = None
     meson_seq_hl: t.Optional[Outfile] = None
+    contract: t.Optional[Outfile] = None
     a2a_vec: t.Optional[Outfile] = None
     a2a_vec_seq: t.Optional[Outfile] = None
     seq_modes: t.Optional[Outfile] = None
