@@ -1,4 +1,3 @@
-import functools
 import typing as t
 from enum import Enum, auto
 
@@ -36,9 +35,9 @@ class DiagramConfig(python_scripts.ConfigBase):
     _has_high: bool = False
     _has_low: bool = False
     _npoint: int = -1
-    _evalfile: t.Optional[str] = None
-    _outfile: t.Optional[functools.partial] = None
-    _mesonfiles: t.Optional[functools.partial] = None
+    evalfile: t.Optional[str] = None
+    outfile: t.Optional[str] = None
+    mesonfiles: t.Optional[str] = None
 
 
     def __post_init__(self):
@@ -66,41 +65,39 @@ class DiagramConfig(python_scripts.ConfigBase):
             self._meson_params['shift_mass'] = True
             self._meson_params['oldmass'] = float(f"0.{self.mass}")
             self._meson_params['newmass'] = float(f"0.{self.newmass}")
-            self._meson_params['evalfile'] = self.evalfile
 
     @classmethod
-    def create(cls, outfile_config: OutfileList, **kwargs):
+    def create(cls, outfile_config: t.Optional[OutfileList] = None, **kwargs):
         obj_vars = kwargs.copy()
         mesonfiles = obj_vars.pop('mesonfiles')
         outfile = obj_vars.pop('outfile')
         evalfile = obj_vars.pop('evalfile',None)
         run_vars = obj_vars.pop('run_vars', {})
 
+        def get_filename(s: str):
+            if outfile_config and hasattr(outfile_config, s):
+                return getattr(outfile_config, s).filename
+            else:
+                return s
+
         obj = super().create(**obj_vars)
         if isinstance(mesonfiles,str):
-            if hasattr(outfile_config, mesonfiles):
-                mesonfiles = getattr(outfile_config, mesonfiles).filename
-            obj.mesonfiles = [
-                functools.partial(mesonfiles.format,**run_vars, **obj.string_dict())
-                for _ in range(obj.npoint)
-            ]
-        else:
-            assert obj.npoint == len(mesonfiles)
-            mesonfiles = [
-                getattr(outfile_config,m).filename
-                if hasattr(outfile_config,m) else m
-                for m in mesonfiles
-            ]
-            obj.mesonfiles = [
-                functools.partial(m.format,**run_vars, **obj.string_dict())
-                for m in mesonfiles
-            ]
+            mesonfiles = [mesonfiles]
 
-        obj.outfile = functools.partial(outfile.format, **run_vars, **obj.string_dict())
+        assert isinstance(mesonfiles,t.List)
+
+        if len(mesonfiles) == 1:
+            mesonfiles = mesonfiles*obj.npoint
+        assert obj.npoint == len(mesonfiles)
+
+        obj.mesonfiles = [get_filename(m) for m in mesonfiles]
 
         if evalfile:
             assert isinstance(evalfile,str)
-            obj.evalfile = evalfile.format(**run_vars, **obj.string_dict())
+            obj.evalfile = get_filename(evalfile)
+
+        assert isinstance(outfile,str)
+        obj.outfile = get_filename(outfile)
 
         return obj
 
@@ -108,13 +105,8 @@ class DiagramConfig(python_scripts.ConfigBase):
     def meson_params(self):
         return self._meson_params
 
-    def mesonfiles(self, **kwargs) -> str:
-        return self._mesonfiles(**kwargs)
-
-
-    def outfile(self, **kwargs) -> str:
-        return self._outfile(**kwargs)
-
+    def format_evalfile(self, **kwargs) -> None:
+        self.meson_params['evalfile'] = self.evalfile.format(**kwargs)
 
 @c.dataclass_with_getters
 class RunContractConfig(python_scripts.ConfigBase):
@@ -133,10 +125,9 @@ class RunContractConfig(python_scripts.ConfigBase):
     def create(cls, **kwargs):
         obj_vars = kwargs.copy()
         diagrams = obj_vars.pop('diagrams')
-        outfile_config = OutfileList(**obj_vars.pop('files'))
         obj = super().create(**obj_vars)
         obj.diagrams = [
-            DiagramConfig.create(outfile_config, **v,run_vars=obj.string_dict())
+            DiagramConfig.create(**v,run_vars=obj.string_dict())
             for k, v in diagrams.items()
         ]
         obj.rank = COMM.Get_rank()

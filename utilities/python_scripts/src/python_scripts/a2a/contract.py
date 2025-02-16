@@ -335,12 +335,15 @@ def execute(contraction: t.Tuple[str], diagram_config: config.DiagramConfig, run
         corr = {}
 
         times = generate_time_sets()
+        run_config_replacements = run_config.string_dict()
 
         for gamma in diagram_config.gammas:
 
-            mesonfiles = tuple(m_path(w_index=contraction[i],
-                                      v_index=contraction[i + 1],
-                                      gamma=gamma) for i, m_path in zip([0, 2], diagram_config.mesonfiles))
+            mesonfiles = tuple(m_path.format(w_index=contraction[i],
+                                             v_index=contraction[i + 1],
+                                             gamma=gamma,
+                                             **run_config_replacements
+                                             ) for i, m_path in zip([0, 2], diagram_config.mesonfiles))
 
             mat_gen = MesonLoader(mesonfiles=mesonfiles,
                                   times=times, **diagram_config.meson_params)
@@ -380,9 +383,11 @@ def execute(contraction: t.Tuple[str], diagram_config: config.DiagramConfig, run
         for gamma in diagram_config.gammas:
 
             mesonfiles = tuple(
-                m_path(w_index=contraction[i],
-                       v_index=contraction[i + 1],
-                       gamma=g)
+                m_path.format(w_index=contraction[i],
+                              v_index=contraction[i + 1],
+                              gamma=g,
+                              **run_config_replacements
+                              )
                 for i, g, m_path in zip([0, 2, 4], [gamma, "G1_G1", gamma], diagram_config.mesonfiles)
             )
 
@@ -433,9 +438,11 @@ def execute(contraction: t.Tuple[str], diagram_config: config.DiagramConfig, run
                 else:
                     raise ValueError("Invalid qed diagram.")
                 mesonfiles = tuple(
-                    m_path(w_index=contraction[i],
-                           v_index=contraction[i + 1],
-                           gamma=g)
+                    m_path.format(w_index=contraction[i],
+                                  v_index=contraction[i + 1],
+                                  gamma=g,
+                                  **run_config_replacements
+                                  )
                     for i, g, m_path in zip([0, 2, 4, 6], ops, diagram_config.mesonfiles)
                 )
 
@@ -568,6 +575,8 @@ def main(param_file: str):
 
     run_config = config.get_contract_config(params)
 
+    run_config_replacements = run_config.string_dict()
+
     python_scripts.setup()
 
     if run_config.logging_level:
@@ -581,6 +590,9 @@ def main(param_file: str):
 
     diagrams = run_config.diagrams
     for diagram_config in diagrams:
+
+        if diagram_config.evalfile:
+            diagram_config.format_evalfile(**run_config_replacements)
 
         nmesons = diagram_config.npoint
 
@@ -628,7 +640,8 @@ def main(param_file: str):
             seeds = [list(sum(zip(seed, seed), ())) for seed in seeds]
             seeds = [seed[1:] + seed[:1] for seed in seeds]
 
-            outfile = diagram_config.outfile(permkey=permkey)
+
+            outfile = diagram_config.outfile.format(permkey=permkey, **run_config_replacements)
 
             if overwrite or not os.path.exists(outfile):
                 logging.info(f'Contracting diagram: {diagram_config.diagram_label} ({permkey})')
