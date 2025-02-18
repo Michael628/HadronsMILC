@@ -12,7 +12,7 @@ import itertools
 from dataclasses import dataclass
 import logging
 from python_scripts.nanny.config import OutfileList
-from python_scripts.nanny.runio.hadrons import SubmitHadronsConfig, templates
+from python_scripts.nanny.tasks.hadrons import SubmitHadronsConfig, templates
 from python_scripts.nanny import TaskBase
 import typing as t
 
@@ -32,8 +32,7 @@ class A2ASIBTask(TaskBase):
     v_indices: t.Optional[t.List[int]] = None
 
 
-def build_params(submit_config: SubmitHadronsConfig, tasks: A2ASIBTask,
-                 outfile_config_list: OutfileList) -> t.Tuple[t.List[t.Dict], t.Optional[t.List[str]]]:
+def input_params(tasks: A2ASIBTask, submit_config: SubmitHadronsConfig, outfile_config_list: OutfileList) -> t.Tuple[t.List[t.Dict], t.Optional[t.List[str]]]:
     submit_conf_dict = submit_config.string_dict()
 
     gauge_filepath = outfile_config_list.gauge_links.filestem.format(**submit_conf_dict)
@@ -147,8 +146,8 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: A2ASIBTask,
     return modules, schedule
 
 
-def bad_files(submit_config: SubmitHadronsConfig,
-              task_config: TaskBase, outfile_config_list: OutfileList) -> t.List[str]:
+def bad_files(task_config: TaskBase, submit_config: SubmitHadronsConfig,
+              outfile_config_list: OutfileList) -> t.List[str]:
     logging.warning(
         "Check completion succeeds automatically. No implementation of bad_files function in `hadrons_a2a_vectors.py`.")
     return []

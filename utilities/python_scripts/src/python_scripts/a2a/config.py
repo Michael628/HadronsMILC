@@ -23,7 +23,7 @@ class DiagramConfig(python_scripts.ConfigBase):
     gammas: t.List[str]
     mass: str
     symmetric: bool = False
-    newmass: t.Optional[str] = None
+    meson_mass: t.Optional[str] = None
     high_count: t.Optional[int] = None
     high_label: t.Optional[str] = None
     low_max: t.Optional[int] = None
@@ -61,26 +61,40 @@ class DiagramConfig(python_scripts.ConfigBase):
             "milc_mass": True
         }
 
-        if self.newmass:
+        if self.meson_mass and self.mass != self.meson_mass:
             self._meson_params['shift_mass'] = True
-            self._meson_params['oldmass'] = float(f"0.{self.mass}")
-            self._meson_params['newmass'] = float(f"0.{self.newmass}")
+            self._meson_params['oldmass'] = float(f"0.{self.meson_mass}")
+            self._meson_params['newmass'] = float(f"0.{self.mass}")
 
-    @classmethod
-    def create(cls, outfile_config: t.Optional[OutfileList] = None, **kwargs):
-        obj_vars = kwargs.copy()
-        mesonfiles = obj_vars.pop('mesonfiles')
-        outfile = obj_vars.pop('outfile')
-        evalfile = obj_vars.pop('evalfile',None)
-        run_vars = obj_vars.pop('run_vars', {})
-
+    def set_filenames(self, outfile_config: OutfileList) -> None:
+        """Uses 'outfile_config' argument to replace provided parameters with
+        filenames if the existing parameter matches a field in `outfile_config`."""
         def get_filename(s: str):
-            if outfile_config and hasattr(outfile_config, s):
+            if hasattr(outfile_config, s):
                 return getattr(outfile_config, s).filename
             else:
                 return s
 
+        self.mesonfiles = [get_filename(m) for m in self.mesonfiles]
+
+        if self.evalfile:
+            self.evalfile = get_filename(self.evalfile)
+
+        self.outfile = get_filename(self.outfile)
+
+    @classmethod
+    def create(cls, **kwargs):
+        obj_vars = kwargs.copy()
+
         obj = super().create(**obj_vars)
+        obj.outfile = obj_vars.pop('outfile')
+        assert isinstance(obj.outfile,str)
+
+        obj.evalfile = obj_vars.pop('evalfile',None)
+        if obj.evalfile:
+            assert isinstance(obj.evalfile,str)
+
+        mesonfiles = obj_vars.pop('mesonfiles')
         if isinstance(mesonfiles,str):
             mesonfiles = [mesonfiles]
 
@@ -89,15 +103,6 @@ class DiagramConfig(python_scripts.ConfigBase):
         if len(mesonfiles) == 1:
             mesonfiles = mesonfiles*obj.npoint
         assert obj.npoint == len(mesonfiles)
-
-        obj.mesonfiles = [get_filename(m) for m in mesonfiles]
-
-        if evalfile:
-            assert isinstance(evalfile,str)
-            obj.evalfile = get_filename(evalfile)
-
-        assert isinstance(outfile,str)
-        obj.outfile = get_filename(outfile)
 
         return obj
 

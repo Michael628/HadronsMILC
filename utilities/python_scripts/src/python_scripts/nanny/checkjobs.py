@@ -11,7 +11,7 @@ import typing as t
 from python_scripts.nanny import (
     config,
     todo_utils,
-    runio
+    tasks
 )
 
 ######################################################################
@@ -253,17 +253,14 @@ def next_finished(param, todo_list, entry_list):
 ######################################################################
 def good_output(step: str, cfgno: str, param: t.Dict) -> bool:
 
-    try:
-        job_config = config.get_job_config(param, step)
-    except KeyError:
-        raise NotImplementedError("Todo: return fallback branching code for legacy output checker.")
+    job_config = config.get_job_config(param, step)
 
     (series, cfg) = cfgno.split(".")
 
     submit_config = config.get_submit_config(param, job_config, series=series, cfg=cfg)
     outfile_config_list = config.get_outfile_config(param)
 
-    bad_files = config.bad_files(submit_config, job_config, outfile_config_list)
+    bad_files = config.bad_files(job_config, outfile_config_list)
     if bad_files:
         logging.warning(f"File `{bad_files[0]}` not found or not of correct file size.")
         return False

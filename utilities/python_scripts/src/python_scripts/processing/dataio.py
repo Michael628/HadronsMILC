@@ -320,6 +320,7 @@ def write_data(df: pd.DataFrame, filestem: str,
             repl = dict(zip(repl_keys, repl_vals))
 
             filename = filestem.format(**repl)
+            logging.info(f"Writing file: {filename}")
             os.makedirs(os.path.dirname(filename), exist_ok=True)
 
             out_cols = [c for c in df_group.columns if c not in repl_keys]
@@ -331,6 +332,7 @@ def write_data(df: pd.DataFrame, filestem: str,
 
     else:
         filename = filestem
+        logging.info(f"Writing file: {filename}")
         os.makedirs(os.path.dirname(filename), exist_ok=True)
 
         write_fn(df, filestem)

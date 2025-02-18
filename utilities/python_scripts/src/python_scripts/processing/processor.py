@@ -1,6 +1,9 @@
 #! /usr/bin/env python3
+import sys
+
 import python_scripts as ps
 from python_scripts import utils
+from python_scripts.nanny import config
 from python_scripts.processing import dataio
 
 import logging
@@ -54,24 +57,24 @@ def group_apply(df: pd.DataFrame, func: t.Callable, data_col: str,
     return df_out
 
 
-def gvar(df: pd.DataFrame) -> pd.DataFrame:
+def gvar(df: pd.DataFrame, data_col: str, key_index: str) -> gv.BufferDict:
 
-    cfgs = len(df)
-    j_knife = group_apply(df, stdjackknife, ['series', 'cfg'])
+    nt = df.index.get_level_values('dt').nunique()
 
-    def ds_avg(series: pd.Series, scale: float = 1.0) -> pd.Series:
-        array = ds.avg_data(series.to_numpy()) / scale
-        return pd.Series(
-            array,
-            index=series.index.droplevel(['series', 'cfg']).drop_duplicates()
-        )
+    labels_dt_last = sorted(df.index.names,
+                            key=lambda x: 0 if x == 'dt' else -1)
 
-    df_out = group_apply(j_knife, lambda x: ds_avg(
-        x, float(cfgs - 1)), ['series', 'cfg'])
-    df_out['noise'] = df_out.pop('corr')
-    df_out['signal'] = group_apply(df, ds_avg, ['series', 'cfg'])['corr']
-    df_out['nts'] = np.divide(df_out['noise'], df_out['signal'])
-    return df_out
+    if key_index in df.columns:
+        group_param = {'by': key_index}
+    else:
+        group_param = {'level': key_index}
+
+    result = {}
+    for key, xs in df.groupby(**group_param):
+        result[key] = ds.avg_data(xs.reorder_levels(labels_dt_last)[data_col] \
+            .to_numpy().reshape((-1, nt)))
+
+    return pd.DataFrame(result,index=pd.Index(range(nt),name='dt'))
 
 
 def buffer(df: pd.DataFrame, data_col: str, key_index: str) -> gv.BufferDict:
@@ -291,27 +294,36 @@ def execute(df: pd.DataFrame, actions: t.Dict) -> pd.DataFrame:
     return df_out
 
 
-def main(**kwargs):
+def main(*args, **kwargs):
     ps.setup()
     logging_level: str
+
     if kwargs:
         logging_level = kwargs.pop('logging_level', 'INFO')
-        params = kwargs
+        proc_params = kwargs
     else:
-        try:
-            params = utils.load_param('params.yaml')['process_files']
-        except KeyError:
-            raise ValueError("Expecting `process_files` key in params.yaml file.")
+        params = utils.load_param('params.yaml')
+        if len(args) == 1 and isinstance(args[0],str):
+            step = args[0]
+            job_config = config.get_job_config(params, step)
+            submit_config = config.get_submit_config(params, job_config)
+            outfile_config = config.get_outfile_config(params)
+            proc_params = config.processing_params(job_config, submit_config, outfile_config)
+        else:
+            try:
+                proc_params = params['process_files']
+            except KeyError:
+                raise ValueError("Expecting `process_files` key in params.yaml file.")
 
-        logging_level = params.pop('logging_level', 'INFO')
+        logging_level = proc_params.pop('logging_level', 'INFO')
 
     logging.getLogger().setLevel(logging_level)
 
     ps.set_parallel_load(False)
 
     result = {}
-    for key in params['run']:
-        run_params = params[key]
+    for key in proc_params['run']:
+        run_params = proc_params[key]
 
         result[key] = dataio.main(**run_params)
         actions = run_params.get('actions', {})
@@ -342,4 +354,9 @@ def main(**kwargs):
 
 
 if __name__ == '__main__':
-    result = main()
+    if len(sys.argv) == 2:
+        step = sys.argv[1]
+        result = main(step)
+    else:
+        result = main()
+

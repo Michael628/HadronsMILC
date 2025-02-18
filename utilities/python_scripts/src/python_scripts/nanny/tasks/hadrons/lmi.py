@@ -7,7 +7,7 @@ import pandas as pd
 
 from python_scripts import Gamma, utils
 from python_scripts.nanny.config import OutfileList
-from python_scripts.nanny.runio.hadrons import templates, SubmitHadronsConfig
+from python_scripts.nanny.tasks.hadrons import templates, SubmitHadronsConfig
 from python_scripts.nanny import TaskBase
 import typing as t
 
@@ -137,8 +137,7 @@ class LMITask(TaskBase):
 
 
 # ============Functions for building params and checking outfiles===========
-def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
-                 outfile_config_list: OutfileList) -> t.Tuple[t.List[t.Dict], t.Optional[t.List[str]]]:
+def input_params(tasks: LMITask, submit_config: SubmitHadronsConfig, outfile_config_list: OutfileList) -> t.Tuple[t.List[t.Dict], t.Optional[t.List[str]]]:
     def build_schedule(module_names: t.List[str]) -> t.List[str]:
         gammas = ['pion_local', 'vec_local', 'vec_onelink']
 
@@ -214,7 +213,7 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
     submit_conf_dict = submit_config.string_dict()
 
     if not submit_config.overwrite_sources:
-        all_files = catalog_files(submit_config, tasks, outfile_config_list)
+        all_files = catalog_files(tasks, submit_config, outfile_config_list)
         missing_files = all_files[all_files['exists'] != True]
         run_tsources = []
         for tsource in submit_config.tsource_range:
@@ -426,8 +425,7 @@ def build_params(submit_config: SubmitHadronsConfig, tasks: LMITask,
     return modules, schedule
 
 
-def catalog_files(submit_config: SubmitHadronsConfig,
-                  task_config: LMITask, outfile_config_list: OutfileList) -> pd.DataFrame:
+def catalog_files(task_config: LMITask, submit_config: SubmitHadronsConfig, outfile_config_list: OutfileList) -> pd.DataFrame:
     def generate_outfile_formatting():
         if task_config.epack:
             if task_config.epack.save_eigs:
@@ -488,9 +486,8 @@ def catalog_files(submit_config: SubmitHadronsConfig,
     return df
 
 
-def bad_files(submit_config: SubmitHadronsConfig,
-              task_config: LMITask, outfile_config_list: OutfileList) -> t.List[str]:
-    df = catalog_files(submit_config, task_config, outfile_config_list)
+def bad_files(task_config: LMITask, submit_config: SubmitHadronsConfig, outfile_config_list: OutfileList) -> t.List[str]:
+    df = catalog_files(task_config, submit_config, outfile_config_list)
 
     return list(df[(df['file_size'] >= df['good_size']) != True]['filepath'])
 

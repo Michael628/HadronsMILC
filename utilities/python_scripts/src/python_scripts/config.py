@@ -39,7 +39,7 @@ def dataclass_with_getters(cls):
             # Set the property on the class if one hasn't already been defined
             try:
                 getattr(cls, public_name)
-            except:
+            except AttributeError:
                 setattr(cls, public_name, setter)
 
     return cls
