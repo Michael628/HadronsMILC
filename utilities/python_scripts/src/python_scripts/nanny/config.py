@@ -3,7 +3,7 @@ import typing as t
 from dataclasses import dataclass, field, fields, MISSING
 
 from python_scripts import utils
-from python_scripts.nanny import TaskBase, runio, SubmitConfig
+from python_scripts.nanny import TaskBase, tasks, SubmitConfig
 
 # OUTFILE CLASSES
 # ============Outfile Parameters===========
@@ -110,7 +110,7 @@ class JobConfig:
             self.task_type = 'lmi'
 
         task_params = kwargs.get('tasks', {})
-        task_builder: t.Callable = runio.get_task_factory(self.job_type, self.task_type)
+        task_builder: t.Callable = tasks.get_task_factory(self.job_type, self.task_type)
         self.tasks = task_builder(**task_params)
 
         if 'run_id' not in self.params:
@@ -127,7 +127,10 @@ class JobConfig:
 
 # ============Convenience functions===========
 def get_job_config(param: t.Dict, step: str) -> JobConfig:
-    return JobConfig(**param['job_setup'][step])
+    try:
+        return JobConfig(**param['job_setup'][step])
+    except KeyError:
+        raise NotImplementedError(f"Job step `{step}` missing from param file.")
 
 def get_submit_config(param: t.Dict, job_config: JobConfig, **kwargs) -> SubmitConfig:
     submit_params = utils.deep_copy_dict(param['submit_params'])
@@ -138,30 +141,32 @@ def get_submit_config(param: t.Dict, job_config: JobConfig, **kwargs) -> SubmitC
     if job_config.params:
         submit_params.update(job_config.params)
 
-    return runio.get_submit_factory(job_config.job_type)(**submit_params, **kwargs)
+    return tasks.get_submit_factory(job_config.job_type)(**submit_params, **kwargs)
 
 def get_outfile_config(param: t.Dict):
     return OutfileList(**param['files'])
 
-def build_params(submit_config: SubmitConfig,
-                 job_config: JobConfig, *args, **kwargs) -> t.Tuple[t.List[t.Dict],t.Optional[t.List[str]]]:
-    return runio.build_params(job_config.job_type,
+def input_params(job_config: JobConfig, *args, **kwargs) -> t.Tuple[t.List[t.Dict],t.Optional[t.List[str]]]:
+    return tasks.input_params(job_config.job_type,
                               job_config.task_type,
-                              submit_config,
                               job_config.tasks,
                               *args, **kwargs)
 
+def processing_params(job_config: JobConfig, *args, **kwargs) -> t.Tuple[t.List[t.Dict],t.Optional[t.List[str]]]:
+    return tasks.processing_params(job_config.job_type,
+                              job_config.task_type,
+                              job_config.tasks,
+                              *args, **kwargs)
 
-def bad_files(submit_config: SubmitConfig, job_config: JobConfig, *args, **kwargs) -> t.List[str]:
-    return runio.bad_files(job_config.job_type,
+def bad_files(job_config: JobConfig, *args, **kwargs) -> t.List[str]:
+    return tasks.bad_files(job_config.job_type,
                            job_config.task_type,
-                           submit_config,
                            job_config.tasks,
                            *args, **kwargs)
 
 
 if __name__ == '__main__':
-    lmi_builder = runio.get_task_factory('hadrons', 'lmi')
+    lmi_builder = tasks.get_task_factory('hadrons', 'lmi')
 
     a = lmi_builder(**{
         'epack': {'load':False},

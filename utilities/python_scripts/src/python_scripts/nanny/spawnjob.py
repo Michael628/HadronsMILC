@@ -11,7 +11,7 @@ from python_scripts.nanny import (
     config,
     todo_utils,
     checkjobs,
-    runio
+    tasks
 )
 from python_scripts import utils
 
@@ -19,8 +19,8 @@ from functools import reduce
 
 from dict2xml import dict2xml as dxml
 
-from python_scripts.nanny.runio.contract import SubmitContractConfig, ContractTask
-from python_scripts.nanny.runio.hadrons import templates, SubmitHadronsConfig
+from python_scripts.nanny.tasks.contract import SubmitContractConfig, ContractTask
+from python_scripts.nanny.tasks.hadrons import templates, SubmitHadronsConfig
 
 
 # Nanny script for managing job queues
@@ -142,11 +142,7 @@ def make_inputs(param, step, cfgno_steps):
         # Extract series and cfgno  a.1428 -> a 1428
         (series, cfgno) = cfgno_series.split(".")
 
-        try:
-            job_config = config.get_job_config(param, step)
-        except KeyError:
-            raise NotImplementedError("Todo: return fallback branching code for legacy infile builder.")
-
+        job_config = config.get_job_config(param, step)
         submit_config = config.get_submit_config(param,
                                                  job_config,
                                                  series=series,
@@ -157,7 +153,7 @@ def make_inputs(param, step, cfgno_steps):
         input_file: str = job_config.get_infile(submit_config)
 
         # TODO: Move input file creation into runio module
-        input_params, schedule = config.build_params(submit_config, job_config, outfile_config)
+        input_params, schedule = config.input_params(job_config, outfile_config)
 
         if job_config.job_type == 'contract':
             input_string = yaml.dump(input_params)

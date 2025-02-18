@@ -21,7 +21,7 @@ class SubmitSmearConfig(SubmitConfig):
 class SmearTask(TaskBase):
     unsmeared_file: str
 
-def build_params(submit_config: SubmitSmearConfig, tasks: SmearTask,
+def input_params(tasks: SmearTask, submit_config: SubmitSmearConfig,
                  outfile_config_list: OutfileList) -> t.Tuple[str,None]:
 
     submit_conf_dict = submit_config.string_dict()
@@ -58,8 +58,8 @@ def build_params(submit_config: SubmitSmearConfig, tasks: SmearTask,
 
     return input_string, None
 
-def catalog_files(submit_config: SubmitSmearConfig,
-                  task_config: SmearTask, outfile_config_list: OutfileList) -> pd.DataFrame:
+def catalog_files(task_config: SmearTask, submit_config: SubmitSmearConfig,
+                  outfile_config_list: OutfileList) -> pd.DataFrame:
     outfile_configs = [outfile_config_list.gauge_links,
                        outfile_config_list.long_links,
                        outfile_config_list.fat_links]
@@ -93,9 +93,9 @@ def catalog_files(submit_config: SubmitSmearConfig,
     return df
 
 
-def bad_files(submit_config: SubmitSmearConfig,
-              task_config: SmearTask, outfile_config_list: OutfileList) -> t.List[str]:
-    df = catalog_files(submit_config, task_config, outfile_config_list)
+def bad_files(task_config: SmearTask, submit_config: SubmitSmearConfig,
+              outfile_config_list: OutfileList) -> t.List[str]:
+    df = catalog_files(task_config, submit_config,  outfile_config_list)
 
     return list(df[(df['file_size'] >= df['good_size']) != True]['filepath'])
 
