@@ -137,7 +137,8 @@ class LMITask(TaskBase):
 
 
 # ============Functions for building params and checking outfiles===========
-def input_params(tasks: LMITask, submit_config: SubmitHadronsConfig, outfile_config_list: OutfileList) -> t.Tuple[t.List[t.Dict], t.Optional[t.List[str]]]:
+def input_params(tasks: LMITask, submit_config: SubmitHadronsConfig, outfile_config_list: OutfileList) -> t.Tuple[
+    t.List[t.Dict], t.Optional[t.List[str]]]:
     def build_schedule(module_names: t.List[str]) -> t.List[str]:
         gammas = ['pion_local', 'vec_local', 'vec_onelink']
 
@@ -425,7 +426,8 @@ def input_params(tasks: LMITask, submit_config: SubmitHadronsConfig, outfile_con
     return modules, schedule
 
 
-def catalog_files(task_config: LMITask, submit_config: SubmitHadronsConfig, outfile_config_list: OutfileList) -> pd.DataFrame:
+def catalog_files(task_config: LMITask, submit_config: SubmitHadronsConfig,
+                  outfile_config_list: OutfileList) -> pd.DataFrame:
     def generate_outfile_formatting():
         if task_config.epack:
             if task_config.epack.save_eigs:
@@ -444,9 +446,12 @@ def catalog_files(task_config: LMITask, submit_config: SubmitHadronsConfig, outf
                 yield res, outfile_config_list.meson_ll
 
         if task_config.high_modes:
-            res = {'tsource': list(map(str, submit_config.tsource_range))}
+            res = {
+                'tsource': list(map(str, submit_config.tsource_range)),
+                'dset': []
+            }
             if task_config.epack:
-                res['dset'] = ['ranLL']
+                res['dset'].append('ranLL')
             if not task_config.high_modes.skip_cg:
                 res['dset'].append('ama')
 
@@ -486,10 +491,76 @@ def catalog_files(task_config: LMITask, submit_config: SubmitHadronsConfig, outf
     return df
 
 
-def bad_files(task_config: LMITask, submit_config: SubmitHadronsConfig, outfile_config_list: OutfileList) -> t.List[str]:
+def bad_files(task_config: LMITask, submit_config: SubmitHadronsConfig, outfile_config_list: OutfileList) -> t.List[
+    str]:
     df = catalog_files(task_config, submit_config, outfile_config_list)
 
     return list(df[(df['file_size'] >= df['good_size']) != True]['filepath'])
+
+
+def processing_params(task_config: LMITask, submit_config: SubmitHadronsConfig,
+                      outfile_config_list: OutfileList) -> t.Dict:
+    proc_params = {'run': []}
+
+    infile_stem = outfile_config_list.high_modes.filename
+    outfile = outfile_config_list.high_modes.filestem
+    filekeys = utils.formatkeys(infile_stem)
+    outfile = outfile.replace("correlators", "dataframes")
+    outfile = outfile.replace("_{series}", "")
+    outfile += ".h5"
+    replacements = {k: v for k, v in submit_config.string_dict().items() if k in filekeys}
+    replacements['tsource'] = list(map(str, submit_config.tsource_range))
+
+
+    if task_config.high_modes:
+        dsets = []
+        if task_config.epack:
+            dsets.append('ranLL')
+        if not task_config.high_modes.skip_cg:
+            dsets.append('ama')
+
+        for op in task_config.high_modes.operations:
+            gamma_label = op.gamma.name.lower()
+            replacements['gamma_label'] = gamma_label
+            for m,dset in itertools.product(op.mass,dsets):
+                mass_label = submit_config.mass_out_label[m]
+                file_label = f'{gamma_label}_{mass_label}'
+                proc_params['run'].append(file_label)
+                replacements['mass'] = mass_label
+                replacements['dset'] = dset
+
+                h5_datasets = {g: f'/meson/meson_{i}/corr' for i, g in enumerate(op.gamma.gamma_list)}
+                array_params = {
+                    g: {
+                        "order": ["t"],
+                        "labels": {
+                            "t": "0..47"
+                        }
+                    }
+                    for g in h5_datasets.keys()
+                }
+                proc_params[file_label] = {
+                    "logging_level": getattr(submit_config, "logging_level", "INFO"),
+                    "load_files": {
+                        "filestem": infile_stem,
+                        "regex": {
+                            "series": "[a-z]",
+                            "cfg": "[0-9]+"
+                        },
+                        "replacements":replacements.copy(),
+                        'h5_params': {
+                            'name': 'gamma',
+                            'datasets': h5_datasets
+                        },
+                        'array_params':array_params
+                    },
+                    "out_files": {
+                        "filestem": outfile,
+                        "type": "dataframe"
+                    },
+                }
+
+    return proc_params
 
 
 def get_task_factory():
