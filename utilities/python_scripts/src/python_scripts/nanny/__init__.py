@@ -12,6 +12,6 @@ class TaskBase:
 class SubmitConfig(python_scripts.ConfigBase):
     ens: str
     time: int
-    series: str
-    cfg: str
+    series: t.Optional[str] = None
+    cfg: t.Optional[str] = None
 

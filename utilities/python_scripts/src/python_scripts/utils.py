@@ -193,6 +193,9 @@ def process_files(filestem: str, processor: procFn,
     str_repl: t.Dict = replacements if replacements else {}
     regex_repl: t.Dict = regex if regex else {}
 
+    logging.debug(f'repl_keys: {sorted(repl_keys)}')
+    logging.debug(f'str_repl keys: {sorted(str_repl.keys())}')
+    logging.debug(f'regex_repl keys: {sorted(regex_repl.keys())}')
     assert len(repl_keys) == len(str_repl) + len(regex_repl)
     assert all((
         (k in str_repl or k in regex_repl)

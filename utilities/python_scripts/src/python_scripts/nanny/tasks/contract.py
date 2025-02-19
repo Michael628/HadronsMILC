@@ -84,14 +84,6 @@ def bad_files(task_config: ContractTask, submit_config: SubmitContractConfig,
     return list(df[(df['file_size'] >= df['good_size']) != True]['filepath'])
 
 
-def get_task_factory():
-    return ContractTask
-
-
-def get_submit_factory() -> t.Callable[..., SubmitContractConfig]:
-    return SubmitContractConfig.create
-
-
 def processing_params(task_config: ContractTask, submit_config: SubmitContractConfig,
                       outfile_config_list: OutfileList) -> t.Dict:
     infile_stem = outfile_config_list.contract.filename
@@ -137,3 +129,13 @@ def processing_params(task_config: ContractTask, submit_config: SubmitContractCo
         }
 
     return proc_params
+
+
+def get_task_factory():
+    return ContractTask
+
+
+def get_submit_factory() -> t.Callable[..., SubmitContractConfig]:
+    return SubmitContractConfig.create
+
+
