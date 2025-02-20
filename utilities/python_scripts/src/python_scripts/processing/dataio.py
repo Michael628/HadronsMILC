@@ -1,3 +1,6 @@
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+
 import python_scripts as ps
 
 import os
@@ -212,16 +215,24 @@ def load_files(filestem: str, file_loader: loadFn,
                replacements: t.Optional[t.Dict] = None,
                regex: t.Optional[t.Dict] = None):
 
-    def proc(filename: str, repl: t.Dict) -> pd.DataFrame:
+    async def proc(filename: str, repl: t.Dict) -> pd.DataFrame:
         logging.debug(f"Loading file: {filename}")
-        new_data: pd.DataFrame = file_loader(filename)
+        loop = asyncio.get_event_loop()
+        with ThreadPoolExecutor() as executor:
+            new_data: pd.DataFrame = await loop.run_in_executor(executor,file_loader,filename)
 
         if len(repl) != 0:
             new_data[list(repl.keys())] = tuple(repl.values())
 
         return new_data
 
-    return utils.process_files(filestem, proc, replacements, regex)
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        result = loop.run_until_complete(utils.process_files(filestem, proc, replacements, regex))
+    finally:
+        loop.close()
+    return result
 
 
 def load(io_config: config.DataioConfig) -> pd.DataFrame:

@@ -507,10 +507,10 @@ def processing_params(task_config: LMITask, submit_config: SubmitHadronsConfig,
     filekeys = utils.formatkeys(infile_stem)
     outfile = outfile.replace("correlators", "dataframes")
     outfile = outfile.replace("_{series}", "")
+    outfile = outfile.replace("_t{tsource}", "")
     outfile += ".h5"
     replacements = {k: v for k, v in submit_config.string_dict().items() if k in filekeys}
     replacements['tsource'] = list(map(str, submit_config.tsource_range))
-
 
     if task_config.high_modes:
         dsets = []
@@ -524,7 +524,7 @@ def processing_params(task_config: LMITask, submit_config: SubmitHadronsConfig,
             replacements['gamma_label'] = gamma_label
             for m,dset in itertools.product(op.mass,dsets):
                 mass_label = submit_config.mass_out_label[m]
-                file_label = f'{gamma_label}_{mass_label}'
+                file_label = f'{gamma_label}_{mass_label}_{dset}'
                 proc_params['run'].append(file_label)
                 replacements['mass'] = mass_label
                 replacements['dset'] = dset
@@ -547,7 +547,7 @@ def processing_params(task_config: LMITask, submit_config: SubmitHadronsConfig,
                             "series": "[a-z]",
                             "cfg": "[0-9]+"
                         },
-                        "replacements":replacements.copy(),
+                        "replacements":utils.deep_copy_dict(replacements),
                         'h5_params': {
                             'name': 'gamma',
                             'datasets': h5_datasets

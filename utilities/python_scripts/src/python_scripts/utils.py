@@ -184,7 +184,7 @@ def string_replacement_gen(
             yield repl, string_repl
 
 
-def process_files(filestem: str, processor: procFn,
+async def process_files(filestem: str, processor: procFn,
                   replacements: t.Optional[t.Dict] = None,
                   regex: t.Optional[t.Dict] = None) -> t.List:
 
@@ -228,7 +228,7 @@ def process_files(filestem: str, processor: procFn,
     else:
         for filename, reps in file_gen():
             try:
-                new_result = processor(filename, reps)
+                new_result = await processor(filename, reps)
             except StopIteration as e:
                 if e.args:
                     assert len(e.args) == 1
