@@ -1,7 +1,7 @@
 import logging
 import os
 import typing as t
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pandas as pd
 
@@ -13,7 +13,7 @@ from python_scripts.a2a.config import DiagramConfig
 
 @c.dataclass_with_getters
 class SubmitContractConfig(SubmitConfig):
-    _diagram_params: t.Dict[str, DiagramConfig]
+    _diagram_params: t.Dict[str, DiagramConfig] = field(default_factory=dict)
     hardware: t.Optional[str] = None
     logging_level: t.Optional[str] = None
 
