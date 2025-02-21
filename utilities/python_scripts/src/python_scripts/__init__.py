@@ -60,13 +60,6 @@ class Gamma(Enum):
             return False
 
 
-PARALLEL_LOAD = False
-
-
-def set_parallel_load(value: bool) -> None:
-    globals()['PARALLEL_LOAD'] = value
-
-
 def setup():
     logging.basicConfig(
         format="%(asctime)s - %(levelname)-5s - %(message)s",
