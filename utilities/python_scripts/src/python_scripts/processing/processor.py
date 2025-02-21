@@ -57,34 +57,41 @@ def group_apply(df: pd.DataFrame, func: t.Callable, data_col: str,
     return df_out
 
 
-def gvar(df: pd.DataFrame, data_col: str, key_index: str) -> gv.BufferDict:
+def gvar(df: pd.DataFrame, data_col: str, key_index: t.Optional[str] = None) -> gv.BufferDict:
 
-    nt = df.index.get_level_values('dt').nunique()
+    tvar = 't' if 't' in df.index.names else 'dt'
+
+    nt = df.index.get_level_values(tvar).nunique()
 
     labels_dt_last = sorted(df.index.names,
-                            key=lambda x: 0 if x == 'dt' else -1)
-
-    if key_index in df.columns:
-        group_param = {'by': key_index}
-    else:
-        group_param = {'level': key_index}
+                            key=lambda x: 0 if x == tvar else -1)
 
     result = {}
-    for key, xs in df.groupby(**group_param):
-        result[key] = ds.avg_data(xs.reorder_levels(labels_dt_last)[data_col] \
-            .to_numpy().reshape((-1, nt)))
+    if not key_index:
+        result[data_col] = ds.avg_data(df.reorder_levels(labels_dt_last)[data_col] \
+                                       .to_numpy().reshape((-1, nt)))
+    else:
+        if key_index in df.columns:
+            group_param = {'by': key_index}
+        else:
+            group_param = {'level': key_index}
 
-    return pd.DataFrame(result,index=pd.Index(range(nt),name='dt'))
+        for key, xs in df.groupby(**group_param):
+            result[key] = ds.avg_data(xs.reorder_levels(labels_dt_last)[data_col] \
+                .to_numpy().reshape((-1, nt)))
+
+    return pd.DataFrame(result,index=pd.Index(range(nt),name=tvar))
 
 
 def buffer(df: pd.DataFrame, data_col: str, key_index: str) -> gv.BufferDict:
+    tvar = 't' if 't' in df.index.names else 'dt'
 
     buff = gv.BufferDict()
 
-    nt = df.index.get_level_values('dt').nunique()
+    nt = df.index.get_level_values(tvar).nunique()
 
     labels_dt_last = sorted(df.index.names,
-                            key=lambda x: 0 if x == 'dt' else -1)
+                            key=lambda x: 0 if x == tvar else -1)
 
     if key_index in df.columns:
         group_param = {'by': key_index}
@@ -184,10 +191,7 @@ def average(df: pd.DataFrame, data_col, *avg_indices) -> pd.DataFrame:
 
     return df_out
 
-def permkey_split(df: pd.DataFrame, data_col, permkey_col: str = 'permkey') -> pd.DataFrame:
-    if permkey_col in df.index.names:
-        df.reset_index(permkey_col, inplace=True)
-
+def permkey_split_old(df: pd.DataFrame, data_col, permkey_col: str = 'permkey') -> pd.DataFrame:
     df[permkey_col] = df[permkey_col].str.replace('e', '')
     df[permkey_col] = df[permkey_col].str.replace('v[0-9]+', ',', regex=True)
     df[permkey_col] = df[permkey_col].str.replace('w', '')
@@ -198,6 +202,22 @@ def permkey_split(df: pd.DataFrame, data_col, permkey_col: str = 'permkey') -> p
     n_high = int(key_len + 1)
 
     df[[f'{permkey_col}{i}' for i in range(n_high)]] = df[permkey_col].str.split(',', expand=True)
+    df.drop(permkey_col, inplace=True, axis='columns')
+    return df
+
+def permkey_split(df: pd.DataFrame, data_col, permkey_col: str = 'permkey') -> pd.DataFrame:
+    if permkey_col in df.index.names:
+        df.reset_index(permkey_col, inplace=True)
+
+    if '_' not in df.iloc[0][permkey_col]:
+        return permkey_split_old(df, data_col, permkey_col)
+
+    df[permkey_col] = df[permkey_col].str.replace('(e_|_e)', '', regex=True)
+    key_len = df.iloc[0][permkey_col].count('_')
+    assert all(df[permkey_col].str.count('_') == key_len)
+    n_high = int(key_len + 1)//2
+
+    df[[f'{permkey_col}{i}' for i in range(n_high)]] = df[permkey_col].str.split('_', expand=True)[list(range(n_high))]
     df.drop(permkey_col, inplace=True, axis='columns')
     return df
 
@@ -231,12 +251,13 @@ def time_average(df: pd.DataFrame, data_col: str, *avg_indices) -> pd.DataFrame:
     one at a time.
     """
     assert len(avg_indices) == 2
+    tvar = 't' if 't' in df.index.names else 'dt'
 
     def apply_func(x):
         nt = int(np.sqrt(len(x)))
         assert nt ** 2 == len(x)
         corr = x[data_col].to_numpy().reshape((nt, nt))
-        return pd.DataFrame({data_col: a2a.time_average(corr)}, index=pd.Index(range(nt), name='dt'))
+        return pd.DataFrame({data_col: a2a.time_average(corr)}, index=pd.Index(range(nt), name=tvar))
 
 
     return group_apply(df,apply_func,data_col,list(avg_indices))
@@ -294,7 +315,7 @@ def execute(df: pd.DataFrame, actions: t.Dict) -> pd.DataFrame:
     return df_out
 
 
-def main(*args, **kwargs):
+async def main(*args, **kwargs):
     ps.setup()
     logging_level: str
 
@@ -319,13 +340,11 @@ def main(*args, **kwargs):
 
     logging.getLogger().setLevel(logging_level)
 
-    ps.set_parallel_load(False)
-
     result = {}
     for key in proc_params['run']:
         run_params = proc_params[key]
 
-        result[key] = dataio.main(**run_params)
+        result[key] = await dataio.main(**run_params)
         actions = run_params.get('actions', {})
         out_files = run_params.get('out_files', {})
         index = out_files.pop('index', None)

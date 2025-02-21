@@ -1,4 +1,5 @@
 import asyncio
+import nest_asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 import python_scripts as ps
@@ -27,8 +28,34 @@ loadFn = t.Callable[[str], pd.DataFrame]
 def ndarray_to_frame(
         array: np.ndarray,
         array_params: config.LoadArrayConfig) -> pd.DataFrame:
-    """Converts ndarray into a pandas DataFrame object indexed by the values in
-    `array_params`. See `ArrayParams` class for details.
+    """
+    Converts a multidimensional numpy array into a pandas DataFrame with a MultiIndex.
+
+    Parameters:
+    array : np.ndarray
+        The input numpy array to be transformed into a DataFrame.
+    array_params : config.LoadArrayConfig
+        The configuration object that provides the order of dimensions (order),
+        and labels for indexing each dimension.
+
+    Returns:
+    pd.DataFrame
+        A DataFrame where the rows are indexed by a MultiIndex created based on
+        the combinations of labels defined in array_params, and the single column
+        'corr' holds the values from the input array.
+
+    Raises:
+    AssertionError
+        If the number of label sets in array_params does not match the number
+        of dimensions defined in array_params.order.
+
+    Behavior:
+    - If the array_params.order contains only 'dt', the function generates
+      sequential labels for the 'dt' dimension.
+    - Constructs a MultiIndex using the Cartesian product of the label sets
+      specified in array_params.labels, adhering to the order in array_params.order.
+    - Flattens the input array and pairs its values to the MultiIndex, creating
+      a single-column DataFrame.
     """
 
     if len(array_params.order) == 1 and array_params.order[0] == 'dt':
@@ -53,23 +80,27 @@ def ndarray_to_frame(
 def h5_to_frame(file: h5py.File,
                 data_to_frame: t.Dict[str, dataFrameFn],
                 h5_params: config.LoadH5Config) -> pd.DataFrame:
-    """Converts hdf5 format `file` to pandas DataFrame based on dataset info
-    provided by `h5_params`. See H5Params class for details.
+    """
+    Converts datasets from an HDF5 file to a Pandas DataFrame.
 
-    Parameters
-    ----------
-    file: h5py.File
-        hdf5 file, the contents of which will be converted into a pandas
-        DataFrame.
+    Parameters:
+    file : h5py.File
+        The HDF5 file object containing the datasets to be converted.
+    data_to_frame : Dict[str, Callable]
+        A dictionary mapping dataset labels to functions that convert their data into DataFrames.
+    h5_params : config.LoadH5Config
+        Configuration object specifying parameters for loading datasets from the HDF5 file,
+        including dataset names and additional metadata.
 
-    data_to_frame: Dict[str, dataFrameFn]
-        A dictionary of functions that convert ndarrays to DataFrames (usually,
-        these are partially evaluated instances of the ndarray_to_frame
-        function). The dictionary keys should match the keys of
-        `h5_params['datasetes'].
+    Returns:
+    pd.DataFrame
+        A Pandas DataFrame constructed from the datasets in the HDF5 file. If more than one dataset
+        is included, an additional index column is added to distinguish between them.
 
-    h5_params: LoadH5Config
-        Parameters that map keys to datasets in `file`."""
+    Raises:
+    ValueError
+        If a specified dataset is not found in the HDF5 file.
+    """
     assert all(k in data_to_frame.keys() for k in h5_params.datasets.keys())
 
     df = []
@@ -100,6 +131,33 @@ def h5_to_frame(file: h5py.File,
 
 def frame_to_dict(df: pd.DataFrame, dict_depth: int) \
         -> t.Union[t.Dict, np.ndarray]:
+    """
+    Converts a pandas DataFrame into a dictionary or a numpy array depending on the specified depth.
+
+    Parameters:
+    df : pandas.DataFrame
+        Input DataFrame to be converted.
+    dict_depth : int
+        Depth of the dictionary to create. If 0, a numpy array is returned instead of a dictionary.
+
+    Returns:
+    Union[Dict, numpy.ndarray]
+        If `dict_depth` is 0, returns a multidimensional numpy array reshaped based on the levels of the index.
+        Otherwise, returns a dictionary keyed by the concatenated indices up to the `dict_depth` level, and values
+        are reshaped numpy arrays based on the remaining index levels.
+
+    Behavior:
+        Ensures that the `dict_depth` is within the permissible range (0 to the number of index levels).
+        Reshapes the values of the DataFrame (assumed column name 'corr') into a multidimensional numpy array
+        based on the levels of the index exceeding the specified `dict_depth`.
+        Concatenates multi-level index keys up to the specified depth into a string format using '.' as a separator
+        when returning a dictionary.
+
+    Important Notes:
+        - The DataFrame is expected to have a multi-index and a column named 'corr'.
+        - If dict_depth exceeds the number of index levels or is negative, the function raises an assertion error.
+        - The DataFrame is sorted based on the index before processing to ensure consistency in the output.
+    """
     num_indices = len(df.index.names)
     assert dict_depth >= 0
     assert dict_depth <= num_indices
@@ -132,23 +190,29 @@ def dict_to_frame(
         data: t.Union[t.Dict, np.ndarray],
         data_to_frame: dataFrameFn,
         dict_labels: t.Tuple[str] = ()) -> pd.DataFrame:
-    """Converts nested dictionary `data` to pandas DataFrame.
+    """
+    Processes nested dictionaries or NumPy arrays and converts them into a pandas DataFrame.
 
-    Parameters
-    ----------
-    data: Union[dict, ndarray]
-        Possibly nested dictionary in which leaves of dictionary tree
-        are ndarrays
+    Parameters:
+    data: Dict or ndarray
+        The main input which could either be a nested dictionary structure containing NumPy arrays
+        as values or a NumPy array itself.
+    data_to_frame: callable
+        A function used to convert an input ndarray into a pandas DataFrame.
+    dict_labels: tuple, optional
+        A tuple containing strings which represent labels for additional columns created based on
+        dictionary keys in the nested structure.
 
-    data_to_frame: dataFrameFn
-        A function that converts ndarrays to DataFrames (usually,
-        this is a partially evaluated instance of the ndarray_to_frame
-        function)
+    Returns:
+    DataFrame
+        A pandas DataFrame created from the input data. If `data` is a dictionary, its indices
+        (keys in hierarchical order) are appended as additional columns using the strings from
+        `dict_labels`. If `data` is an ndarray, the function processes it directly via `data_to_frame`.
 
-    dict_labels: tuple(str)
-        Labels for each nested dictionary layer. Labels will become names of
-        index levels in DataFrame and keys will become index values
-        for each entry.
+    Raises:
+    AssertionError
+        If `data` is of an unsupported type, i.e., not a dictionary or NumPy array, or if values in
+        a nested dictionary are inconsistent types.
     """
 
     def entry_gen(nested: t.Dict, _index: t.Tuple = ()) \
@@ -211,10 +275,22 @@ def dict_to_frame(
 
 
 # ------ Input functions ------ #
-def load_files(filestem: str, file_loader: loadFn,
+async def load_files(filestem: str, file_loader: loadFn,
                replacements: t.Optional[t.Dict] = None,
                regex: t.Optional[t.Dict] = None):
+    """
+    Loads files and processes them using a provided processing function and optional replacements or regex operations.
 
+    Parameters:
+    filestem (str): The base name or stem of the files to be loaded and processed.
+    file_loader (loadFn): A callable function responsible for file loading.
+    replacements (t.Optional[t.Dict]): Optional dictionary containing key replacements to apply to `filestem`.
+    regex (t.Optional[t.Dict]): Optional dictionary containing regex patterns as key replacements to `filestem`, matching
+     all files found on disk according to the resulting pattern.
+
+    Returns:
+    pd.DataFrame: A pandas DataFrame result after processing the loaded files.
+    """
     async def proc(filename: str, repl: t.Dict) -> pd.DataFrame:
         logging.debug(f"Loading file: {filename}")
         loop = asyncio.get_event_loop()
@@ -226,19 +302,62 @@ def load_files(filestem: str, file_loader: loadFn,
 
         return new_data
 
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        result = loop.run_until_complete(utils.process_files(filestem, proc, replacements, regex))
-    finally:
-        loop.close()
+    # loop = asyncio.get_event_loop()
+    # if loop.is_running():
+    #     nest_asyncio.apply()
+    #     future = asyncio.run_coroutine_threadsafe(
+    #         utils.process_files(filestem, proc, replacements, regex), loop
+    #     )
+    #     result = future.result()
+    # else:
+    #     loop = asyncio.new_event_loop()
+    #     asyncio.set_event_loop(loop)
+    #     try:
+    #         result = loop.run_until_complete(utils.process_files(filestem, proc, replacements, regex))
+    #     finally:
+    #         loop.close()
+    result = await utils.process_files(filestem, proc, replacements, regex)
     return result
 
 
-def load(io_config: config.DataioConfig) -> pd.DataFrame:
+async def load(io_config: config.DataioConfig) -> pd.DataFrame:
+    """
+    Load data from a variety of file formats and process it into a pandas DataFrame.
 
+    Parameters:
+        io_config (config.DataioConfig): Configuration object containing file and processing parameters.
+
+    Returns:
+        pd.DataFrame: A DataFrame containing the processed data.
+
+    Raises:
+        ValueError: If the file's contents are of an unsupported type or the file extension is unrecognized.
+
+    The function supports loading data from pickle (.p or .npy) and HDF5 (.h5) formatted files.
+    For pickle files, it uses a custom loader that converts ndarrays or dictionaries into DataFrames.
+    For HDF5 files, it reads the data using pandas' HDF support or processes it manually with custom configurations.
+    Actions specified in the io_config object are then applied to the processed data.
+    """
     def pickle_loader(filename: str):
+        """
+        Load data from a given file into a pandas DataFrame.
 
+        Parameters:
+            filename (str): File path to the pickle file.
+
+        Returns:
+            pd.DataFrame: Data loaded from the file and transformed into a
+                          pandas DataFrame.
+
+        Raises:
+            ValueError: If the file contents are not a dictionary or pandas DataFrame.
+
+        Notes:
+            - The file specified by 'filename' is expected to be a numpy file (.npy)
+              with either a dictionary or pandas DataFrame.
+            - Data transformation uses the settings provided in 'io_config' to
+              ensure compatibility with the DataFrame structure.
+        """
         dict_labels: t.Tuple = tuple(io_config.dict_labels)
 
         array_params: config.LoadArrayConfig = io_config.array_params
@@ -263,6 +382,21 @@ def load(io_config: config.DataioConfig) -> pd.DataFrame:
                  "Expecting dictionary or pandas DataFrame."))
 
     def h5_loader(filename: str):
+        """
+        Load data based on the given I/O configuration.
+
+        This function attempts to load data from an HDF5 file.
+        If the file cannot be loaded directly using pandas due to certain errors (e.g., ValueError, NotImplementedError),
+        it will fallback to using the provided H5 loading configurations from the `io_config`.
+        These configurations specify parameters for handling data arrays and conversion methods for HDF5 structures.
+
+        Parameters:
+            filename (str): File path to the pickle file.
+
+        Returns:
+            pd.DataFrame
+                A DataFrame containing formatted data from the specified HDF5 file.
+        """
         try:
             return pd.read_hdf(filename)
         except (ValueError, NotImplementedError):
@@ -292,7 +426,7 @@ def load(io_config: config.DataioConfig) -> pd.DataFrame:
     else:
         raise ValueError("File must have extension '.p' or '.h5'")
 
-    df: t.List[pd.DataFrame] = load_files(
+    df: t.List[pd.DataFrame] = await load_files(
         filestem, file_loader, replacements, regex
     )
 
@@ -311,18 +445,29 @@ def load(io_config: config.DataioConfig) -> pd.DataFrame:
 # ------ Input functions ------ #
 def write_data(df: pd.DataFrame, filestem: str,
                write_fn: t.Callable[[pd.DataFrame, str], None]) -> None:
-    """Write DataFrame to `filestem`. If `filestem` contains format keys,
-    expects columns in `df` with names matching the format keys.
-    Corresponding columns will be removed from `df` and values will
-    be used to format `filestem`.
+    """
+    Writes the data from a DataFrame to one or more files based on the given format and specified write function.
 
-    Parameters
-    ----------
-    write_fn: Callable[df, filename]
-        The function used to write `df` into the desired format
+    Parameters:
+    df (pd.DataFrame): The input DataFrame containing the data to be written.
+    filestem (str): A filename format string that may include placeholders for column values.
+    write_fn (Callable[[pd.DataFrame, str], None]): A callable function responsible for writing each portion of the DataFrame to a file,
+    taking the specific DataFrame segment and file path as arguments.
+
+    Behavior:
+    - If the `filestem` contains placeholders (keys enclosed in `{}`) that match column names in the DataFrame:
+        - Validates that the DataFrame is non-empty and that all placeholder keys exist in the DataFrame columns.
+        - Groups the DataFrame by the placeholder keys and writes each group to a separate file.
+          The filename for each group is generated by replacing the placeholders in `filestem` with the corresponding group values.
+        - The columns used for creating the groups are excluded from the output file, ensuring only the remaining columns are written.
+    - If the `filestem` does not contain placeholders:
+        - Writes the entire DataFrame to a single file using the specified `filestem` as the filename.
+    - Creates the necessary directories for the output files if they do not already exist.
     """
     repl_keys = utils.formatkeys(filestem)
     if repl_keys:
+        logging.debug(f'df columns: {df.columns}')
+        logging.debug(f'df indices: {df.index.names}')
         assert len(df) != 0
         assert all([k in df.columns for k in repl_keys])
 
@@ -350,16 +495,18 @@ def write_data(df: pd.DataFrame, filestem: str,
 
 
 def write_dict(df: pd.DataFrame, filestem: str, dict_depth: int) -> None:
-    """Convert DataFrame `df` to dictionary and write to file
-    based on `filestem` (see `write_data` function for details).
+    """
+    Writes a pandas DataFrame to a dictionary file format.
 
-    Parameters
-    ----------
+    Parameters:
+    df: pd.DataFrame
+        The input pandas DataFrame to be written.
+    filestem: str
+        The base name for the output file.
     dict_depth: int
-        If equal to 0, returns multidim ndarray with dimensions in order of df
-        index levels. For `dict_depth` > 0, index levels from 0 to `dict_depth`
-        are converted to dictionary keys. The remaining levels are made into
-        multidim arrays.
+        The depth of the dictionary structure to be created.
+
+    See frame_to_dict for details on conversion from DataFrame to dictionary.
     """
     def writeconvert(data, fname):
         np.save(fname, frame_to_dict(data, dict_depth))
@@ -368,15 +515,42 @@ def write_dict(df: pd.DataFrame, filestem: str, dict_depth: int) -> None:
 
 
 def write_frame(df: pd.DataFrame, filestem: str) -> None:
-    """Write DataFrame `df` to hdf5 file based on `filestem`
-    (see `write_data` function for details).
+    """
+    Writes a DataFrame to a file with a specified filestem using a custom write function.
+
+    Parameters:
+    df : pd.DataFrame
+        The DataFrame to be written to a file.
+    filestem : str
+        The base name for the output file.
+
+    See write_data for details.
     """
     write_data(df, filestem,
                write_fn=lambda data, fname: data.to_hdf(fname, key='corr', mode='w'))
 
 
-def main(**kwargs):
+async def main(**kwargs):
+    """
+    Main function to handle configuration and data loading.
 
+    Parameters:
+    kwargs: Arbitrary keyword arguments
+      - logging_level: str (optional)
+        Optional logging level to set for the logger.
+      - load_files: parameter key used to fetch configuration data.
+
+    Behavior:
+    If `kwargs` are provided:
+      - Extracts logging level and attempts to fetch the DataIO configuration using the `load_files` key.
+
+    If `kwargs` are not provided:
+      - Reads the `params.yaml` file to obtain `load_files` key data to build DataIO configuration.
+      - Raises a ValueError if the `load_files` key is missing.
+
+    Returns:
+      Configuration data loaded using the load function.
+    """
     logging_level: str
     if kwargs:
         logging_level = kwargs.pop('logging_level', False)
@@ -392,8 +566,8 @@ def main(**kwargs):
 
     if logging_level:
         logging.getLogger().setLevel(logging_level)
-    ps.set_parallel_load(False)
-    return load(dataio_config)
+
+    return await load(dataio_config)
 
 
 if __name__ == '__main__':
