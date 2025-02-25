@@ -1,5 +1,4 @@
 import asyncio
-import nest_asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 import python_scripts as ps
@@ -302,20 +301,6 @@ async def load_files(filestem: str, file_loader: loadFn,
 
         return new_data
 
-    # loop = asyncio.get_event_loop()
-    # if loop.is_running():
-    #     nest_asyncio.apply()
-    #     future = asyncio.run_coroutine_threadsafe(
-    #         utils.process_files(filestem, proc, replacements, regex), loop
-    #     )
-    #     result = future.result()
-    # else:
-    #     loop = asyncio.new_event_loop()
-    #     asyncio.set_event_loop(loop)
-    #     try:
-    #         result = loop.run_until_complete(utils.process_files(filestem, proc, replacements, regex))
-    #     finally:
-    #         loop.close()
     result = await utils.process_files(filestem, proc, replacements, regex)
     return result
 

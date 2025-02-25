@@ -1,5 +1,6 @@
 import python_scripts as ps
 import yaml
+import asyncio
 import copy
 from collections.abc import Mapping
 import typing as t
@@ -184,7 +185,7 @@ def string_replacement_gen(
             yield repl, string_repl
 
 
-async def process_files(filestem: str, processor: procFn,
+def process_files(filestem: str, processor: procFn,
                   replacements: t.Optional[t.Dict] = None,
                   regex: t.Optional[t.Dict] = None) -> t.List:
 
@@ -213,28 +214,30 @@ async def process_files(filestem: str, processor: procFn,
                 str_reps.update(reg_reps)
                 yield regex_filename, str_reps
 
-    if ps.PARALLEL_LOAD:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-            try:
-                collection = list(executor.map(
-                    lambda p: processor(*p),
-                    ((f, r) for (f, r) in file_gen())
-                ))
-            except StopIteration as e:
-                if e.args:
-                    assert len(e.args) == 1
-                    collection = list(e.args)
-                pass
-    else:
-        for filename, reps in file_gen():
-            try:
-                new_result = await processor(filename, reps)
-            except StopIteration as e:
-                if e.args:
-                    assert len(e.args) == 1
-                    collection.append(e.args[0])
-                break
-            collection.append(new_result)
+    for filename, reps in file_gen():
+        try:
+            new_result = processor(filename, reps)
+        except StopIteration as e:
+            if e.args:
+                assert len(e.args) == 1
+                collection.append(e.args[0])
+            break
+        collection.append(new_result)
 
     return collection
 # ------ End Format/File Search Functions ------ #
+
+def resolve_async(async_func,*args,**kwargs):
+    loop = asyncio.get_event_loop()
+    if loop.is_running():
+        raise NotImplementedError("Not expecting event loop to be running. Function not implemented for jupyter notebooks.")
+    else:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result = loop.run_until_complete(async_func(*args,**kwargs))
+        finally:
+            loop.close()
+
+    return result
+
