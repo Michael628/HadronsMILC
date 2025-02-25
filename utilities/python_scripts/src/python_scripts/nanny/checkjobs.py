@@ -260,7 +260,7 @@ def good_output(step: str, cfgno: str, param: t.Dict) -> bool:
     submit_config = config.get_submit_config(param, job_config, series=series, cfg=cfg)
     outfile_config_list = config.get_outfile_config(param)
 
-    bad_files = config.bad_files(job_config, outfile_config_list)
+    bad_files = config.bad_files(job_config, submit_config, outfile_config_list)
     if bad_files:
         logging.warning(f"File `{bad_files[0]}` not found or not of correct file size.")
         return False
