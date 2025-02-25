@@ -18,11 +18,13 @@ class SubmitContractConfig(SubmitConfig):
     logging_level: t.Optional[str] = None
 
     def __init__(self, **kwargs):
-        self.hardware = kwargs.get('hardware', None)
-        self.logging_level = kwargs.get('logging_level', None)
+        params = kwargs.copy()
+        self.hardware = params.pop('hardware', None)
+        self.logging_level = params.pop('logging_level', None)
         self._diagram_params = {}
-        for k, v in kwargs['_diagram_params'].items():
+        for k, v in params.pop('_diagram_params',{}).items():
             self._diagram_params[k] = DiagramConfig.create(**v)
+        super().__init__(**params)
 
 
 @dataclass
