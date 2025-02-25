@@ -22,6 +22,7 @@ import typing as t
 class SeqSIBTask(TaskBase):
     mass: str
     gammas: t.List[Gamma]
+    free: bool = False
 
     def __init__(self,mass: str, gammas: t.List[str]):
         self.mass = mass
@@ -37,13 +38,26 @@ def input_params(tasks: SeqSIBTask, submit_config: SubmitHadronsConfig, outfile_
     gauge_fat_filepath = outfile_config_list.fat_links.filestem.format(**submit_conf_dict)
     gauge_long_filepath = outfile_config_list.long_links.filestem.format(**submit_conf_dict)
 
-    modules = [
-        templates.load_gauge('gauge', gauge_filepath),
-        templates.load_gauge('gauge_fat', gauge_fat_filepath),
-        templates.load_gauge('gauge_long', gauge_long_filepath),
-        templates.cast_gauge('gauge_fatf', 'gauge_fat'),
-        templates.cast_gauge('gauge_longf', 'gauge_long')
-    ]
+    if tasks.free:
+        modules = [
+            templates.unit_gauge('gauge'),
+            templates.unit_gauge('gauge_fat'),
+            templates.unit_gauge('gauge_long'),
+            templates.cast_gauge('gauge_fatf', 'gauge_fat'),
+            templates.cast_gauge('gauge_longf', 'gauge_long')
+        ]
+    else:
+        gauge_filepath = outfile_config_list.gauge_links.filestem.format(**submit_conf_dict)
+        gauge_fat_filepath = outfile_config_list.fat_links.filestem.format(**submit_conf_dict)
+        gauge_long_filepath = outfile_config_list.long_links.filestem.format(**submit_conf_dict)
+
+        modules = [
+            templates.load_gauge('gauge', gauge_filepath),
+            templates.load_gauge('gauge_fat', gauge_fat_filepath),
+            templates.load_gauge('gauge_long', gauge_long_filepath),
+            templates.cast_gauge('gauge_fatf', 'gauge_fat'),
+            templates.cast_gauge('gauge_longf', 'gauge_long')
+        ]
 
     mass_label = tasks.mass
     name = f"stag_mass_{mass_label}"
