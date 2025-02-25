@@ -40,6 +40,15 @@ def load_gauge(name: str, file: str) -> t.Dict:
     }
 
 
+def unit_gauge(name: str) -> t.Dict:
+    return {
+        "id": {
+            "name": name,
+            "type": "MGauge::Unit"
+        }
+    }
+
+
 def cast_gauge(name: str, field: str) -> t.Dict:
     return {
         "id": {

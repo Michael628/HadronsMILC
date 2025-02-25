@@ -22,6 +22,8 @@ class SeqDhopTask(TaskBase):
     subtract: bool
     nstart: int = 0
     multifile: bool = False
+    free: bool = False
+    epack: bool = True
 
 
 def input_params(tasks: SeqDhopTask, submit_config: SubmitHadronsConfig, outfile_config_list: OutfileList) -> t.Tuple[t.List[t.Dict], t.Optional[t.List[str]]]:
@@ -33,21 +35,39 @@ def input_params(tasks: SeqDhopTask, submit_config: SubmitHadronsConfig, outfile
     gauge_fat_filepath = outfile_config_list.fat_links.filestem.format(**submit_conf_dict)
     gauge_long_filepath = outfile_config_list.long_links.filestem.format(**submit_conf_dict)
 
-    modules = [
-        templates.load_gauge('gauge', gauge_filepath),
-        templates.load_gauge('gauge_fat', gauge_fat_filepath),
-        templates.load_gauge('gauge_long', gauge_long_filepath),
-        templates.cast_gauge('gauge_fatf', 'gauge_fat'),
-        templates.cast_gauge('gauge_longf', 'gauge_long')
-    ]
+    if tasks.free:
+        modules = [
+            templates.unit_gauge('gauge'),
+            templates.unit_gauge('gauge_fat'),
+            templates.unit_gauge('gauge_long'),
+            templates.cast_gauge('gauge_fatf', 'gauge_fat'),
+            templates.cast_gauge('gauge_longf', 'gauge_long')
+        ]
+    else:
+        gauge_filepath = outfile_config_list.gauge_links.filestem.format(**submit_conf_dict)
+        gauge_fat_filepath = outfile_config_list.fat_links.filestem.format(**submit_conf_dict)
+        gauge_long_filepath = outfile_config_list.long_links.filestem.format(**submit_conf_dict)
 
-    epack_path = outfile_config_list.eig.filestem.format(**submit_conf_dict)
+        modules = [
+            templates.load_gauge('gauge', gauge_filepath),
+            templates.load_gauge('gauge_fat', gauge_fat_filepath),
+            templates.load_gauge('gauge_long', gauge_long_filepath),
+            templates.cast_gauge('gauge_fatf', 'gauge_fat'),
+            templates.cast_gauge('gauge_longf', 'gauge_long')
+        ]
 
-    # Load eigenvectors
-    modules.append(templates.epack_load(name='epack',
-                                        filestem=epack_path,
-                                        size=submit_conf_dict['sourceeigs'],
-                                        multifile=submit_conf_dict['multifile']))
+    if tasks.epack:
+        epack_path = outfile_config_list.eig.filestem.format(**submit_conf_dict)
+
+        # Load eigenvectors
+        modules.append(templates.epack_load(name='epack',
+                                            filestem=epack_path,
+                                            size=submit_conf_dict['sourceeigs'],
+                                            multifile=submit_conf_dict['multifile']))
+
+        modules.append(templates.epack_modify(name=f"evecs_mass_{mass_label}",
+                                              eigen_pack='epack',
+                                              mass=mass))
 
     mass_label = tasks.mass
     name = f"stag_mass_{mass_label}"
@@ -57,21 +77,18 @@ def input_params(tasks: SeqDhopTask, submit_config: SubmitHadronsConfig, outfile
                                     gauge_fat='gauge_fat',
                                     gauge_long='gauge_long'))
 
-    modules.append(templates.epack_modify(name=f"evecs_mass_{mass_label}",
-                                          eigen_pack='epack',
-                                          mass=mass))
-
     name = f"istag_mass_{mass_label}"
     modules.append(templates.action_float(name=name,
                                           mass=mass,
                                           gauge_fat='gauge_fatf',
                                           gauge_long='gauge_longf'))
 
-    modules.append(templates.lma_solver(
-        name=f"stag_ranLL_mass_{mass_label}",
-        action=f"stag_mass_{mass_label}",
-        low_modes=f"evecs_mass_{mass_label}"
-    ))
+    if tasks.epack:
+        modules.append(templates.lma_solver(
+            name=f"stag_ranLL_mass_{mass_label}",
+            action=f"stag_mass_{mass_label}",
+            low_modes=f"evecs_mass_{mass_label}"
+        ))
 
     modules.append(templates.mixed_precision_cg(
         name=f"stag_ama_mass_{mass_label}",
@@ -97,16 +114,19 @@ def input_params(tasks: SeqDhopTask, submit_config: SubmitHadronsConfig, outfile
 
         modules.append(templates.time_diluted_noise(f'w{seed_index}', 1))
 
-        for slabel in ['ranLL', 'ama']:
+        dsets = ['ama']
+        if tasks.epack:
+            dsets.append('ranLL')
+
+        for slabel in dsets:
             source = f"w{seed_index}_vec"
+            solver = f"stag_{slabel}_mass_{mass_label}"
+            guess = ""
             if slabel == "ama":
-                solver = f"stag_{slabel}_mass_{mass_label}"
                 if tasks.subtract:
                     solver += "_subtract"
-                guess = quark+f"_ranLL_M"
-            else:
-                solver = f"stag_{slabel}_mass_{mass_label}"
-                guess = ""
+                if tasks.epack:
+                    guess = quark+f"_ranLL_M"
 
             modules.append(templates.quark_prop(
                 name=quark+f"_{slabel}_M",

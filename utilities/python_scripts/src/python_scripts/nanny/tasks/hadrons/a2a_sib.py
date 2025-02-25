@@ -24,6 +24,7 @@ class A2ASIBTask(TaskBase):
     epack: bool
     high_modes: bool
     seq: bool = False
+    free: bool = False
     seq_gamma: str = ''
     epack_multifile: bool = False
     high_multifile: bool = True
@@ -35,15 +36,26 @@ class A2ASIBTask(TaskBase):
 def input_params(tasks: A2ASIBTask, submit_config: SubmitHadronsConfig, outfile_config_list: OutfileList) -> t.Tuple[t.List[t.Dict], t.Optional[t.List[str]]]:
     submit_conf_dict = submit_config.string_dict()
 
-    gauge_filepath = outfile_config_list.gauge_links.filestem.format(**submit_conf_dict)
-    gauge_fat_filepath = outfile_config_list.fat_links.filestem.format(**submit_conf_dict)
-    gauge_long_filepath = outfile_config_list.long_links.filestem.format(**submit_conf_dict)
+    if tasks.free:
+        modules = [
+            templates.unit_gauge('gauge'),
+            templates.unit_gauge('gauge_fat'),
+            templates.unit_gauge('gauge_long'),
+            templates.cast_gauge('gauge_fatf', 'gauge_fat'),
+            templates.cast_gauge('gauge_longf', 'gauge_long')
+        ]
+    else:
+        gauge_filepath = outfile_config_list.gauge_links.filestem.format(**submit_conf_dict)
+        gauge_fat_filepath = outfile_config_list.fat_links.filestem.format(**submit_conf_dict)
+        gauge_long_filepath = outfile_config_list.long_links.filestem.format(**submit_conf_dict)
 
-    modules = [
-        templates.load_gauge('gauge', gauge_filepath),
-        templates.load_gauge('gauge_fat', gauge_fat_filepath),
-        templates.load_gauge('gauge_long', gauge_long_filepath)
-    ]
+        modules = [
+            templates.load_gauge('gauge', gauge_filepath),
+            templates.load_gauge('gauge_fat', gauge_fat_filepath),
+            templates.load_gauge('gauge_long', gauge_long_filepath),
+            templates.cast_gauge('gauge_fatf', 'gauge_fat'),
+            templates.cast_gauge('gauge_longf', 'gauge_long')
+        ]
 
     mass_label = tasks.mass
     mass = str(submit_config.mass[mass_label])

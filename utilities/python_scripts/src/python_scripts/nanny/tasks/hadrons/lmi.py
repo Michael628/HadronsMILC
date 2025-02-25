@@ -2,7 +2,6 @@ import itertools
 import os.path
 import re
 from dataclasses import dataclass, fields
-
 import pandas as pd
 
 from python_scripts import Gamma, utils
@@ -456,7 +455,7 @@ def catalog_files(task_config: LMITask, submit_config: SubmitHadronsConfig,
                 res['dset'].append('ama')
 
             for op in task_config.high_modes.operations:
-                res['gamma'] = op.gamma.name.lower()
+                res['gamma_label'] = op.gamma.name.lower()
                 res['mass'] = [submit_config.mass_out_label[m] for m in op.mass]
                 yield res, outfile_config_list.high_modes
 
@@ -491,10 +490,9 @@ def catalog_files(task_config: LMITask, submit_config: SubmitHadronsConfig,
     return df
 
 
-def bad_files(task_config: LMITask, submit_config: SubmitHadronsConfig, outfile_config_list: OutfileList) -> t.List[
-    str]:
-    df = catalog_files(task_config, submit_config, outfile_config_list)
+def bad_files(task_config: LMITask, submit_config: SubmitHadronsConfig, outfile_config_list: OutfileList) -> t.List[str]:
 
+    df = catalog_files(task_config, submit_config, outfile_config_list)
     return list(df[(df['file_size'] >= df['good_size']) != True]['filepath'])
 
 
