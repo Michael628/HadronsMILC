@@ -197,10 +197,7 @@ def process_files(filestem: str, processor: procFn,
     logging.debug(f'str_repl keys: {sorted(str_repl.keys())}')
     logging.debug(f'regex_repl keys: {sorted(regex_repl.keys())}')
     assert len(repl_keys) == len(str_repl) + len(regex_repl)
-    assert all((
-        (k in str_repl or k in regex_repl)
-        for k in repl_keys
-    ))
+    assert all(((k in str_repl or k in regex_repl) for k in repl_keys))
 
     collection: t.List = []
 
@@ -211,7 +208,7 @@ def process_files(filestem: str, processor: procFn,
                     repl_filename, regex_repl):
 
                 str_reps.update(reg_reps)
-                yield regex_filename, str_reps
+                yield regex_filename, deep_copy_dict(str_reps)
 
     for filename, reps in file_gen():
         try:
