@@ -385,7 +385,7 @@ def input_params(tasks: LMITask, submit_config: SubmitHadronsConfig, outfile_con
                 output = high_path.format(
                     mass=mass_output,
                     dset=slabel,
-                    gamma=glabel,
+                    gamma_label=glabel,
                     tsource=tsource,
                     **submit_conf_dict
                 )
