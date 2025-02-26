@@ -89,9 +89,9 @@ def bad_files(task_config: ContractTask, submit_config: SubmitContractConfig,
 def processing_params(task_config: ContractTask, submit_config: SubmitContractConfig,
                       outfile_config_list: OutfileList) -> t.Dict:
     infile_stem = outfile_config_list.contract.filename
-    infile_stem = infile_stem.replace("{gamma}","{diagram_label}")
+    infile_stem = infile_stem.replace("{gamma_label}","{diagram_label}")
     outfile = outfile_config_list.contract.filestem
-    outfile = outfile.replace("{gamma}","{diagram_label}")
+    outfile = outfile.replace("{gamma_label}","{diagram_label}")
     filekeys = utils.formatkeys(infile_stem)
     proc_params = {'run': task_config.diagrams}
     outfile = outfile.replace("correlators", "dataframes")
@@ -126,7 +126,7 @@ def processing_params(task_config: ContractTask, submit_config: SubmitContractCo
         proc_params[k]['load_files']["array_params"] = {
             "order": ["t"],
             "labels": {
-                "t": "0..47"
+                "t": f"0..{submit_config.time-1}"
             }
         }
 
