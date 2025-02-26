@@ -532,7 +532,7 @@ def processing_params(task_config: LMITask, submit_config: SubmitHadronsConfig,
                     g: {
                         "order": ["t"],
                         "labels": {
-                            "t": "0..47"
+                            "t": f"0..{submit_config.time-1}"
                         }
                     }
                     for g in h5_datasets.keys()
