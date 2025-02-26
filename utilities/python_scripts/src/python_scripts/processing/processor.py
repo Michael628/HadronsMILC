@@ -315,7 +315,7 @@ def execute(df: pd.DataFrame, actions: t.Dict) -> pd.DataFrame:
     return df_out
 
 
-async def main(*args, **kwargs):
+def main(*args, **kwargs):
     ps.setup()
     logging_level: str
 
@@ -344,7 +344,7 @@ async def main(*args, **kwargs):
     for key in proc_params['run']:
         run_params = proc_params[key]
 
-        result[key] = await dataio.main(**run_params)
+        result[key] = dataio.main(**run_params)
         actions = run_params.get('actions', {})
         out_files = run_params.get('out_files', {})
         index = out_files.pop('index', None)

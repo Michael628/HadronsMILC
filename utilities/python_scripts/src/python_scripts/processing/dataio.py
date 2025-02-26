@@ -292,20 +292,23 @@ async def load_files(filestem: str, file_loader: loadFn,
     """
     async def proc(filename: str, repl: t.Dict) -> pd.DataFrame:
         logging.debug(f"Loading file: {filename}")
-        loop = asyncio.get_event_loop()
-        with ThreadPoolExecutor() as executor:
-            new_data: pd.DataFrame = await loop.run_in_executor(executor,file_loader,filename)
+        new_data: pd.DataFrame = file_loader(filename)
 
         if len(repl) != 0:
             new_data[list(repl.keys())] = tuple(repl.values())
 
         return new_data
 
-    result = await utils.process_files(filestem, proc, replacements, regex)
-    return result
+    files = utils.process_files(filestem, lambda *x: x, replacements, regex)
+
+    async_tasks: t.List[asyncio.Task]
+    async with asyncio.TaskGroup() as tg:
+        async_tasks = [tg.create_task(proc(*file)) for file in files]
+
+    return [t.result() for t in async_tasks]
 
 
-async def load(io_config: config.DataioConfig) -> pd.DataFrame:
+def load(io_config: config.DataioConfig) -> pd.DataFrame:
     """
     Load data from a variety of file formats and process it into a pandas DataFrame.
 
@@ -411,9 +414,9 @@ async def load(io_config: config.DataioConfig) -> pd.DataFrame:
     else:
         raise ValueError("File must have extension '.p' or '.h5'")
 
-    df: t.List[pd.DataFrame] = await load_files(
+    df: t.List[pd.DataFrame] = asyncio.run(load_files(
         filestem, file_loader, replacements, regex
-    )
+    ))
 
     actions: t.Dict = io_config.actions
     df = [
@@ -515,7 +518,7 @@ def write_frame(df: pd.DataFrame, filestem: str) -> None:
                write_fn=lambda data, fname: data.to_hdf(fname, key='corr', mode='w'))
 
 
-async def main(**kwargs):
+def main(**kwargs):
     """
     Main function to handle configuration and data loading.
 
@@ -552,7 +555,7 @@ async def main(**kwargs):
     if logging_level:
         logging.getLogger().setLevel(logging_level)
 
-    return await load(dataio_config)
+    return load(dataio_config)
 
 
 if __name__ == '__main__':

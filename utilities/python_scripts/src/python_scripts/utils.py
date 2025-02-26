@@ -1,6 +1,5 @@
 import python_scripts as ps
 import yaml
-import asyncio
 import copy
 from collections.abc import Mapping
 import typing as t
@@ -227,17 +226,4 @@ def process_files(filestem: str, processor: procFn,
     return collection
 # ------ End Format/File Search Functions ------ #
 
-def resolve_async(async_func,*args,**kwargs):
-    loop = asyncio.get_event_loop()
-    if loop.is_running():
-        raise NotImplementedError("Not expecting event loop to be running. Function not implemented for jupyter notebooks.")
-    else:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            result = loop.run_until_complete(async_func(*args,**kwargs))
-        finally:
-            loop.close()
-
-    return result
 
