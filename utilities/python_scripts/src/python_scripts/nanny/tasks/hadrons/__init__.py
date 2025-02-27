@@ -26,6 +26,8 @@ class SubmitHadronsConfig(SubmitConfig):
     _mass: t.Dict[str,float] = field(default_factory=dict)
     _overwrite_sources: bool = True
     seed: t.Optional[str] = None
+    series: t.Optional[str] = None
+    cfg: t.Optional[str] = None
 
     def __post_init__(self):
         if not self.mass:
