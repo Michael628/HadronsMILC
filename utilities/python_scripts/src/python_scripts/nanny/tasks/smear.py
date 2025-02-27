@@ -15,7 +15,9 @@ from python_scripts.nanny.config import OutfileList
 
 @c.dataclass_with_getters
 class SubmitSmearConfig(SubmitConfig):
-    pass
+    space: int
+    series: t.Optional[str] = None
+    cfg: t.Optional[str] = None
 
 @dataclass
 class SmearTask(TaskBase):
@@ -27,21 +29,24 @@ def input_params(tasks: SmearTask, submit_config: SubmitSmearConfig,
     submit_conf_dict = submit_config.string_dict()
 
     lat = tasks.unsmeared_file.format(**submit_conf_dict)
-    lat_ildg_path = outfile_config_list.gauge_links.filestem + outfile_config_list.gauge_links.ext
+    lat_ildg_path = outfile_config_list.gauge_links.filename
     lat_ildg_path = lat_ildg_path.format(**submit_conf_dict)
-    long_ildg_path = outfile_config_list.long_links.filestem + outfile_config_list.gauge_links.ext
+    long_ildg_path = outfile_config_list.long_links.filename
     long_ildg_path = long_ildg_path.format(**submit_conf_dict)
-    fat_ildg_path = outfile_config_list.fat_links.filestem + outfile_config_list.gauge_links.ext
+    fat_ildg_path = outfile_config_list.fat_links.filename
     fat_ildg_path = fat_ildg_path.format(**submit_conf_dict)
     lat_ildg = os.path.basename(lat_ildg_path)
     long_ildg = os.path.basename(long_ildg_path)
     fat_ildg = os.path.basename(fat_ildg_path)
+
+    space = submit_config.space
+    time = submit_config.time
     input_string = "\n".join([
         "prompt 0",
-        "nx 64",
-        "ny 64",
-        "nz 64",
-        "nt 96",
+        f"nx {space}",
+        f"ny {space}",
+        f"nz {space}",
+        f"nt {time}",
         "iseed 1234",
         f"reload_parallel {lat}",
         "u0   1",

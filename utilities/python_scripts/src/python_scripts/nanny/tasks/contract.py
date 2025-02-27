@@ -14,6 +14,8 @@ from python_scripts.a2a.config import DiagramConfig
 @c.dataclass_with_getters
 class SubmitContractConfig(SubmitConfig):
     _diagram_params: t.Dict[str, DiagramConfig] = field(default_factory=dict)
+    series: t.Optional[str] = None
+    cfg: t.Optional[str] = None
     hardware: t.Optional[str] = None
     logging_level: t.Optional[str] = None
 

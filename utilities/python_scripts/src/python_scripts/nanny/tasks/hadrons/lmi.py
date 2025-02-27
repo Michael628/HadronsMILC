@@ -261,7 +261,7 @@ def input_params(tasks: LMITask, submit_config: SubmitHadronsConfig, outfile_con
         if tasks.epack.load:
             modules.append(templates.epack_load(name='epack',
                                                 filestem=epack_path,
-                                                size=submit_conf_dict['sourceeigs'],
+                                                size=submit_conf_dict['eigs'],
                                                 multifile=multifile))
         else:
             modules.append(templates.op('stag_op', 'stag_mass_zero'))

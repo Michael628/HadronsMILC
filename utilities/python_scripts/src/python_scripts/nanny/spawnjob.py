@@ -148,6 +148,8 @@ def make_inputs(param, step, cfgno_steps):
                                                  series=series,
                                                  cfg=cfgno)
 
+        os.environ['ENS'] = submit_config.ens
+
         outfile_config = config.get_outfile_config(param)
 
         input_file: str = job_config.get_infile(submit_config)
