@@ -18,7 +18,7 @@ class Diagrams(Enum):
 
 @c.dataclass_with_getters
 class DiagramConfig(python_scripts.ConfigBase):
-    diagram_label: str
+    gamma_label: str
     contraction_type: str
     gammas: t.List[str]
     mass: str
@@ -56,8 +56,8 @@ class DiagramConfig(python_scripts.ConfigBase):
         self._npoint = npoint[self.contraction_type]
 
         self._meson_params = {
-            "wmax_index": slice(self.low_max),
-            "vmax_index": slice(self.low_max),
+            "wmax_index": slice(int(self.low_max)),
+            "vmax_index": slice(int(self.low_max)),
             "milc_mass": True
         }
 
@@ -87,22 +87,22 @@ class DiagramConfig(python_scripts.ConfigBase):
         obj_vars = kwargs.copy()
 
         obj = super().create(**obj_vars)
-        obj.outfile = obj_vars.pop('outfile')
+        # obj.outfile = obj_vars.pop('outfile')
         assert isinstance(obj.outfile,str)
 
-        obj.evalfile = obj_vars.pop('evalfile',None)
+        # obj.evalfile = obj_vars.pop('evalfile',None)
         if obj.evalfile:
             assert isinstance(obj.evalfile,str)
 
-        mesonfiles = obj_vars.pop('mesonfiles')
-        if isinstance(mesonfiles,str):
-            mesonfiles = [mesonfiles]
+        # mesonfiles = obj_vars.pop('mesonfiles')
+        if isinstance(obj.mesonfiles,str):
+            obj.mesonfiles = [obj.mesonfiles]
 
-        assert isinstance(mesonfiles,t.List)
+        assert isinstance(obj.mesonfiles,t.List)
 
-        if len(mesonfiles) == 1:
-            mesonfiles = mesonfiles*obj.npoint
-        assert obj.npoint == len(mesonfiles)
+        if len(obj.mesonfiles) == 1:
+            obj.mesonfiles = obj.mesonfiles*obj.npoint
+        assert obj.npoint == len(obj.mesonfiles)
 
         return obj
 
