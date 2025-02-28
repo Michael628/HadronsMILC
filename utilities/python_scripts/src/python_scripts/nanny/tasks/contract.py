@@ -23,6 +23,8 @@ class SubmitContractConfig(SubmitConfig):
         params = kwargs.copy()
         self.hardware = params.pop('hardware', None)
         self.logging_level = params.pop('logging_level', None)
+        self.series = params.pop('series', None)
+        self.cfg = params.pop('cfg', None)
         self._diagram_params = {}
         for k, v in params.pop('_diagram_params',{}).items():
             self._diagram_params[k] = DiagramConfig.create(**v)
