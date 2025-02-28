@@ -6,8 +6,8 @@ with open('requirements.txt') as f:
 setup(
     name='python_scripts',
     version='0.1.0',
-    packages=['python_scripts', 'python_scripts.a2a', 'python_scripts.nanny', 'python_scripts.nanny.runio',
-              'python_scripts.nanny.runio.hadrons', 'python_scripts.processing'],
+    packages=['python_scripts', 'python_scripts.a2a', 'python_scripts.nanny', 'python_scripts.nanny.tasks',
+              'python_scripts.nanny.tasks.hadrons', 'python_scripts.processing'],
     package_dir={'': 'src'},
     url='',
     license='',
