@@ -63,7 +63,7 @@ def catalog_files(task_config: ContractTask, submit_config: SubmitContractConfig
         d_params = submit_config.diagram_params[diagram]
         d_params.set_filenames(outfile_config_list)
         replacements['mass'] = d_params.mass
-        replacements['gamma'] = d_params.diagram_label
+        replacements['gamma'] = d_params.gamma_label
         files = utils.process_files(
             outfile,
             processor=build_row,
