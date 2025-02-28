@@ -75,7 +75,7 @@ class DiagramConfig(python_scripts.ConfigBase):
             else:
                 return s
 
-        self.mesonfiles = [get_filename(m) for m in self.mesonfiles]
+        self.mesonfiles = get_filename(self.mesonfiles) if isinstance(self.mesonfiles,str) else [get_filename(m) for m in self.mesonfiles]
 
         if self.evalfile:
             self.evalfile = get_filename(self.evalfile)
