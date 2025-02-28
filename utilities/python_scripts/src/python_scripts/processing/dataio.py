@@ -414,19 +414,10 @@ def load(io_config: config.DataioConfig) -> pd.DataFrame:
     else:
         raise ValueError("File must have extension '.p' or '.h5'")
 
-    df: t.List[pd.DataFrame] = asyncio.run(load_files(
+    return load_files(
         filestem, file_loader, replacements, regex
-    ))
+    )
 
-    actions: t.Dict = io_config.actions
-    df = [
-        processor.execute(elem, actions=actions)
-        for elem in df
-    ]
-
-    df = pd.concat(df)
-
-    return df
 # ------ End Input functions ------ #
 
 
@@ -541,7 +532,7 @@ def main(**kwargs):
     """
     logging_level: str
     if kwargs:
-        logging_level = kwargs.pop('logging_level', False)
+        logging_level = kwargs.pop('logging_level', 'INFO')
         dataio_config = config.get_dataio_config(kwargs['load_files'])
     else:
         try:
@@ -549,14 +540,44 @@ def main(**kwargs):
         except KeyError:
             raise ValueError("Expecting `load_files` key in params.yaml file.")
 
-        logging_level = params.pop('logging_level', False)
+        logging_level = params.pop('logging_level', 'INFO')
         dataio_config = config.get_dataio_config(params)
 
-    if logging_level:
-        logging.getLogger().setLevel(logging_level)
+    logging.getLogger().setLevel(logging_level)
 
-    return load(dataio_config)
+    try:
+        # Try to get the running loop (will raise RuntimeError if not in a running loop)
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # If no running loop, use asyncio.run() as normal
+        df = asyncio.run(load(dataio_config))
 
+    async def load_wrapper(io_config: config.DataioConfig) -> pd.DataFrame:
+        df = await load(io_config)
+        actions: t.Dict = dataio_config.actions
+        df = [
+            processor.execute(elem, actions=actions)
+            for elem in df
+        ]
+
+        return pd.concat(df)
+
+    if loop.is_running():
+        # If inside a running loop (e.g., Jupyter), run the coroutine with `loop.create_task`
+        return loop.create_task(load_wrapper(dataio_config))
+    else:
+        # If not running, use `loop.run_until_complete`
+        df = loop.run_until_complete(load(dataio_config))
+
+    actions: t.Dict = dataio_config.actions
+    df = [
+        processor.execute(elem, actions=actions)
+        for elem in df
+    ]
+
+    df = pd.concat(df)
+
+    return df
 
 if __name__ == '__main__':
     print("Assuming python interpreter is being run in interactive mode.")
