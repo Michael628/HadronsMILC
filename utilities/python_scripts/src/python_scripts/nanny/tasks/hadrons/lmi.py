@@ -212,7 +212,7 @@ def input_params(tasks: LMITask, submit_config: SubmitHadronsConfig, outfile_con
 
     submit_conf_dict = submit_config.string_dict()
 
-    if not submit_config.overwrite_sources:
+    if tasks.high_modes and not submit_config.overwrite_sources:
         all_files = catalog_files(tasks, submit_config, outfile_config_list)
         missing_files = all_files[all_files['exists'] != True]
         run_tsources = []
