@@ -1,15 +1,17 @@
-import python_scripts as ps
-import yaml
+import concurrent.futures
 import copy
-from collections.abc import Mapping
-import typing as t
+import itertools
 import logging
-from string import Formatter
-from functools import partial
 import os
 import re
-import itertools
-import concurrent.futures
+import typing as t
+from collections.abc import Mapping
+from functools import partial
+from string import Formatter
+
+import yaml
+
+import python_scripts as ps
 
 procFn = t.Callable[[str, t.Any], t.Any]
 
@@ -196,6 +198,8 @@ def process_files(filestem: str, processor: procFn,
     logging.debug(f'repl_keys: {sorted(repl_keys)}')
     logging.debug(f'str_repl keys: {sorted(str_repl.keys())}')
     logging.debug(f'regex_repl keys: {sorted(regex_repl.keys())}')
+    logging.debug(f'str_repl vals: {sorted(str_repl.values())}')
+    logging.debug(f'regex_repl vals: {sorted(regex_repl.values())}')
     assert len(repl_keys) == len(str_repl) + len(regex_repl)
     assert all(((k in str_repl or k in regex_repl) for k in repl_keys))
 

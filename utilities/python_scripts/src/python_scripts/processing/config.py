@@ -1,13 +1,11 @@
 import typing as t
 from dataclasses import dataclass
 
-from python_scripts import (
-    utils, ConfigBase
-)
+from python_scripts import ConfigBase, utils
 
 
 @dataclass
-class LoadH5Config(ConfigBase):
+class LoadH5Config:
     """Parameters providing index names and values to convert hdf5 datasets
     into a DataFrame.
 
@@ -21,10 +19,21 @@ class LoadH5Config(ConfigBase):
                 a list of paths, the first valid path will be used.
     """
     name: str
-    datasets: t.Dict[str, t.Union[str, t.List[str]]]
+    datasets: t.Dict[str, t.List[str]]
+
+    def __init__(self, **kwargs):
+        self.name = kwargs['name']
+        self.datasets = {}
+        for k,v in kwargs['datasets'].items():
+            if isinstance(v,str):
+                self.datasets[k] = [v]
+            else:
+                assert isinstance(v, t.List)
+                self.datasets[k] = v
+
 
 @dataclass
-class LoadArrayConfig(ConfigBase):
+class LoadArrayConfig:
     """Parameters providing index names and values to convert ndarray
     into a DataFrame.
 
@@ -93,13 +102,13 @@ class DataioConfig(ConfigBase):
         h5_params = obj_vars.pop('h5_params', {})
         array_params = obj_vars.pop('array_params', {})
         if h5_params:
-            obj_vars['h5_params'] = LoadH5Config.create(**h5_params)
+            obj_vars['h5_params'] = LoadH5Config(**h5_params)
 
             obj_vars['array_params'] = {}
             for k, v in array_params.items():
-                obj_vars['array_params'][k] = LoadArrayConfig.create(**v)
+                obj_vars['array_params'][k] = LoadArrayConfig(**v)
         elif array_params:
-            obj_vars['array_params'] = LoadArrayConfig.create(**array_params)
+            obj_vars['array_params'] = LoadArrayConfig(**array_params)
 
         return DataioConfig(**obj_vars)
 

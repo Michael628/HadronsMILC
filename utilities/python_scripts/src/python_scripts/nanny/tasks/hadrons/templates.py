@@ -1,5 +1,6 @@
 import typing as t
 
+
 def xml_wrapper(runid: str, sched: str, cfg: str) -> dict:
     params = {
         "grid": {
@@ -257,6 +258,21 @@ def split_vec(name: str, source: str, indices: str) -> t.Dict:
         "options": {
             "source": source,
             "indices": indices,
+        },
+    }
+
+
+def rb_cg(name: str, action: str, residual: str) -> t.Dict:
+    return {
+        "id": {
+            "name": name,
+            "type": "MSolver::RBPrecCGMILC"
+        },
+        "options": {
+            "action": action,
+            "maxIteration": "10000",
+            "residual": residual,
+            "isEven": "false"
         },
     }
 
