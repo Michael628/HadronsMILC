@@ -19,3 +19,5 @@ __pycache__
 __pycache__/*
 .tags
 .tags_sorted_by_file
+.idea
+CMakeLists.txt

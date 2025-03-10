@@ -4,6 +4,17 @@ import matplotlib.pyplot as plt
 import gvar as gv
 
 
+def plot_cols(df: pd.DataFrame) -> None:
+    plt.figure(dpi=100, figsize=(15, 10))
+
+    for col in df.columns:
+        y = gv.mean(df[col].to_numpy())
+        yerr = gv.sdev(df[col].to_numpy())
+        plt.errorbar(df.index, y, yerr=yerr, marker="o", linestyle='None', capsize=7, markersize=7, label=col)
+    # plt.yscale("log")
+    plt.legend()
+    plt.show()
+
 @dataclass
 class DataPlot:
 
