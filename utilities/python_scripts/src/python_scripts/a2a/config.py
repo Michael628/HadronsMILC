@@ -37,7 +37,7 @@ class DiagramConfig(python_scripts.ConfigBase):
     _npoint: int = -1
     evalfile: t.Optional[str] = None
     outfile: t.Optional[str] = None
-    mesonfiles: t.Optional[str] = None
+    mesonfiles: t.Optional[t.Union[t.List[str]|str]] = None
 
 
     def __post_init__(self):
@@ -56,8 +56,8 @@ class DiagramConfig(python_scripts.ConfigBase):
         self._npoint = npoint[self.contraction_type]
 
         self._meson_params = {
-            "wmax_index": slice(int(self.low_max) if self.low_max else None),
-            "vmax_index": slice(int(self.low_max) if self.low_max else None),
+            "wmax_index": self.low_max,
+            "vmax_index": self.low_max,
             "milc_mass": True
         }
 

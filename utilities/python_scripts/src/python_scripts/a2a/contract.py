@@ -1,13 +1,13 @@
 #! /usr/bin/env python3
-import os
-import sys
-import logging
 import itertools
-import opt_einsum as oe
-import h5py
+import logging
+import os
 import pickle
+import sys
 import typing as t
 
+import h5py
+import opt_einsum as oe
 import pandas as pd
 
 try:
@@ -15,8 +15,10 @@ try:
 except ImportError:
     import numpy as xp
 
+from dataclasses import field
 from time import perf_counter
-from dataclasses import dataclass, field
+
+from pydantic.dataclasses import dataclass
 from sympy.utilities.iterables import multiset_permutations
 
 try:
@@ -134,8 +136,8 @@ class MesonLoader:
     evalfile: str = ""
     oldmass: float = 0
     newmass: float = 0
-    vmax_index: int = field(default_factory=lambda: slice(None))
-    wmax_index: int = field(default_factory=lambda: slice(None))
+    vmax_index: t.Optional[int] = None
+    wmax_index: t.Optional[int] = None
     milc_mass: bool = True
 
     def meson_mass_alter(self, mat: xp.ndarray):
@@ -188,7 +190,7 @@ class MesonLoader:
 
             temp = f[a_group_key]['a2aMatrix']
             temp = xp.array(temp[
-                                time, self.wmax_index, self.vmax_index].view(xp.complex64),
+                                time, slice(self.wmax_index), slice(self.vmax_index)].view(xp.complex64),
                             dtype=xp.complex128)
 
         t2 = perf_counter()

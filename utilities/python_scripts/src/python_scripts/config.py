@@ -1,5 +1,7 @@
 import typing as t
-from dataclasses import dataclass, fields
+from dataclasses import fields
+
+from pydantic.dataclasses import dataclass
 
 
 def dataclass_with_getters(cls):

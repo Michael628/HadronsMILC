@@ -1,14 +1,12 @@
 import logging
 import os.path
 import typing as t
-from dataclasses import dataclass
 
 import pandas as pd
+from pydantic.dataclasses import dataclass
 
-from python_scripts import (
-    config as c,
-    utils
-)
+from python_scripts import config as c
+from python_scripts import utils
 from python_scripts.nanny import SubmitConfig, TaskBase
 from python_scripts.nanny.config import OutfileList
 
