@@ -1,14 +1,15 @@
 import itertools
 import os.path
 import re
+import typing as t
 from dataclasses import dataclass, fields
+
 import pandas as pd
 
 from python_scripts import Gamma, utils
-from python_scripts.nanny.config import OutfileList
-from python_scripts.nanny.tasks.hadrons import templates, SubmitHadronsConfig
 from python_scripts.nanny import TaskBase
-import typing as t
+from python_scripts.nanny.config import OutfileList
+from python_scripts.nanny.tasks.hadrons import SubmitHadronsConfig, templates
 
 
 # ============LMI Task Configuration===========
@@ -99,10 +100,12 @@ class LMITask(TaskBase):
     @dataclass
     class HighModes(OpList):
         skip_cg: bool = False
+        solver: str = 'mpcg'
 
         def __init__(self, **kwargs):
             obj_vars = kwargs.copy()
 
+            self.solver = obj_vars.pop('solver', self.solver)
             self.skip_cg = obj_vars.pop('skip_cg', self.skip_cg)
 
             super().__init__(**obj_vars)
@@ -405,12 +408,19 @@ def input_params(tasks: LMITask, submit_config: SubmitHadronsConfig, outfile_con
 
         for mass_label in tasks.high_modes.mass:
             if 'ama' in solver_labels:
-                modules.append(templates.mixed_precision_cg(
-                    name=f"stag_ama_mass_{mass_label}",
-                    outer_action=f"stag_mass_{mass_label}",
-                    inner_action=f"istag_mass_{mass_label}",
-                    residual=submit_conf_dict['cg_residual']
-                ))
+                if tasks.high_modes.solver == 'rb':
+                    modules.append(templates.rb_cg(
+                        name=f"stag_ama_mass_{mass_label}",
+                        action=f"stag_mass_{mass_label}",
+                        residual=submit_conf_dict['cg_residual']
+                    ))
+                else:
+                    modules.append(templates.mixed_precision_cg(
+                        name=f"stag_ama_mass_{mass_label}",
+                        outer_action=f"stag_mass_{mass_label}",
+                        inner_action=f"istag_mass_{mass_label}",
+                        residual=submit_conf_dict['cg_residual']
+                    ))
 
             if 'ranLL' in solver_labels:
                 modules.append(templates.lma_solver(

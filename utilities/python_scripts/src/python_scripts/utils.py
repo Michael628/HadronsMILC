@@ -198,8 +198,6 @@ def process_files(filestem: str, processor: procFn,
     logging.debug(f'repl_keys: {sorted(repl_keys)}')
     logging.debug(f'str_repl keys: {sorted(str_repl.keys())}')
     logging.debug(f'regex_repl keys: {sorted(regex_repl.keys())}')
-    logging.debug(f'str_repl vals: {sorted(str_repl.values())}')
-    logging.debug(f'regex_repl vals: {sorted(regex_repl.values())}')
     assert len(repl_keys) == len(str_repl) + len(regex_repl)
     assert all(((k in str_repl or k in regex_repl) for k in repl_keys))
 
