@@ -1,6 +1,6 @@
 import logging
-import typing as t
 import sys
+import typing as t
 from dataclasses import fields
 from enum import Enum, auto
 

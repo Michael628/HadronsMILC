@@ -1,9 +1,12 @@
 import os.path
 import typing as t
-from dataclasses import dataclass, field, fields, MISSING
+from dataclasses import MISSING, field, fields
+
+from pydantic.dataclasses import dataclass
 
 from python_scripts import utils
-from python_scripts.nanny import TaskBase, tasks, SubmitConfig
+from python_scripts.nanny import SubmitConfig, TaskBase, tasks
+
 
 # OUTFILE CLASSES
 # ============Outfile Parameters===========

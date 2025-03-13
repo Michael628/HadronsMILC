@@ -1,7 +1,7 @@
-import pandas as pd
-from dataclasses import dataclass
-import matplotlib.pyplot as plt
 import gvar as gv
+import matplotlib.pyplot as plt
+import pandas as pd
+from pydantic.dataclasses import dataclass
 
 
 def plot_cols(df: pd.DataFrame) -> None:

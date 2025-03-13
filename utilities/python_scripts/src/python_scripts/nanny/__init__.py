@@ -1,5 +1,7 @@
-from dataclasses import dataclass
 import typing as t
+
+from pydantic.dataclasses import dataclass
+
 import python_scripts
 
 

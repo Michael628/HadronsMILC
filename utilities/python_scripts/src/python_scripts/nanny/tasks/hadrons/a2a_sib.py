@@ -9,12 +9,14 @@
 # 6: Save result of 5 to disk
 import functools
 import itertools
-from dataclasses import dataclass
 import logging
+import typing as t
+
+from pydantic.dataclasses import dataclass
+
+from python_scripts.nanny import TaskBase
 from python_scripts.nanny.config import OutfileList
 from python_scripts.nanny.tasks.hadrons import SubmitHadronsConfig, templates
-from python_scripts.nanny import TaskBase
-import typing as t
 
 
 @dataclass

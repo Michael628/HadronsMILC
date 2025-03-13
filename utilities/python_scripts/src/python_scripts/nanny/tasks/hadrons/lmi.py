@@ -2,9 +2,10 @@ import itertools
 import os.path
 import re
 import typing as t
-from dataclasses import dataclass, fields
+from dataclasses import fields
 
 import pandas as pd
+from pydantic.dataclasses import dataclass
 
 from python_scripts import Gamma, utils
 from python_scripts.nanny import TaskBase
