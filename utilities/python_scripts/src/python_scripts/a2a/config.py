@@ -56,8 +56,8 @@ class DiagramConfig(python_scripts.ConfigBase):
         self._npoint = npoint[self.contraction_type]
 
         self._meson_params = {
-            "wmax_index": slice(int(self.low_max)),
-            "vmax_index": slice(int(self.low_max)),
+            "wmax_index": slice(int(self.low_max) if self.low_max else None),
+            "vmax_index": slice(int(self.low_max) if self.low_max else None),
             "milc_mass": True
         }
 
