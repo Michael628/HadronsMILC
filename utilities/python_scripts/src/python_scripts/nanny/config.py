@@ -84,7 +84,7 @@ class OutfileList:
 @dataclass
 class JobConfig:
     tasks: TaskBase
-    infile: str
+    io: str
     wall_time: str
     run: str
     job_type: str  = 'hadrons'
@@ -105,7 +105,7 @@ class JobConfig:
             if field_name == 'tasks':
                 continue
             elif field_name == 'infile':
-                self.infile = kwargs['io']
+                self.io = kwargs['io']
             else:
                 setattr(self,field_name,kwargs.get(field_name,field_default))
 
@@ -125,7 +125,7 @@ class JobConfig:
             'hadrons':"{series}.{cfg}.xml",
             'contract':"{series}.{cfg}.yaml"
         }
-        return f"{self.infile}-{ext[self.job_type]}".format(**submit_config.string_dict())
+        return f"{self.io}-{ext[self.job_type]}".format(**submit_config.string_dict())
 
 
 # ============Convenience functions===========
