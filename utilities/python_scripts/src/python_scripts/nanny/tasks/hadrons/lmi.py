@@ -18,7 +18,7 @@ from python_scripts.nanny.tasks.hadrons import SubmitHadronsConfig, templates
 class LMITask(TaskBase):
     # ============Epack===========
     @dataclass
-    class EpackTask:
+    class EpackTask(TaskBase):
         load: bool
         multifile: bool = False
         save_eigs: bool = False
@@ -26,7 +26,7 @@ class LMITask(TaskBase):
 
     # ============Operator List===========
     @dataclass
-    class OpList:
+    class OpList(TaskBase):
         """Configuration for a list of gamma operations.
 
         Attributes
@@ -44,7 +44,8 @@ class LMITask(TaskBase):
 
         operations: t.List[Op]
 
-        def __init__(self, **kwargs):
+        @classmethod
+        def from_dict(cls, kwargs) -> 'LMITask.OpList':
             """Creates a new instance of OpList from a dictionary.
 
              Note
@@ -68,26 +69,29 @@ class LMITask(TaskBase):
              }
 
             """
-            if 'mass' not in kwargs:
+            params = utils.deep_copy_dict(kwargs)
+
+            if 'mass' not in params:
                 operations = []
-                for key, val in kwargs.items():
+                for key, val in params.items():
                     mass = val['mass']
                     if isinstance(mass, str):
                         mass = [mass]
                     gamma = Gamma[key.upper()]
-                    operations.append(self.Op(gamma=gamma, mass=mass))
+                    operations.append(cls.Op(gamma=gamma, mass=mass))
             else:
-                gammas = kwargs['gamma']
-                mass = kwargs['mass']
+                gammas = params['gamma']
+                mass = params['mass']
                 if isinstance(mass, str):
                     mass = [mass]
                 if isinstance(gammas, str):
                     gammas = [gammas]
                 operations = [
-                    self.Op(gamma=Gamma[g.upper()], mass=mass)
+                    cls.Op(gamma=Gamma[g.upper()], mass=mass)
                     for g in gammas
                 ]
-            self.operations = operations
+            params['operations'] = operations
+            return cls(**params)
 
         @property
         def mass(self):
@@ -103,26 +107,23 @@ class LMITask(TaskBase):
         skip_cg: bool = False
         solver: str = 'mpcg'
 
-        def __init__(self, **kwargs):
-            obj_vars = kwargs.copy()
-
-            self.solver = obj_vars.pop('solver', self.solver)
-            self.skip_cg = obj_vars.pop('skip_cg', self.skip_cg)
-
-            super().__init__(**obj_vars)
-
     epack: t.Optional[EpackTask] = None
     meson: t.Optional[OpList] = None
     high_modes: t.Optional[HighModes] = None
 
-    def __init__(self, **kwargs):
+    @classmethod
+    def from_dict(cls, kwargs) -> 'LMITask':
         """Creates a new instance of LMITaskConfig from a dictionary.
         """
-        for f in fields(self):
+        params = utils.deep_copy_dict(kwargs)
+        for f in fields(cls):
             field_name = f.name
             field_type = f.type.__args__[0]
             if field_name in kwargs:
-                setattr(self, field_name, field_type(**kwargs[field_name]))
+                params[field_name] = field_type.from_dict(kwargs[field_name])
+
+        return cls(**params)
+
 
     @property
     def mass(self):
@@ -216,13 +217,36 @@ def input_params(tasks: LMITask, submit_config: SubmitHadronsConfig, outfile_con
 
     submit_conf_dict = submit_config.string_dict()
 
-    if tasks.high_modes and not submit_config.overwrite_sources:
-        all_files = catalog_files(tasks, submit_config, outfile_config_list)
-        missing_files = all_files[all_files['exists'] != True]
-        run_tsources = []
-        for tsource in submit_config.tsource_range:
-            if any(missing_files['tsource'] == str(tsource)):
-                run_tsources.append(str(tsource))
+    if not submit_config.overwrite_sources:
+        
+
+        if tasks.high_modes:
+            cf = catalog_files(tasks, submit_config, outfile_config_list)
+            missing_files = cf[cf['exists'] != True]
+            run_tsources = []
+            for tsource in submit_config.tsource_range:
+                if any(missing_files['tsource'] == str(tsource)):
+                    run_tsources.append(str(tsource))
+
+        if tasks.meson:
+            bf = bad_files(tasks, submit_config, outfile_config_list)
+            meson_template = outfile_config_list.meson_ll.filename
+            for i, op in enumerate(tasks.meson.operations[:]):
+                for j, mass_label in enumerate(op.mass[:]):
+                    meson_files = [
+                        meson_template.format(
+                            mass=submit_config.mass_out_label[mass_label],
+                            gamma=g,
+                            **submit_conf_dict
+                        )
+                        for g in op.gamma.gamma_list
+                    ]
+                    if not any([mf in bf for mf in meson_files]):
+                        op.mass.pop(j)
+
+                if not op.mass:
+                    tasks.meson.operations.pop(i)
+
     else:
         run_tsources = list(map(str, submit_config.tsource_range))
 
@@ -296,12 +320,12 @@ def input_params(tasks: LMITask, submit_config: SubmitHadronsConfig, outfile_con
                                                output=eval_path))
 
     if tasks.meson:
-        meson_path = outfile_config_list.meson_ll.filestem
+        meson_template = outfile_config_list.meson_ll.filestem
         for op in tasks.meson.operations:
             op_type = op.gamma.name.lower()
             gauge = "" if op.gamma == Gamma.LOCAL else "gauge"
             for mass_label in op.mass:
-                output = meson_path.format(
+                output = meson_template.format(
                     mass=submit_config.mass_out_label[mass_label],
                     **submit_conf_dict
                 )
@@ -573,4 +597,4 @@ def processing_params(task_config: LMITask, submit_config: SubmitHadronsConfig,
 
 
 def get_task_factory():
-    return LMITask
+    return LMITask.from_dict

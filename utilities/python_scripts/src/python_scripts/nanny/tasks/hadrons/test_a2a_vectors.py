@@ -79,4 +79,4 @@ def bad_files(
 
 
 def get_task_factory():
-    return TestTask
+    return TestTask.from_dict
