@@ -140,10 +140,9 @@ def processing_params(task_config: ContractTask, submit_config: SubmitContractCo
 
 
 def get_task_factory():
-    return ContractTask
+    return ContractTask.from_dict
 
 
 def get_submit_factory() -> t.Callable[..., SubmitContractConfig]:
     return SubmitContractConfig.create
-
 

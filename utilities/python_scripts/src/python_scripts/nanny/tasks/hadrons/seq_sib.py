@@ -25,9 +25,9 @@ class SeqSIBTask(TaskBase):
     gammas: t.List[Gamma]
     free: bool = False
 
-    def __init__(self,mass: str, gammas: t.List[str]):
-        self.mass = mass
-        self.gammas = [Gamma[g] for g in gammas]
+    # def __init__(self,mass: str, gammas: t.List[str]):
+    #     self.mass = mass
+    #     self.gammas = [Gamma[g] for g in gammas]
 
 def input_params(tasks: SeqSIBTask, submit_config: SubmitHadronsConfig, outfile_config_list: OutfileList) -> t.Tuple[t.List[t.Dict], t.Optional[t.List[str]]]:
 
@@ -200,4 +200,4 @@ def bad_files(task_config: TaskBase, submit_config: SubmitHadronsConfig,
 
 
 def get_task_factory():
-    return SeqSIBTask
+    return SeqSIBTask.from_dict

@@ -168,4 +168,4 @@ def bad_files(task_config: TaskBase, submit_config: SubmitHadronsConfig,
 
 
 def get_task_factory():
-    return A2ASIBTask
+    return A2ASIBTask.from_dict

@@ -104,7 +104,7 @@ def bad_files(task_config: SmearTask, submit_config: SubmitSmearConfig,
 
 
 def get_task_factory():
-    return SmearTask
+    return SmearTask.from_dict
 
 def get_submit_factory() -> t.Callable[..., SubmitSmearConfig]:
     return SubmitSmearConfig.create

@@ -7,8 +7,10 @@ import python_scripts
 
 @dataclass
 class TaskBase:
-    pass
 
+    @classmethod
+    def from_dict(cls, kwargs: t.Dict[str, t.Any]) -> 'TaskBase':
+        return cls(**kwargs)
 
 @dataclass
 class SubmitConfig(python_scripts.ConfigBase):
