@@ -300,7 +300,7 @@ async def load_files(
     return [t.result() for t in async_tasks]
 
 
-def load(io_config: config.DataioConfig) -> pd.DataFrame:
+def load(io_config: config.DataioConfig) -> t.Awaitable[pd.DataFrame]:
     """
     Load data from a variety of file formats and process it into a pandas DataFrame.
 
@@ -388,12 +388,12 @@ def load(io_config: config.DataioConfig) -> pd.DataFrame:
         except (ValueError, NotImplementedError):
             assert io_config.h5_params is not None
 
-            h5_params = { 
-                 'name': io_config.h5_params.name,
-                 'datasets': {
-                    k.format(**repl) : [vv.format(**repl) for vv in v]
-                    for k,v in io_config.h5_params.datasets.items()
-                 }
+            h5_params = {
+                "name": io_config.h5_params.name,
+                "datasets": {
+                    k.format(**repl): [vv.format(**repl) for vv in v]
+                    for k, v in io_config.h5_params.datasets.items()
+                },
             }
             h5_params = config.LoadH5Config(**h5_params)
 
@@ -401,7 +401,9 @@ def load(io_config: config.DataioConfig) -> pd.DataFrame:
             array_params = io_config.array_params
 
             data_to_frame = {
-                k.format(**repl): partial(ndarray_to_frame, array_params=array_params[k])
+                k.format(**repl): partial(
+                    ndarray_to_frame, array_params=array_params[k]
+                )
                 for k in array_params.keys()
             }
             file = h5py.File(filename)
@@ -515,7 +517,7 @@ def write_frame(df: pd.DataFrame, filestem: str) -> None:
     )
 
 
-def main(**kwargs):
+def main(**kwargs) -> t.Awaitable:
     """
     Main function to handle configuration and data loading.
 
@@ -543,8 +545,8 @@ def main(**kwargs):
     else:
         try:
             params = utils.load_param("params.yaml")["load_files"]
-        except KeyError:
-            raise ValueError("Expecting `load_files` key in params.yaml file.")
+        except KeyError as exc:
+            raise ValueError("Expecting `load_files` key in params.yaml file.") from exc
 
         logging_level = params.pop("logging_level", "INFO")
         dataio_config = config.get_dataio_config(params)

@@ -1,18 +1,18 @@
 #! /usr/bin/env python3
+import logging
 import sys
+import typing as t
+
+import gvar as gv
+import gvar.dataset as ds
+import numpy as np
+import pandas as pd
 
 import python_scripts as ps
 from python_scripts import utils
+from python_scripts.a2a import contract as a2a
 from python_scripts.nanny import config
 from python_scripts.processing import dataio
-
-import logging
-import pandas as pd
-import numpy as np
-import gvar as gv
-import gvar.dataset as ds
-import typing as t
-from python_scripts.a2a import contract as a2a
 
 ACTION_ORDER = ['build_high', 'average', 'sum', 'time_average', 'real', 'permkey_average', 'permkey_normalize',
                 'normalize', 'index', 'drop', 'gvar']
@@ -36,8 +36,29 @@ def stdjackknife(series: pd.Series) -> pd.Series:
 
 
 def group_apply(df: pd.DataFrame, func: t.Callable, data_col: str,
-                ungrouped_cols: t.List, invert=False) -> pd.DataFrame:
+                ungrouped_cols: t.List, invert: bool=False) -> pd.DataFrame:
 
+    """Applies `func` to `data_col` in `df` grouped by `ungrouped_cols`.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        
+    func : t.Callable
+        
+    data_col : str
+        
+    ungrouped_cols : t.List
+        
+    invert : bool, optional
+        
+
+    Returns
+    -------
+    pd.DataFrame
+        
+
+    """
     all_cols = list(df.index.names) + list(df.columns)
 
     if not invert:

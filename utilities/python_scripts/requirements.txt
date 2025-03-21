@@ -12,3 +12,4 @@ scipy>=1.6
 sympy>=1.8
 tables>=3.6
 opt_einsum>=3.3
+pydantic>=2.0
