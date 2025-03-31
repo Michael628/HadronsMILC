@@ -12,7 +12,7 @@ import typing as t
 
 from pydantic.dataclasses import dataclass
 
-from python_scripts import Gamma
+from python_scripts import Gamma, utils
 from python_scripts.nanny import TaskBase
 from python_scripts.nanny.config import OutfileList
 from python_scripts.nanny.tasks.hadrons import SubmitHadronsConfig, templates
@@ -24,10 +24,14 @@ class SeqSIBTask(TaskBase):
     gammas: t.List[Gamma]
     free: bool = False
     epack: bool = True
+    tstart: int = 0
 
-    # def __init__(self,mass: str, gammas: t.List[str]):
-    #     self.mass = mass
-    #     self.gammas = [Gamma[g] for g in gammas]
+    @classmethod
+    def from_dict(cls, kwargs):
+        params = utils.deep_copy_dict(kwargs)
+        params["gammas"] = [Gamma[g] for g in params["gammas"]]
+
+        return cls(**params)
 
 
 def input_params(
@@ -35,10 +39,13 @@ def input_params(
     submit_config: SubmitHadronsConfig,
     outfile_config_list: OutfileList,
 ) -> t.Tuple[t.List[t.Dict], t.Optional[t.List[str]]]:
-
     submit_conf_dict = submit_config.string_dict()
 
-    run_tsources = list(map(str, submit_config.tsource_range))
+    if tasks.tstart > 0:
+        new_range = [n for n in submit_config.tsource_range if n >= tasks.tstart]
+        run_tsources = list(map(str, new_range))
+    else:
+        run_tsources = list(map(str, submit_config.tsource_range))
 
     gauge_filepath = outfile_config_list.gauge_links.filestem.format(**submit_conf_dict)
     gauge_fat_filepath = outfile_config_list.fat_links.filestem.format(
@@ -148,12 +155,11 @@ def input_params(
 
             high_path = outfile_config_list.seq_modes.filestem
 
-            dsets = ["ama"]
+            solver_labels = ["ama"]
             if tasks.epack:
-                dsets.append("ranLL")
+                solver_labels.append("ranLL")
 
             for slabel in solver_labels:
-
                 quark = f"quark_{slabel}_mass_{mass_label}_t{tsource}_{glabel}"
 
                 source = f"noise_t{tsource}"

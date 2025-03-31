@@ -14,8 +14,19 @@ from python_scripts.a2a import contract as a2a
 from python_scripts.nanny import config
 from python_scripts.processing import dataio
 
-ACTION_ORDER = ['build_high', 'average', 'sum', 'time_average', 'real', 'permkey_average', 'permkey_normalize',
-                'normalize', 'index', 'drop', 'gvar']
+ACTION_ORDER = [
+    "build_high",
+    "average",
+    "sum",
+    "time_average",
+    "real",
+    "permkey_average",
+    "permkey_normalize",
+    "normalize",
+    "index",
+    "drop",
+    "gvar",
+]
 
 
 def stdjackknife(series: pd.Series) -> pd.Series:
@@ -35,28 +46,32 @@ def stdjackknife(series: pd.Series) -> pd.Series:
     return pd.Series(array_out, index=series.index)
 
 
-def group_apply(df: pd.DataFrame, func: t.Callable, data_col: str,
-                ungrouped_cols: t.List, invert: bool=False) -> pd.DataFrame:
-
+def group_apply(
+    df: pd.DataFrame,
+    func: t.Callable,
+    data_col: str,
+    ungrouped_cols: t.List,
+    invert: bool = False,
+) -> pd.DataFrame:
     """Applies `func` to `data_col` in `df` grouped by `ungrouped_cols`.
 
     Parameters
     ----------
     df : pd.DataFrame
-        
+
     func : t.Callable
-        
+
     data_col : str
-        
+
     ungrouped_cols : t.List
-        
+
     invert : bool, optional
-        
+
 
     Returns
     -------
     pd.DataFrame
-        
+
 
     """
     all_cols = list(df.index.names) + list(df.columns)
@@ -68,9 +83,7 @@ def group_apply(df: pd.DataFrame, func: t.Callable, data_col: str,
         grouped = ungrouped_cols
         ungrouped = [x for x in all_cols if x not in grouped] + [data_col]
 
-    df_out = df.reset_index().groupby(by=grouped)[
-        ungrouped
-    ].apply(func)
+    df_out = df.reset_index().groupby(by=grouped)[ungrouped].apply(func)
 
     while None in df_out.index.names:
         df_out = df_out.droplevel(df_out.index.names.index(None))
@@ -78,50 +91,52 @@ def group_apply(df: pd.DataFrame, func: t.Callable, data_col: str,
     return df_out
 
 
-def gvar(df: pd.DataFrame, data_col: str, key_index: t.Optional[str] = None) -> gv.BufferDict:
-
-    tvar = 't' if 't' in df.index.names else 'dt'
+def gvar(
+    df: pd.DataFrame, data_col: str, key_index: t.Optional[str] = None
+) -> gv.BufferDict:
+    tvar = "t" if "t" in df.index.names else "dt"
 
     nt = df.index.get_level_values(tvar).nunique()
 
-    labels_dt_last = sorted(df.index.names,
-                            key=lambda x: 0 if x == tvar else -1)
+    labels_dt_last = sorted(df.index.names, key=lambda x: 0 if x == tvar else -1)
 
     result = {}
     if not key_index:
-        result[data_col] = ds.avg_data(df.reorder_levels(labels_dt_last)[data_col] \
-                                       .to_numpy().reshape((-1, nt)))
+        result[data_col] = ds.avg_data(
+            df.reorder_levels(labels_dt_last)[data_col].to_numpy().reshape((-1, nt))
+        )
     else:
         if key_index in df.columns:
-            group_param = {'by': key_index}
+            group_param = {"by": key_index}
         else:
-            group_param = {'level': key_index}
+            group_param = {"level": key_index}
 
         for key, xs in df.groupby(**group_param):
-            result[key] = ds.avg_data(xs.reorder_levels(labels_dt_last)[data_col] \
-                .to_numpy().reshape((-1, nt)))
+            result[key] = ds.avg_data(
+                xs.reorder_levels(labels_dt_last)[data_col].to_numpy().reshape((-1, nt))
+            )
 
-    return pd.DataFrame(result,index=pd.Index(range(nt),name=tvar))
+    return pd.DataFrame(result, index=pd.Index(range(nt), name=tvar))
 
 
 def buffer(df: pd.DataFrame, data_col: str, key_index: str) -> gv.BufferDict:
-    tvar = 't' if 't' in df.index.names else 'dt'
+    tvar = "t" if "t" in df.index.names else "dt"
 
     buff = gv.BufferDict()
 
     nt = df.index.get_level_values(tvar).nunique()
 
-    labels_dt_last = sorted(df.index.names,
-                            key=lambda x: 0 if x == tvar else -1)
+    labels_dt_last = sorted(df.index.names, key=lambda x: 0 if x == tvar else -1)
 
     if key_index in df.columns:
-        group_param = {'by': key_index}
+        group_param = {"by": key_index}
     else:
-        group_param = {'level': key_index}
+        group_param = {"level": key_index}
 
     for key, xs in df.groupby(**group_param):
-        buff[key] = xs.reorder_levels(labels_dt_last)[data_col] \
-            .to_numpy().reshape((-1, nt))
+        buff[key] = (
+            xs.reorder_levels(labels_dt_last)[data_col].to_numpy().reshape((-1, nt))
+        )
 
     return buff
 
@@ -154,31 +169,29 @@ def drop(df, data_col, *args):
         elif key in df.columns:
             _ = df.pop(key)
         else:
-            raise ValueError(f'Drop Failed - No index or column `{key}` found.')
+            raise ValueError(f"Drop Failed - No index or column `{key}` found.")
     return df
 
 
 def index(df, data_col, *args):
-
     indices = [i for i in args]
     assert all([isinstance(i, str) for i in indices])
 
     if indices:
-        if 'series.cfg' in indices:
-
+        if "series.cfg" in indices:
             series: pd.DataFrame
             cfg: pd.DataFrame
-            for key in ['series', 'cfg']:
+            for key in ["series", "cfg"]:
                 if key in df.index.names:
                     df.reset_index(key, inplace=True)
 
-            series = df.pop('series')
-            cfg = df.pop('cfg')
+            series = df.pop("series")
+            cfg = df.pop("cfg")
 
-            df['series.cfg'] = series + '.' + cfg
+            df["series.cfg"] = series + "." + cfg
 
-            if 'series.cfg' in df.index.names:
-                df.reset_index('series.cfg', drop=True, inplace=True)
+            if "series.cfg" in df.index.names:
+                df.reset_index("series.cfg", drop=True, inplace=True)
 
         df.reset_index(inplace=True)
         df.set_index(indices, inplace=True)
@@ -193,13 +206,12 @@ def real(df, data_col, apply_real: bool = True):
 
 
 def normalize(df, data_col, divisor):
-    return df['corr'].apply(lambda x: x / float(divisor)).to_frame()
+    return df["corr"].apply(lambda x: x / float(divisor)).to_frame()
 
 
 def sum(df: pd.DataFrame, data_col, *sum_indices) -> pd.DataFrame:
-    """Sums `data_col` column in `df` over columns or indices specified in `avg_indices`
-        """
-    return group_apply(df,lambda x: x[data_col].mean(), data_col,list(sum_indices))
+    """Sums `data_col` column in `df` over columns or indices specified in `avg_indices`"""
+    return group_apply(df, lambda x: x[data_col].mean(), data_col, list(sum_indices))
 
 
 def average(df: pd.DataFrame, data_col, *avg_indices) -> pd.DataFrame:
@@ -208,60 +220,80 @@ def average(df: pd.DataFrame, data_col, *avg_indices) -> pd.DataFrame:
     """
     df_out = df
     for col in avg_indices:
-        df_out = group_apply(df_out,lambda x: x[data_col].mean(), data_col,[col]).to_frame(data_col)
+        df_out = group_apply(
+            df_out, lambda x: x[data_col].mean(), data_col, [col]
+        ).to_frame(data_col)
 
     return df_out
 
-def permkey_split_old(df: pd.DataFrame, data_col, permkey_col: str = 'permkey') -> pd.DataFrame:
-    df[permkey_col] = df[permkey_col].str.replace('e', '')
-    df[permkey_col] = df[permkey_col].str.replace('v[0-9]+', ',', regex=True)
-    df[permkey_col] = df[permkey_col].str.replace('w', '')
-    df[permkey_col] = df[permkey_col].str.rstrip(',')
-    df[permkey_col] = df[permkey_col].str.lstrip(',')
-    key_len = df.iloc[0][permkey_col].count(',')
-    assert all(df[permkey_col].str.count(',') == key_len)
+
+def permkey_split_old(
+    df: pd.DataFrame, data_col, permkey_col: str = "permkey"
+) -> pd.DataFrame:
+    df[permkey_col] = df[permkey_col].str.replace("e", "")
+    df[permkey_col] = df[permkey_col].str.replace("v[0-9]+", ",", regex=True)
+    df[permkey_col] = df[permkey_col].str.replace("w", "")
+    df[permkey_col] = df[permkey_col].str.rstrip(",")
+    df[permkey_col] = df[permkey_col].str.lstrip(",")
+    key_len = df.iloc[0][permkey_col].count(",")
+    assert all(df[permkey_col].str.count(",") == key_len)
     n_high = int(key_len + 1)
 
-    df[[f'{permkey_col}{i}' for i in range(n_high)]] = df[permkey_col].str.split(',', expand=True)
-    df.drop(permkey_col, inplace=True, axis='columns')
+    df[[f"{permkey_col}{i}" for i in range(n_high)]] = df[permkey_col].str.split(
+        ",", expand=True
+    )
+    df.drop(permkey_col, inplace=True, axis="columns")
     return df
 
-def permkey_split(df: pd.DataFrame, data_col, permkey_col: str = 'permkey') -> pd.DataFrame:
+
+def permkey_split(
+    df: pd.DataFrame, data_col, permkey_col: str = "permkey"
+) -> pd.DataFrame:
     if permkey_col in df.index.names:
         df.reset_index(permkey_col, inplace=True)
 
-    if '_' not in df.iloc[0][permkey_col]:
+    if "_" not in df.iloc[0][permkey_col]:
         return permkey_split_old(df, data_col, permkey_col)
 
-    df[permkey_col] = df[permkey_col].str.replace('(e_|_e)', '', regex=True)
-    key_len = df.iloc[0][permkey_col].count('_')
-    assert all(df[permkey_col].str.count('_') == key_len)
-    n_high = int(key_len + 1)//2
+    df[permkey_col] = df[permkey_col].str.replace("(e_|_e)", "", regex=True)
+    key_len = df.iloc[0][permkey_col].count("_")
+    assert all(df[permkey_col].str.count("_") == key_len)
+    n_high = int(key_len + 1) // 2
 
-    df[[f'{permkey_col}{i}' for i in range(n_high)]] = df[permkey_col].str.split('_', expand=True)[list(range(n_high))]
-    df.drop(permkey_col, inplace=True, axis='columns')
+    df[[f"{permkey_col}{i}" for i in range(n_high)]] = df[permkey_col].str.split(
+        "_", expand=True
+    )[list(range(n_high))]
+    df.drop(permkey_col, inplace=True, axis="columns")
     return df
 
-def permkey_normalize(df: pd.DataFrame, data_col, permkey_col: str = 'permkey') -> pd.DataFrame:
+
+def permkey_normalize(
+    df: pd.DataFrame, data_col, permkey_col: str = "permkey"
+) -> pd.DataFrame:
     df_out = df
-    if f'{permkey_col}0' not in df_out.columns:
+    if f"{permkey_col}0" not in df_out.columns:
         df_out = permkey_split(df_out, data_col, permkey_col)
 
     perm_cols = [x for x in df_out.columns if permkey_col in x]
 
-    n_high_modes = df_out[f'{permkey_col}{len(perm_cols) - 1}'].astype(int).max() + 1
-    n_unique_comb = df_out[perm_cols].drop_duplicates()[f'{permkey_col}0'].count()
+    n_high_modes = df_out[f"{permkey_col}{len(perm_cols) - 1}"].astype(int).max() + 1
+    n_unique_comb = df_out[perm_cols].drop_duplicates()[f"{permkey_col}0"].count()
     n_index_modes = n_high_modes - (len(perm_cols) - 1)
     df_out[data_col] = df_out[data_col] * n_unique_comb / n_index_modes
     for p in perm_cols[:-1]:
         n_index_modes += 1
-        df_out[data_col] = df_out[data_col] / (n_index_modes - df_out[p].astype(int) - 1)
+        df_out[data_col] = df_out[data_col] / (
+            n_index_modes - df_out[p].astype(int) - 1
+        )
 
     return df_out
 
 
-def permkey_average(df: pd.DataFrame, data_col, permkey_col: str = 'permkey') -> pd.DataFrame:
+def permkey_average(
+    df: pd.DataFrame, data_col, permkey_col: str = "permkey"
+) -> pd.DataFrame:
     df_out = permkey_split(df, data_col, permkey_col)
+
     perm_cols = [x for x in df_out.columns if permkey_col in x]
 
     return average(df_out, data_col, *perm_cols)
@@ -272,16 +304,18 @@ def time_average(df: pd.DataFrame, data_col: str, *avg_indices) -> pd.DataFrame:
     one at a time.
     """
     assert len(avg_indices) == 2
-    tvar = 't' if 't' in df.index.names else 'dt'
+    tvar = "t" if "t" in df.index.names else "dt"
 
     def apply_func(x):
         nt = int(np.sqrt(len(x)))
-        assert nt ** 2 == len(x)
+        assert nt**2 == len(x)
         corr = x[data_col].to_numpy().reshape((nt, nt))
-        return pd.DataFrame({data_col: a2a.time_average(corr)}, index=pd.Index(range(nt), name=tvar))
+        return pd.DataFrame(
+            {data_col: a2a.time_average(corr)}, index=pd.Index(range(nt), name=tvar)
+        )
 
+    return group_apply(df, apply_func, data_col, list(avg_indices))
 
-    return group_apply(df,apply_func,data_col,list(avg_indices))
 
 # def fold(df: pd.DataFrame, apply_fold: bool = True) -> pd.DataFrame:
 #
@@ -305,20 +339,18 @@ def time_average(df: pd.DataFrame, data_col: str, *avg_indices) -> pd.DataFrame:
 #
 #
 
-def call(df, func_name, data_col, *args, **kwargs):
 
+def call(df, func_name, data_col, *args, **kwargs):
     func = globals().get(func_name, None)
     if callable(func):
         return func(df, data_col, *args, **kwargs)
     else:
-        raise AttributeError(
-            f"Function '{func_name}' not found or is not callable.")
+        raise AttributeError(f"Function '{func_name}' not found or is not callable.")
 
 
 def execute(df: pd.DataFrame, actions: t.Dict) -> pd.DataFrame:
-
     df_out = df
-    data_col = actions.pop('data_col', 'corr')
+    data_col = actions.pop("data_col", "corr")
 
     for key in sorted(actions.keys(), key=ACTION_ORDER.index):
         assert key in ACTION_ORDER
@@ -341,62 +373,61 @@ def main(*args, **kwargs):
     logging_level: str
 
     if kwargs:
-        logging_level = kwargs.pop('logging_level', 'INFO')
+        logging_level = kwargs.pop("logging_level", "INFO")
         proc_params = kwargs
     else:
-        params = utils.load_param('params.yaml')
-        if len(args) == 1 and isinstance(args[0],str):
+        params = utils.load_param("params.yaml")
+        if len(args) == 1 and isinstance(args[0], str):
             step = args[0]
             job_config = config.get_job_config(params, step)
             submit_config = config.get_submit_config(params, job_config)
             outfile_config = config.get_outfile_config(params)
-            proc_params = config.processing_params(job_config, submit_config, outfile_config)
+            proc_params = config.processing_params(
+                job_config, submit_config, outfile_config
+            )
         else:
             try:
-                proc_params = params['process_files']
+                proc_params = params["process_files"]
             except KeyError:
                 raise ValueError("Expecting `process_files` key in params.yaml file.")
 
-        logging_level = proc_params.pop('logging_level', 'INFO')
+        logging_level = proc_params.pop("logging_level", "INFO")
 
     logging.getLogger().setLevel(logging_level)
 
     result = {}
-    for key in proc_params['run']:
+    for key in proc_params["run"]:
         run_params = proc_params[key]
 
         result[key] = dataio.main(**run_params)
-        actions = run_params.get('actions', {})
-        out_files = run_params.get('out_files', {})
-        index = out_files.pop('index', None)
+        actions = run_params.get("actions", {})
+        out_files = run_params.get("out_files", {})
+        index = out_files.pop("index", None)
 
         if index:
-            actions.update({'index': index})
+            actions.update({"index": index})
 
-        if 'actions' in run_params:
-            result[key] = execute(result[key], run_params['actions'])
+        if "actions" in run_params:
+            result[key] = execute(result[key], run_params["actions"])
 
         if out_files:
-            out_type = out_files['type']
-            if out_type == 'dictionary':
-                filestem = out_files['filestem']
-                depth = int(out_files['depth'])
+            out_type = out_files["type"]
+            if out_type == "dictionary":
+                filestem = out_files["filestem"]
+                depth = int(out_files["depth"])
                 dataio.write_dict(result[key], filestem, depth)
-            elif out_type == 'dataframe':
-                filestem = out_files['filestem']
+            elif out_type == "dataframe":
+                filestem = out_files["filestem"]
                 dataio.write_frame(result[key], filestem)
             else:
-                raise NotImplementedError(
-                    f"No support for out file type {out_type}."
-                )
+                raise NotImplementedError(f"No support for out file type {out_type}.")
 
     return result
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     if len(sys.argv) == 2:
         step = sys.argv[1]
         result = main(step)
     else:
         result = main()
-
