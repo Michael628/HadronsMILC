@@ -119,7 +119,9 @@ class JobConfig:
 
         if 'job_type' not in params:
             params['job_type'] = 'hadrons'
-            params['task_type'] = 'lmi'
+        if params['job_type'] == 'hadrons':
+            if 'task_type' not in params:
+                params['task_type'] = 'lmi'
 
         task_type = params.get('task_type',None)
 

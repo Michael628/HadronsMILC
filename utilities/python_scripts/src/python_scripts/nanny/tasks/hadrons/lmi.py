@@ -545,17 +545,18 @@ def processing_params(task_config: LMITask, submit_config: SubmitHadronsConfig,
     replacements = {k: v for k, v in submit_config.string_dict().items() if k in filekeys}
     replacements['tsource'] = list(map(str, submit_config.tsource_range))
 
+    solver_labels = []
+    if task_config.epack:
+        solver_labels.append('ranLL')
     if task_config.high_modes:
-        dsets = []
-        if task_config.epack:
-            dsets.append('ranLL')
+
         if not task_config.high_modes.skip_cg:
-            dsets.append('ama')
+            solver_labels.append('ama')
 
         for op in task_config.high_modes.operations:
             gamma_label = op.gamma.name.lower()
             replacements['gamma_label'] = gamma_label
-            for m,dset in itertools.product(op.mass,dsets):
+            for m,dset in itertools.product(op.mass,solver_labels):
                 mass_label = submit_config.mass_out_label[m]
                 file_label = f'{gamma_label}_{mass_label}_{dset}'
                 proc_params['run'].append(file_label)
