@@ -16,6 +16,7 @@ class SubmitSmearConfig(SubmitConfig):
     space: int
     series: t.Optional[str] = None
     cfg: t.Optional[str] = None
+    geom: t.Optional[str] = None
 
 @dataclass
 class SmearTask(TaskBase):
@@ -45,6 +46,15 @@ def input_params(tasks: SmearTask, submit_config: SubmitSmearConfig,
         f"ny {space}",
         f"nz {space}",
         f"nt {time}",
+    ])
+    if geom:=submit_config.geom:
+        input_string += "\n".join([
+            "",
+            f"node_geometry {geom}",
+            f"\nionode_geometry {geom}"
+        ])
+    input_string += "\n".join([
+        "",
         "iseed 1234",
         f"reload_parallel {lat}",
         "u0   1",
