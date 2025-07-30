@@ -21,3 +21,4 @@ __pycache__/*
 .tags_sorted_by_file
 .idea
 CMakeLists.txt
+AGENTS.md
