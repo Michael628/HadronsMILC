@@ -75,7 +75,7 @@ hadrons)
 	;;
 app)
 	GIT_REPO=https://github.com/Michael628/HadronsMILC
-	GIT_BRANCH="develop"
+	GIT_BRANCH="master"
 	SRCDIR=${TOPDIR}/HadronsMILC
 	;;
 deps)
