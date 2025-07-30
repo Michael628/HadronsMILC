@@ -1,3 +1,4 @@
 [submodule "utilities/pyfm"]
 	path = utilities/pyfm
 	url = https://github.com/Michael628/pyfm.git
+	ignore = all
