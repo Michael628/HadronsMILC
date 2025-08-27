@@ -49,7 +49,7 @@ grid)
 		GIT_BRANCH="feature/staggered-a2a-ml"
 		;;
 	*)
-		GIT_BRANCH="feature/LMI-master"
+		GIT_BRANCH="feature/LMI-develop"
 		;;
 	esac
 	SRCDIR=${TOPDIR}/Grid
@@ -61,14 +61,14 @@ hadrons)
 		GIT_BRANCH="feature/staggered-a2a-ml"
 		;;
 	*)
-		GIT_BRANCH="feature/LMI-master"
+		GIT_BRANCH="feature/LMI-develop"
 		;;
 	esac
 	SRCDIR=${TOPDIR}/Hadrons
 	;;
 app)
 	GIT_REPO=https://github.com/Michael628/HadronsMILC
-	GIT_BRANCH="main"
+	GIT_BRANCH="develop"
 	SRCDIR=${TOPDIR}/HadronsMILC
 	;;
 deps)
