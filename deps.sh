@@ -25,9 +25,6 @@ while test $# -gt 0; do
 	--hdf5)
 		hdf5_flag='true'
 		shift
-	--hdf5)
-		hdf5_flag='true'
-		shift
 		;;
 	--all)
 		gmp_flag='true'
@@ -66,7 +63,7 @@ if [ $gmp_flag = 'true' ]; then
 	../configure \
 		--prefix=${INSTALLDIR} \
 		CXXFLAGS=${cxx_flags} CFLAGS=${cxx_flags} \
-    LDFLAGS=${ld_flags}
+		LDFLAGS=${ld_flags}
 	make all install
 	status=$?
 

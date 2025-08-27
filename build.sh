@@ -1,12 +1,5 @@
 #! /bin/bash
 
-CC=gcc
-CXX=g++
-
-if [ -z $CXX ] || [ -z $CC ]; then
-	echo "Must define CXX and CC"
-fi
-
 echo "CC=$CC"
 echo "CPP=$CPP"
 echo "CXX=$CXX"
@@ -75,7 +68,7 @@ hadrons)
 	;;
 app)
 	GIT_REPO=https://github.com/Michael628/HadronsMILC
-	GIT_BRANCH="master"
+	GIT_BRANCH="main"
 	SRCDIR=${TOPDIR}/HadronsMILC
 	;;
 deps)
@@ -122,7 +115,7 @@ popd
 rm -rf ${BUILDDIR}
 mkdir -p ${BUILDDIR}
 pushd ${BUILDDIR}
-if [ ! -f Makefile ]; then
+if [ ! -f Makefile ] || [ "${force_flag}" == 'true' ]; then
 	echo "Configuring ${SOURCE} for ${ARCH} in ${BUILDDIR}"
 
 	case ${ARCH} in
