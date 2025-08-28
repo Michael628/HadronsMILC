@@ -1,9 +1,9 @@
 #!/bin/bash
 # Installs gmp, mpfr, lime, and (sometimes) hdf5
-gmp_flag=''
-mpfr_flag=''
-lime_flag=''
-hdf5_flag=''
+gmp_flag='false'
+mpfr_flag='false'
+lime_flag='false'
+hdf5_flag='false'
 
 ld_flag='-nostartfiles'
 

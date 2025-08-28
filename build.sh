@@ -7,7 +7,12 @@ echo "CXX=$CXX"
 force_flag='false'
 
 print_usage() {
-	printf "Usage: $0 [OPTION] ARCH SOURCE"
+	printf "Usage: $0 [OPTION] ARCH SOURCE\n"
+	printf "Valid Architectures: perlmutter, perlmutter-dev\n"
+	printf "Valid Sources: deps, grid, hadrons, app\n"
+	printf "Options:\n"
+	printf "  -f, --force    Force reconfiguration\n"
+	exit 1
 }
 
 while test $# -gt 0; do
@@ -33,9 +38,7 @@ done
 case ${ARCH} in
 scalar | mpi) ;;
 *)
-	echo "Unsupported ARCH"
-	echo "Usage $0 <scalar|mpi> <deps|grid|hadrons|app>"
-	exit 1
+	print_usage
 	;;
 esac
 
@@ -82,13 +85,11 @@ deps)
 		if [ $status -ne 0 ]; then
 			echo "Dependency script failed. See output."
 		fi
-		exit 0
+		exit 1
 	fi
 	;;
 *)
-	echo "Unsupported build type"
-	echo "Usage $0 <scalar|mpi> <grid|hadrons|app>"
-	exit 1
+	print_usage
 	;;
 esac
 
@@ -108,21 +109,24 @@ fi
 # Fetch Eigen package, set up Make.inc files and create Grid configure
 pushd ${SRCDIR}
 git checkout ${GIT_BRANCH}
-./bootstrap.sh
+if [ -f bootstrap.sh ]; then
+	./bootstrap.sh
+fi
 popd
 
 # Configure only if not already configured
-rm -rf ${BUILDDIR}
 mkdir -p ${BUILDDIR}
 pushd ${BUILDDIR}
 if [ ! -f Makefile ] || [ "${force_flag}" == 'true' ]; then
+	if [ ! -f Makefile ]; then
+		make distclean
+	fi
 	echo "Configuring ${SOURCE} for ${ARCH} in ${BUILDDIR}"
 
-	case ${ARCH} in
-
-	mpi)
-		case ${SOURCE} in
-		grid)
+	case ${SOURCE} in
+	grid)
+		case ${ARCH} in
+		mpi)
 			${SRCDIR}/configure \
 				--prefix=${INSTALLDIR} \
 				--enable-debug \
@@ -134,12 +138,7 @@ if [ ! -f Makefile ] || [ "${force_flag}" == 'true' ]; then
 			status=$?
 			echo "Configure exit status $status"
 			;;
-		esac
-		;;
-
-	scalar)
-		case ${SOURCE} in
-		grid)
+		scalar)
 			${SRCDIR}/configure \
 				--prefix=${INSTALLDIR} \
 				--enable-debug \
@@ -153,14 +152,22 @@ if [ ! -f Makefile ] || [ "${force_flag}" == 'true' ]; then
 			status=$?
 			echo "Configure exit status $status"
 			;;
-		hadrons)
+		esac
+		;;
+	hadrons)
+		case ${ARCH} in
+		*)
 			../configure \
 				--prefix ${INSTALLDIR} \
 				--with-grid=${TOPDIR}/Grid/install-${ARCH}
 			status=$?
 			echo "Configure exit status $status"
 			;;
-		app)
+		esac
+		;;
+	app)
+		case ${ARCH} in
+		*)
 			../configure \
 				--prefix ${INSTALLDIR} \
 				--with-grid=${TOPDIR}/Grid/install-${ARCH} \
