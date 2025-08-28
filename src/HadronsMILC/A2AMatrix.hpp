@@ -147,7 +147,7 @@ public:
                  const FilenameFn &filenameFn,
                  const MetadataFn &metadataFn,
                  std::vector<Field> *evecs = nullptr,
-                 const Vector<ComplexD> &evals = {},
+                 const hostVector<ComplexD> &evals = {},
                  const SwapFn *swapEvecCheckerFn = nullptr);
 private:
     // I/O handler
@@ -418,14 +418,14 @@ void A2AMatrixBlockComputationMILC<T, Field, MetadataType, TIo>
 ::execute(const std::vector<Field> &left, const std::vector<Field> &right,
           A2AKernelMILC<T, Field> &kernel, const FilenameFn &ionameFn,
           const FilenameFn &filenameFn, const MetadataFn &metadataFn,
-          std::vector<Field> *evecs,const Vector<ComplexD> &evals, const SwapFn *swapEvecCheckerFn)
+          std::vector<Field> *evecs,const hostVector<ComplexD> &evals, const SwapFn *swapEvecCheckerFn)
 {
     //////////////////////////////////////////////////////////////////////////
     // i,j   is first  loop over _blockSize factors
     // Total index is sum of these  i+ii+iii etc...
     //////////////////////////////////////////////////////////////////////////
 
-    Vector<T> mCache;
+    hostVector<T> mCache;
     mCache.resize(_nt*_next*_nstr*_blockSize*_blockSize);
     // size_t mCache_bytes = _nt*_next*_nstr*_blockSize*_blockSize*sizeof(T);
     // T *mCache_p = (T*)acceleratorAllocDevice(mCache_bytes);
@@ -433,7 +433,7 @@ void A2AMatrixBlockComputationMILC<T, Field, MetadataType, TIo>
 
     MemoryManager::PrintBytes();
 
-    Vector<TIo>    mBuf;
+    hostVector<TIo>    mBuf;
 
     bool checkerboarded_low = (swapEvecCheckerFn != nullptr);
     int Ncb = checkerboarded_low?2:1; // Ncb == 2 if the low modes are checkerboarded

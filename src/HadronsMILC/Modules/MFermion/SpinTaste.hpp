@@ -117,9 +117,9 @@ template <typename FImpl>
 void TSpinTasteMILC<FImpl>::setup(void)
 {
   auto gammaList = strToVec<StagGamma::SpinTastePair>(par().gammas);
-  envCreate(Vector<StagGamma>, getName(), 1, gammaList.size(),StagGamma());
+  envCreate(hostVector<StagGamma>, getName(), 1, gammaList.size(),StagGamma());
 
-  auto &spinTaste = envGet(Vector<StagGamma>,getName());
+  auto &spinTaste = envGet(hostVector<StagGamma>,getName());
 
   for (int i = 0; i < gammaList.size(); i++) {
     spinTaste[i].setSpinTaste(gammaList[i]);

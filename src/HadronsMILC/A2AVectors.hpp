@@ -49,7 +49,7 @@ public:
     A2AVectorsMILC(FMat &action, Solver &solver);
     virtual ~A2AVectorsMILC(void) = default;
 
-    void removeLowModeProjection(std::vector<FermionField> &wout, const std::vector<FermionField> &evecs, const Vector<ComplexD> evals);
+    void removeLowModeProjection(std::vector<FermionField> &wout, const std::vector<FermionField> &evecs, const hostVector<ComplexD> evals);
     inline void makeLowModeCBeooe(FermionField &out, const FermionField &evec, const Complex eval);
     void makeLowModePairs(typename std::vector<FermionField>::iterator vecOut, 
                           const typename std::vector<FermionField>::iterator evec, const Complex eval);
@@ -103,7 +103,7 @@ inline void A2AVectorsMILC<FImpl>::makeLowModeCBeooe(FermionField &out, const Fe
 }
 
 template <typename FImpl>
-void A2AVectorsMILC<FImpl>::removeLowModeProjection(std::vector<FermionField> &wout, const std::vector<FermionField> &evecs, const Vector<ComplexD> evals)
+void A2AVectorsMILC<FImpl>::removeLowModeProjection(std::vector<FermionField> &wout, const std::vector<FermionField> &evecs, const hostVector<ComplexD> evals)
 {
     // Alternate form
     int cb = evecs[0].Checkerboard();

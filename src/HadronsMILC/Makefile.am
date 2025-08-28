@@ -9,6 +9,7 @@ libHadronsMILC_a_SOURCES = \
 
 libHadronsMILC_adir = $(includedir)/HadronsMILC
 nobase_libHadronsMILC_a_HEADERS = \
+	EigenPack.hpp            \
 	A2AVectors.hpp            \
 	A2AMatrix.hpp             \
 	DilutedNoise.hpp          \
