@@ -34,20 +34,20 @@
 #include <Hadrons/Global.hpp>
 #include <Hadrons/Module.hpp>
 #include <Hadrons/ModuleFactory.hpp>
-#include "../../../spin/StagGamma.h"
+#include <spin/StagGamma.h>
 
 BEGIN_HADRONS_NAMESPACE
 
 /******************************************************************************
- *                                 SpinTasteMILC                                      *
+ *                                 SpinTasteMILC *
  ******************************************************************************/
 BEGIN_MODULE_NAMESPACE(MFermion)
 
 template <typename FImpl>
-class TSpinTasteMILC: public Module<SpinTasteParams>
-{
+class TSpinTasteMILC : public Module<SpinTasteParams> {
 public:
-  FERM_TYPE_ALIASES(FImpl,);
+  FERM_TYPE_ALIASES(FImpl, );
+
 public:
   // constructor
   TSpinTasteMILC(const std::string name);
@@ -57,11 +57,13 @@ public:
   virtual std::vector<std::string> getInput(void);
   virtual std::vector<std::string> getOutput(void);
   virtual DependencyMap getObjectDependencies(void);
+
 protected:
   // setup
   virtual void setup(void);
   // execution
   virtual void execute(void);
+
 private:
   bool hasPhase_{false};
   std::string phName_;
@@ -70,18 +72,16 @@ private:
 MODULE_REGISTER_TMP(SpinTaste, TSpinTasteMILC<STAGIMPL>, MFermion);
 
 /******************************************************************************
- *                          TSpinTasteMILC implementation                             *
+ *                          TSpinTasteMILC implementation *
  ******************************************************************************/
 // constructor /////////////////////////////////////////////////////////////////
 template <typename FImpl>
 TSpinTasteMILC<FImpl>::TSpinTasteMILC(const std::string name)
-  : Module<SpinTasteParams>(name)
-{}
+    : Module<SpinTasteParams>(name) {}
 
 // dependencies/products ///////////////////////////////////////////////////////
 template <typename FImpl>
-std::vector<std::string> TSpinTasteMILC<FImpl>::getInput(void)
-{
+std::vector<std::string> TSpinTasteMILC<FImpl>::getInput(void) {
   std::vector<std::string> in;
 
   if (!par().gauge.empty()) {
@@ -92,48 +92,42 @@ std::vector<std::string> TSpinTasteMILC<FImpl>::getInput(void)
 }
 
 template <typename FImpl>
-std::vector<std::string> TSpinTasteMILC<FImpl>::getOutput(void)
-{
+std::vector<std::string> TSpinTasteMILC<FImpl>::getOutput(void) {
   std::vector<std::string> out = {getName()};
-
 
   return out;
 }
 
 template <typename FImpl>
-DependencyMap TSpinTasteMILC<FImpl>::getObjectDependencies(void)
-{
-    DependencyMap dep;
-    
-    if (!par().gauge.empty()) {
-      dep.insert({par().gauge, getName()});
-    }
+DependencyMap TSpinTasteMILC<FImpl>::getObjectDependencies(void) {
+  DependencyMap dep;
 
-    return dep;
+  if (!par().gauge.empty()) {
+    dep.insert({par().gauge, getName()});
+  }
+
+  return dep;
 }
 
 // setup ///////////////////////////////////////////////////////////////////////
-template <typename FImpl>
-void TSpinTasteMILC<FImpl>::setup(void)
-{
+template <typename FImpl> void TSpinTasteMILC<FImpl>::setup(void) {
   auto gammaList = strToVec<StagGamma::SpinTastePair>(par().gammas);
-  envCreate(Vector<StagGamma>, getName(), 1, gammaList.size(),StagGamma());
+  envCreate(std::vector<StagGamma>, getName(), 1, gammaList.size(),
+            StagGamma());
 
-  auto &spinTaste = envGet(Vector<StagGamma>,getName());
+  auto &spinTaste = envGet(std::vector<StagGamma>, getName());
 
   for (int i = 0; i < gammaList.size(); i++) {
     spinTaste[i].setSpinTaste(gammaList[i]);
     if (!par().gauge.empty()) {
-      auto& gauge = envGet(LatticeGaugeField, par().gauge);
+      auto &gauge = envGet(LatticeGaugeField, par().gauge);
       spinTaste[i].setGaugeField(gauge);
     }
   }
 }
 
 // execution ///////////////////////////////////////////////////////////////////
-template <typename FImpl>
-void TSpinTasteMILC<FImpl>::execute(void)
-{}
+template <typename FImpl> void TSpinTasteMILC<FImpl>::execute(void) {}
 
 END_MODULE_NAMESPACE
 

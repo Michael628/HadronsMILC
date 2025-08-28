@@ -1,13 +1,12 @@
 /*
- * FullVolumeSpinColorDiagonal.hpp, part of Hadrons (https://github.com/aportelli/Hadrons)
+ * TimeDilutedSpinColorDiagonalMILC.hpp, part of Hadrons (https://github.com/aportelli/Hadrons)
  *
  * Copyright (C) 2015 - 2020
  *
  * Author: Antonin Portelli <antonin.portelli@me.com>
  * Author: Fionn O hOgain <fionn.o.hogain@ed.ac.uk>
  * Author: Fionn Ó hÓgáin <fionnoh@gmail.com>
- * Author: Vera Guelpers <Vera.Guelpers@ed.ac.uk>
- * Author: Vera Guelpers <vmg1n14@soton.ac.uk>
+ * Author: Michael Lynch <michaellynch628@gmail.com>
  *
  * Hadrons is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,38 +26,39 @@
  */
 
 /*  END LEGAL */
-#ifndef HadronsMILC_MNoise_FullVolumeSpinColorDiagonal_hpp_
-#define HadronsMILC_MNoise_FullVolumeSpinColorDiagonal_hpp_
+#ifndef HadronsMILC_MNoise_TimeDilutedSpinColorDiagonal_hpp_
+#define HadronsMILC_MNoise_TimeDilutedSpinColorDiagonal_hpp_
 
 #include <Hadrons/Global.hpp>
 #include <Hadrons/Module.hpp>
 #include <Hadrons/ModuleFactory.hpp>
-#include "../../DilutedNoise.hpp"
+#include <DilutedNoise.hpp>
 
 BEGIN_HADRONS_NAMESPACE
 
 /******************************************************************************
- *             Generate full volume spin-color diagonal noise                *
+ *             Generate time diluted spin-color diagonal noise                *
  ******************************************************************************/
 BEGIN_MODULE_NAMESPACE(MNoise)
 
-class FullVolumeSpinColorDiagonalMILCPar: Serializable
+class TimeDilutedSpinColorDiagonalMILCPar: Serializable
 {
 public:
-    GRID_SERIALIZABLE_CLASS_MEMBERS(FullVolumeSpinColorDiagonalMILCPar,
-                                    unsigned int, nsrc);
+    GRID_SERIALIZABLE_CLASS_MEMBERS(TimeDilutedSpinColorDiagonalMILCPar,
+                                    unsigned int, nsrc,
+                                    unsigned int, tStep);
 };
 
 template <typename FImpl>
-class TFullVolumeSpinColorDiagonalMILC: public Module<FullVolumeSpinColorDiagonalMILCPar>
+class TTimeDilutedSpinColorDiagonalMILC: public Module<TimeDilutedSpinColorDiagonalMILCPar>
 {
 public:
     FERM_TYPE_ALIASES(FImpl,);
 public:
     // constructor
-    TFullVolumeSpinColorDiagonalMILC(const std::string name);
+    TTimeDilutedSpinColorDiagonalMILC(const std::string name);
     // destructor
-    virtual ~TFullVolumeSpinColorDiagonalMILC(void) {};
+    virtual ~TTimeDilutedSpinColorDiagonalMILC(void) {};
     // dependency relation
     virtual std::vector<std::string> getInput(void);
     virtual std::vector<std::string> getOutput(void);
@@ -68,20 +68,20 @@ public:
     virtual void execute(void);
 };
 
-MODULE_REGISTER_TMP(StagFullVolumeSpinColorDiagonal, TFullVolumeSpinColorDiagonalMILC<STAGIMPL>, MNoise);
+MODULE_REGISTER_TMP(StagTimeDilutedSpinColorDiagonal, TTimeDilutedSpinColorDiagonalMILC<STAGIMPL>, MNoise);
 
 /******************************************************************************
- *              TFullVolumeSpinColorDiagonalMILC implementation                  *
+ *              TTimeDilutedSpinColorDiagonalMILC implementation                  *
  ******************************************************************************/
 // constructor /////////////////////////////////////////////////////////////////
 template <typename FImpl>
-TFullVolumeSpinColorDiagonalMILC<FImpl>::TFullVolumeSpinColorDiagonalMILC(const std::string name)
-: Module<FullVolumeSpinColorDiagonalMILCPar>(name)
+TTimeDilutedSpinColorDiagonalMILC<FImpl>::TTimeDilutedSpinColorDiagonalMILC(const std::string name)
+: Module<TimeDilutedSpinColorDiagonalMILCPar>(name)
 {}
 
 // dependencies/products ///////////////////////////////////////////////////////
 template <typename FImpl>
-std::vector<std::string> TFullVolumeSpinColorDiagonalMILC<FImpl>::getInput(void)
+std::vector<std::string> TTimeDilutedSpinColorDiagonalMILC<FImpl>::getInput(void)
 {
     std::vector<std::string> in;
     
@@ -89,40 +89,55 @@ std::vector<std::string> TFullVolumeSpinColorDiagonalMILC<FImpl>::getInput(void)
 }
 
 template <typename FImpl>
-std::vector<std::string> TFullVolumeSpinColorDiagonalMILC<FImpl>::getOutput(void)
+std::vector<std::string> TTimeDilutedSpinColorDiagonalMILC<FImpl>::getOutput(void)
 {
-    std::vector<std::string> out = {getName(), getName()+"_vec"};
-
+    std::vector<std::string> out = {getName(), getName()+"_vec", getName()+"_shift"};
+    
     return out;
 }
 
 // setup ///////////////////////////////////////////////////////////////////////
 template <typename FImpl>
-void TFullVolumeSpinColorDiagonalMILC<FImpl>::setup(void)
+void TTimeDilutedSpinColorDiagonalMILC<FImpl>::setup(void)
 {
     envCreateDerived(SpinColorDiagonalNoiseMILC<FImpl>, 
-                     FullVolumeNoiseMILC<FImpl>,
+                     TimeDilutedNoiseMILC<FImpl>,
                      getName(), 1, envGetGrid(FermionField), par().nsrc);
 
     envCreate(std::vector<FermionField>, getName() + "_vec", 1, 0, envGetGrid(FermionField));
+
+    envCreate(std::vector<Integer>, getName()+"_shift", 1, 0, 0);
 }
 
 // execution ///////////////////////////////////////////////////////////////////
 template <typename FImpl>
-void TFullVolumeSpinColorDiagonalMILC<FImpl>::execute(void)
+void TTimeDilutedSpinColorDiagonalMILC<FImpl>::execute(void)
 {
+
     auto &noise = envGet(SpinColorDiagonalNoiseMILC<FImpl>, getName());
-    LOG(Message) << "Generating full volume, spin-color diagonal noise" << std::endl;
+    LOG(Message) << "Generating time-diluted, spin-color diagonal noise" << std::endl;
     noise.generateNoise(rng4d());
 
     auto &noisevec = envGet(std::vector<FermionField>,getName()+"_vec");
 
     int nferm = noise.fermSize();
-    int nsc   = (int)(nferm/(noise.size()));
+    int nt    = envGetGrid(FermionField)->GlobalDimensions()[Tp];
+    int nsc   = (int)(nferm/(noise.size()*nt));
+    int tStep = par().tStep > 1 ? par().tStep : 1;
+
+    nferm = (nferm/nsc+(tStep-1))/tStep*nsc;
 
     noisevec.resize(nferm,envGetGrid(FermionField));
     for (int i=0;i<nferm;i++) {
-        noisevec[i] = noise.getFerm(i);
+        noisevec[i] = noise.getFerm((i%nsc)+((i/nsc)*nsc*tStep));
+    }
+
+    auto &time_shift = envGet(std::vector<Integer>,getName()+"_shift");
+
+    time_shift.resize(nferm,0);
+
+    for (int i = 0;i<time_shift.size();i++) {
+        time_shift[i] = ((i/nsc)*tStep)%nt;
     }
 }
 
@@ -130,4 +145,4 @@ END_MODULE_NAMESPACE
 
 END_HADRONS_NAMESPACE
 
-#endif // HadronsMILC_MNoise_FullVolumeSpinColorDiagonal_hpp_
+#endif // Hadrons_MNoise_TimeDilutedSpinColorDiagonal_hpp_
