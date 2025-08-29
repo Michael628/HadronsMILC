@@ -33,7 +33,7 @@
 #include <Hadrons/Global.hpp>
 #include <Hadrons/Module.hpp>
 #include <Hadrons/ModuleFactory.hpp>
-#include "../../../spin/StagGamma.h"
+#include <spin/StagGamma.h>
 
 BEGIN_HADRONS_NAMESPACE
 

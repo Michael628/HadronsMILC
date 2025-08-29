@@ -34,7 +34,7 @@
 #include <Hadrons/Global.hpp>
 #include <Hadrons/Module.hpp>
 #include <Hadrons/ModuleFactory.hpp>
-#include "../../DilutedNoise.hpp"
+#include <DilutedNoise.hpp>
 
 BEGIN_HADRONS_NAMESPACE
 

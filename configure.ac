@@ -77,6 +77,6 @@ AC_SUBST([CXXLD])
 AC_SUBST([AM_CXXFLAGS])
 AC_SUBST([AM_LDFLAGS])
 AC_CONFIG_FILES([Makefile])
-AC_CONFIG_FILES([src/HadronsMILC/Makefile])
+AC_CONFIG_FILES([src/Makefile])
 AC_CONFIG_FILES([utilities/Makefile])
 AC_OUTPUT
