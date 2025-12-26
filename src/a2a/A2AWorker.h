@@ -211,6 +211,7 @@ void A2AWorkerBase<FImpl>::StagMesonField(TensorType &mat,
   size_t matBytes = mat.size() * sizeof(scalar_type);
   acceleratorCopyFromDevice(matDevice, matHost, matBytes);
 
+  _t_gsum -= usecond();
   this->_grid->GlobalSumVector(matHost, nGamma * resultStride);
   _t_gsum += usecond();
 }

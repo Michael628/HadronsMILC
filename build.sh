@@ -109,7 +109,9 @@ fi
 # Fetch Eigen package, set up Make.inc files and create Grid configure
 pushd ${SRCDIR}
 git checkout ${GIT_BRANCH}
-./bootstrap.sh
+if [ -f bootstrap.sh ]; then
+	./bootstrap.sh
+fi
 popd
 
 # Configure only if not already configured

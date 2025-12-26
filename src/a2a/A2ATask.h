@@ -40,7 +40,7 @@ NAMESPACE_BEGIN(Grid);
   int sizeR = this->_right_view->size();                                       \
                                                                                \
   int orthogDir = this->_orthog_dir;                                           \
-  const int simdSize = this->_grid->Nsimd();                                   \
+  const size_t simdSize = this->_grid->Nsimd();                                \
   const int reducedOrthogDimSize = this->_grid->_rdimensions[orthogDir];       \
                                                                                \
   const int nBlocks = this->_grid->_slice_nblock[orthogDir];                   \
