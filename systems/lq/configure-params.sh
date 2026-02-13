@@ -11,12 +11,11 @@ function grid_configure() {
   local INSTALLDIR=$1
   local TOPDIR=$2
   ${TOPDIR}/Grid/configure \
-   --enable-debug \
-   --enable-simd=GEN \
-   --enable-comms=none \
-   --enable-unified=no \
-   --enable-shm=none \
-   --enable-reduction=mpi \
-   --with-lime=${TOPDIR}/deps/install${BUILD_EXT} \
-   CXXFLAGS='-std=c++17 -Wno-psabi'
-}
+   --prefix=${INSTALLDIR} \
+       --enable-simd=SKL \
+       --enable-comms=mpi \
+       --disable-gparity \
+       --host=x86_64-unknown-linux-gnu \
+       --with-lime=${TOPDIR}/deps/install${BUILD_EXT} \
+       CXX="mpicxx" CC="mpicc" \
+       CXXFLAGS="-std=c++17 -xcore-avx512 -O2 -simd -mkl -qopenmp "

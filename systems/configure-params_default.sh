@@ -7,24 +7,26 @@
 #   - BUILD_DEBUG
 #   - BUILD_MPI_REDUCTION
 
-function grid_configure() {
+function hadrons_configure() {
   local INSTALLDIR=$1
   local TOPDIR=$2
-  ${TOPDIR}/Grid/configure \
-   --prefix=${INSTALLDIR} \
-   --enable-comms=mpi-auto       \
-   --enable-simd=GPU \
-   --enable-shm=nvlink \
-   --enable-gen-simd-width=64 \
-   --enable-accelerator=cuda \
-   --disable-fermion-reps \
-   --disable-unified \
-   --disable-gparity \
-   --with-mpfr=${TOPDIR}/deps/install${BUILD_EXT} \
-   CXX=nvcc \
-   LDFLAGS='-cudart shared' \
-   CXXFLAGS='-ccbin CC -gencode arch=compute_80,code=sm_80 -I${CUBLAS_PATH}/include -std=c++17 -cudart shared -DEIGEN_DONT_VECTORIZE'  \
-   LIBS='-lcublas -lhdf5_cpp -L${CUBLAS_PATH}/lib'
+
+  # Configure arguments for Hadrons
+  ${TOPDIR}/Hadrons/configure \
+    --prefix=${INSTALLDIR} \
+    --with-grid=${TOPDIR}/Grid/install${BUILD_EXT}
+}
+
+function app_configure() {
+  local INSTALLDIR=$1
+  local TOPDIR=$2
+
+  # Configure arguments for App
+  ${TOPDIR}/HadronsMILC/configure \
+  --prefix=${INSTALLDIR} \
+  --with-grid=${TOPDIR}/Grid/install${BUILD_EXT} \
+  --with-hadrons=${TOPDIR}/Hadrons/install${BUILD_EXT}
+
 }
 
 function dependency_configure() {
@@ -45,6 +47,6 @@ function dependency_configure() {
     ${DEP_CONFIGURE_ARGS} \
     CXXFLAGS=-O3 \
     CFLAGS=-O3 \
-    CC=cc CXX=CC
+    CC=gcc CXX=g++
 
 }

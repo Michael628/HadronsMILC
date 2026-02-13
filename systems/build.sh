@@ -1,6 +1,72 @@
 #! /bin/bash
 
+# Expected directory structure:
+# TOPDIR (root directory where this script is run from)
+# ├── HadronsMILC/           - Main application (git repo)
+# │   ├── systems/           - System-specific configurations
+# │   │   ├── ${CONFIG_SYSTEM}/
+# │   │   │   ├── env.sh     - System environment configuration
+# │   │   │   └── configure-params.sh - System build parameters
+# │   │   └── configure-params_default.sh - Default configuration parameters
+# │   ├── build${BUILD_EXT}/ - Build directory
+# │   └── install${BUILD_EXT}/ - Installation directory
+# ├── Grid/                  - Grid library (git repo, cloned from GitHub)
+# │   ├── build${BUILD_EXT}/ - Build directory
+# │   └── install${BUILD_EXT}/ - Installation directory
+# ├── Hadrons/               - Hadrons library (git repo, cloned from GitHub)
+# │   ├── build${BUILD_EXT}/ - Build directory
+# │   └── install${BUILD_EXT}/ - Installation directory
+# ├── deps/                  - Dependencies directory
+# │   ├── gmp-6.2.1/         - GMP source (downloaded)
+# │   ├── gmp/               - Symlink to gmp-6.2.1
+# │   ├── mpfr-4.1.0/        - MPFR source (downloaded)
+# │   ├── mpfr/              - Symlink to mpfr-4.1.0
+# │   ├── lime-1.3.2/        - LIME source (downloaded)
+# │   ├── lime/              - Symlink to lime-1.3.2
+# │   ├── hdf5-1.10.10/      - HDF5 source (downloaded)
+# │   ├── hdf5/              - Symlink to hdf5-1.10.10
+# │   ├── openssl-3.3.1/     - OpenSSL source (downloaded)
+# │   ├── openssl/           - Symlink to openssl-3.3.1
+# │   └── install-${CONFIG_SYSTEM}/ - Installation directory for dependencies
+# ├── env${BUILD_EXT}.sh     - Optional local environment configuration
+# └── configure-params${BUILD_EXT}.sh - Optional local configuration parameters
+
 TOPDIR=$(pwd)
+
+function print_help() {
+  cat << 'EOF'
+Usage: ./build.sh [OPTIONS]
+
+Dependency Options (build external libraries):
+  --gmp              Build GMP library
+  --mpfr             Build MPFR library
+  --lime             Build LIME library
+  --hdf5             Build HDF5 library
+  --ssl              Build OpenSSL library
+
+Build Configuration Options:
+  --system <name>    Configure system (default: scalar)
+  --ext <name>       Add extension suffix to build directories
+  --threads <num>    Number of parallel threads for build (default: 4)
+  --debug            Enable debug build
+  --mpi-reduction    Enable MPI reduction
+  --force            Force rebuild (clean build directories)
+  --skip-make        Skip make step, only configure
+
+Component Selection:
+  --grid             Build Grid library
+  --hadrons          Build Hadrons library
+  --app              Build HadronsMILC application
+  --all              Build all components (grid, hadrons, app)
+
+Help:
+  --help             Show this help message
+
+Examples:
+  ./build.sh --system perlmutter --app --threads 8
+  ./build.sh --gmp --mpfr --system scalar --grid --hadrons
+EOF
+}
 
 function parse_flags() {
   # Initialize all flags to false
@@ -14,8 +80,7 @@ function parse_flags() {
   FORCE_REBUILD='false'
   MAKE_COMPONENT='true'
   BUILD_EXT=''
-  CONFIG_TYPE='scalar'
-  CONFIG_EXT=''
+  CONFIG_SYSTEM='scalar'
   THREADS=4
   BUILD_COMPONENTS=''
 
@@ -72,10 +137,9 @@ function parse_flags() {
         FORCE_REBUILD='true'
         shift
       ;;
-      --type)
+      --system)
         shift
-        CONFIG_TYPE="$1"
-        CONFIG_EXT="-$1"
+        CONFIG_SYSTEM="$1"
         shift
       ;;
       --skip-make)
@@ -89,22 +153,39 @@ function parse_flags() {
         shift
       ;;
 
+      --help)
+        print_help
+        exit 0
+      ;;
+
       *)
-        echo "Unknown argument: $1"
+        echo "Error: Unknown argument: $1"
+        echo ""
+        print_help
         exit 1
       ;;
     esac
   done
 
-  BUILD_EXT="${CONFIG_EXT}${BUILD_EXT}"
+  BUILD_EXT="-${CONFIG_SYSTEM}${BUILD_EXT}"
+}
 
-  if [ "$BUILD_MPI_REDUCTION" = 'true' ]; then
-    BUILD_EXT="${BUILD_EXT}-mpi"
+function source_env() {
+  # Load local environment if it exists, otherwise load system
+  if [ -f "${TOPDIR}/env${BUILD_EXT}.sh" ]; then
+    source ${TOPDIR}/env${BUILD_EXT}.sh
+  elif [ -f "${TOPDIR}/HadronsMILC/systems/${CONFIG_SYSTEM}/env.sh" ]; then
+    source ${TOPDIR}/HadronsMILC/systems/${CONFIG_SYSTEM}/env.sh
   fi
+}
 
-  if [ "$BUILD_DEBUG" = 'true' ]; then
-    BUILD_EXT="${BUILD_EXT}-debug"
-  fi
+function source_config_params() {
+  # Load default params, then overwrite with system and local params
+  source ${TOPDIR}/HadronsMILC/systems/configure-params_default.sh
+  # Overwrite with system params if they exist
+  [ -f "${TOPDIR}/HadronsMILC/systems/${CONFIG_SYSTEM}/configure-params.sh" ] && source ${TOPDIR}/HadronsMILC/systems/${CONFIG_SYSTEM}/configure-params.sh
+  # Overwrite with local params if they exist
+  [ -f "${TOPDIR}/configure-params${BUILD_EXT}.sh" ] && source ${TOPDIR}/configure-params${BUILD_EXT}.sh
 }
 
 function dependencies() {
@@ -112,15 +193,15 @@ function dependencies() {
   # Uses global BUILD_* variables set by parse_flags()
 
   WORKDIR=${TOPDIR}/deps
-  INSTALLDIR=${WORKDIR}/install${BUILD_EXT}
+  INSTALLDIR=${WORKDIR}/install-${CONFIG_SYSTEM}
 
   mkdir -p ${WORKDIR}
   pushd ${WORKDIR}
 
-  source ${TOPDIR}/env${BUILD_EXT}.sh
+  source_env
   module list
 
-  source ${TOPDIR}/configure-params.sh
+  source_config_params
 
   if [ $BUILD_OPENSSL = 'true' ]; then
           if [ ! -d openssl-3.3.1 ]; then
@@ -300,10 +381,10 @@ function build-component() {
 	then
 	  echo "Configuring ${SOURCE} in ${BUILDDIR}"
 
-    source ${TOPDIR}/env${BUILD_EXT}.sh
+    source_env
     module list > compile.out 2>&1
 
-    source ${TOPDIR}/configure-params.sh
+    source_config_params
 
     case ${SOURCE} in
       grid)
@@ -340,6 +421,12 @@ function build-component() {
 	fi
 	popd
 }
+
+# Show help if no arguments provided
+if [ $# -eq 0 ]; then
+  print_help
+  exit 0
+fi
 
 # Parse all command-line flags first
 parse_flags "$@"
