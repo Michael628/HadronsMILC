@@ -34,9 +34,25 @@ public:
                              G5     , 15);*/
 
   // TXYZ convention
-  GRID_SERIALIZABLE_ENUM(StagAlgebra, undef, G1, 0, GZ, 1, GY, 2, GYZ, 3, GX, 4,
-                         GZX, 5, GXY, 6, G5T, 7, GT, 8, GZT, 9, GYT, 10, G5X,
-                         11, GXT, 12, G5Y, 13, G5Z, 14, G5, 15);
+  // clang-format off
+  GRID_SERIALIZABLE_ENUM(StagAlgebra, undef, 
+                         G1,  0b0000,
+                         GZ,  0b0001,
+                         GY,  0b0010,
+                         GYZ, 0b0011,
+                         GX,  0b0100,
+                         GZX, 0b0101,
+                         GXY, 0b0110,
+                         G5T, 0b0111,
+                         GT,  0b1000,
+                         GZT, 0b1001,
+                         GYT, 0b1010,
+                         G5X, 0b1011,
+                         GXT, 0b1100,
+                         G5Y, 0b1101,
+                         G5Z, 0b1110,
+                         G5,  0b1111);
+  // clang-format on
 
   typedef std::pair<StagAlgebra, StagAlgebra> SpinTastePair;
 
@@ -369,27 +385,5 @@ template <class obj>
 inline Lattice<obj> operator*(const Lattice<obj> &lat, const StagGamma &g1) {
   return g1 * lat;
 }
-
-// Array used to keep Grid ordering, XYZT
-
-// XYZT convention
-/*const std::array<const char *, StagGamma::nGamma> StagGamma::name = {{
-     "G1" ,
-     "GT" ,
-     "GZ" ,
-     "GZT",
-     "GY" ,
-     "GYT",
-     "GYZ",
-     "G5X",
-     "GX" ,
-     "GXT",
-     "GZX",
-     "G5Y",
-     "GXY",
-     "G5Z",
-     "G5T",
-     "G5" }};
-     */
 
 NAMESPACE_END(Grid)
