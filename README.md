@@ -23,50 +23,28 @@ HadronsMILC extends the Hadrons framework with specialized modules for MILC-styl
 - **MFermion**: Fermion field operations and gauge propagators
 - **MGauge**: Gauge field utilities and stochastic electromagnetic functions
 
-## Building
+## Dependencies
 
-### Prerequisites
+HadronsMILC requires the following to be built and installed:
 
-This project requires several dependencies and the Grid/Hadrons frameworks to be built and installed. A `build.sh` script has been provided to simplify the build process. The syntax for building each of the four build-steps below is `./build.sh <build-type> <step>`, where `<build-type>` in the provided script can be`scalar` or `mpi`. These are example scripts intended for simple local builds of Grid, and will need to be extended for more sophisticated machines. See the systems directory in Grid's github: <https://github.com/paboyle/Grid/tree/develop/systems> for examples of more complex builds. The `<step>` can be `deps`, `grid`, `hadrons`, or `app`, as described below.
+- GMP, MPFR, HDF5, LIME
+- **Grid** (`feature/LMI-develop` branch): <https://github.com/milc-qcd/Grid/tree/feature/LMI-develop>
+- **Hadrons** (`feature/LMI-develop` branch): <https://github.com/milc-qcd/Hadrons/tree/feature/LMI-develop>
 
-### 0. Build Dependencies
+Build orchestration for all dependencies is managed by pyfm: <https://github.com/Michael628/pyfm>
 
-First, install required libraries (GMP, MPFR, HDF5, and LIME):
+## Building HadronsMILC
 
-```bash
-# Use the provided dependency script
-./build.sh <build-type> deps
-```
-
-Or manually install the dependencies using your system package manager.
-
-### 1. Build Grid
+Once Grid and Hadrons are installed and `hadrons-config` is in your PATH:
 
 ```bash
-# Use the provided build script for MILC-specific Grid branch
-./build.sh <build-type> grid
-```
-
-### 2. Build Hadrons
-
-```bash
-# Use the provided build script for MILC-specific Hadrons branch
-./build.sh <build-type> hadrons
-```
-
-### 3. Build HadronsMILC
-
-```bash
-# Use the provided build script
-./build.sh <build-type app
+./configure.sh && make
 ```
 
 ## Usage
 
-Run with XML parameter files similar to standard Hadrons applications:
-
 ```bash
-./HadronsMILC parameters.xml --grid 4.4.4.4
+./HadronsMILC parameters.xml [Grid runtime arguments...]
 ```
 
-The application uses the Hadrons framework's module system to construct and execute computational graphs for lattice QCD calculations.
+The first argument is an XML parameter file defining the module graph. All subsequent arguments are passed directly to Grid (e.g. `--grid 24.24.24.32`, `--mpi 1.1.1.4`, `--shm 1024`).
