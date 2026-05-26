@@ -12,6 +12,7 @@ modules_cpp =\
   Modules/MNoise/FullVolumeSpinColorDiagonal.cpp \
   Modules/MNoise/TimeDilutedSpinColorDiagonal.cpp \
   Modules/MSolver/A2AVectors.cpp \
+  Modules/MSolver/CG.cpp \
   Modules/MSolver/ImplicitlyRestartedLanczos.cpp \
   Modules/MSolver/LowModeProj.cpp \
   Modules/MSolver/LowModeProjFull.cpp \
@@ -38,6 +39,7 @@ modules_hpp =\
   Modules/MNoise/FullVolumeSpinColorDiagonal.hpp \
   Modules/MNoise/TimeDilutedSpinColorDiagonal.hpp \
   Modules/MSolver/A2AVectors.hpp \
+  Modules/MSolver/CG.hpp \
   Modules/MSolver/ImplicitlyRestartedLanczos.hpp \
   Modules/MSolver/LowModeProj.hpp \
   Modules/MSolver/LowModeProjFull.hpp \

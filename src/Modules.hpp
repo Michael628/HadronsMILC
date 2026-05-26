@@ -11,6 +11,7 @@
 #include "Modules/MNoise/FullVolumeSpinColorDiagonal.hpp"
 #include "Modules/MNoise/TimeDilutedSpinColorDiagonal.hpp"
 #include "Modules/MSolver/A2AVectors.hpp"
+#include "Modules/MSolver/CG.hpp"
 #include "Modules/MSolver/ImplicitlyRestartedLanczos.hpp"
 #include "Modules/MSolver/LowModeProj.hpp"
 #include "Modules/MSolver/LowModeProjFull.hpp"
