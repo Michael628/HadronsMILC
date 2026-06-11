@@ -6,6 +6,7 @@
 #include "Modules/MContraction/MesonField_old.hpp"
 #include "Modules/MFermion/GaugeProp.hpp"
 #include "Modules/MFermion/SpinTaste.hpp"
+#include "Modules/MGauge/APBCGauge.hpp"
 #include "Modules/MGauge/StochEmFunc.hpp"
 #include "Modules/MIO/SaveVector.hpp"
 #include "Modules/MNoise/FullVolumeSpinColorDiagonal.hpp"

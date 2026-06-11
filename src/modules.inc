@@ -7,6 +7,7 @@ modules_cpp =\
   Modules/MContraction/MesonField_old.cpp \
   Modules/MFermion/GaugeProp.cpp \
   Modules/MFermion/SpinTaste.cpp \
+  Modules/MGauge/APBCGauge.cpp \
   Modules/MGauge/StochEmFunc.cpp \
   Modules/MIO/SaveVector.cpp \
   Modules/MNoise/FullVolumeSpinColorDiagonal.cpp \
@@ -34,6 +35,7 @@ modules_hpp =\
   Modules/MContraction/MesonField_old.hpp \
   Modules/MFermion/GaugeProp.hpp \
   Modules/MFermion/SpinTaste.hpp \
+  Modules/MGauge/APBCGauge.hpp \
   Modules/MGauge/StochEmFunc.hpp \
   Modules/MIO/SaveVector.hpp \
   Modules/MNoise/FullVolumeSpinColorDiagonal.hpp \
