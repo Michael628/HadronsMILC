@@ -107,7 +107,7 @@ private:
 
   std::string _sinkSuffix = "";
   std::vector<std::string> _sourceGammas;
-  std::map<std::string, StagGamma::SpinTastePair> _mapSinkGammas;
+  std::vector<std::pair<std::string, StagGamma::SpinTastePair>> _mapSinkGammas;
   Integer _Nt;
 };
 
@@ -137,7 +137,8 @@ template <typename FImpl> void TMesonMILC<FImpl>::parseGammas(void) {
     auto gamma_keys =
         StagGamma::ParseSpinTasteString(par().sinkSpinTaste.gammas);
     for (int i = 0; i < gamma_vals.size(); ++i) {
-      _mapSinkGammas.insert({StagGamma::GetName(gamma_keys[i]), gamma_vals[i]});
+      _mapSinkGammas.push_back(
+          {StagGamma::GetName(gamma_keys[i]), gamma_vals[i]});
     }
   }
 }
@@ -227,9 +228,9 @@ TMesonMILC<FImpl>::contract(Result &result, const TField &source,
   envGetTmp(PropagatorField, prop);
   envGetTmp(TField, field);
 
-  gamma(field, source);
+  gamma(field, sink);
 
-  buildProp(prop, field, sink);
+  buildProp(prop, field, source);
 
   buf = sinkFunc(trace(prop));
 
@@ -269,8 +270,8 @@ TMesonMILC<FImpl>::contract(Result &result, const std::vector<TField> &source,
 
     LOG(Message) << "Contracting element i = " << i << "." << std::endl;
 
-    gamma(field, source[i]);
-    buildProp(prop, field, sink[i]);
+    gamma(field, sink[i]);
+    buildProp(prop, field, source[i]);
 
     buf = sinkFunc(trace(prop));
 

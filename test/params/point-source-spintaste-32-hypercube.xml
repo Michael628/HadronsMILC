@@ -1,0 +1,1086 @@
+<grid>
+  <parameters>
+    <genetic>
+      <maxCstGen>100</maxCstGen>
+      <maxGen>1000</maxGen>
+      <mutationRate>0.1</mutationRate>
+      <popSize>20</popSize>
+    </genetic>
+    <graphFile></graphFile>
+    <parallelWriteMaxRetry>-1</parallelWriteMaxRetry>
+    <runId>LMI-RW-series-a-100-eigs-1-noise</runId>
+    <saveSchedule>false</saveSchedule>
+    <scheduleFile></scheduleFile>
+    <trajCounter>
+      <end>10000</end>
+      <start>20</start>
+      <step>10000</step>
+    </trajCounter>
+  </parameters>
+  <modules>
+    <!-- Gauge fields loaded from the 4^4 test configuration set. -->
+    <module>
+      <id>
+        <name>gauge</name>
+        <type>MIO::LoadIldg</type>
+      </id>
+      <options>
+        <file>lat/lat.sample.l4444.ildg</file>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>gauge_apbc</name>
+        <type>MGauge::APBCGauge</type>
+      </id>
+      <options>
+        <gauge>gauge</gauge>
+        <boundary>1 1 1 -1</boundary>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>gauge_fat</name>
+        <type>MIO::LoadIldg</type>
+      </id>
+      <options>
+        <file>lat/fatlinks.l4444.ildg</file>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>gauge_long</name>
+        <type>MIO::LoadIldg</type>
+      </id>
+      <options>
+        <file>lat/longlinks.l4444.ildg</file>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>stag_mass_ref</name>
+        <type>MAction::ImprovedStaggeredMILC</type>
+      </id>
+      <options>
+        <Ls>1</Ls>
+        <boundary>1 1 1 1</boundary>
+        <c1>1.0</c1>
+        <c2>1.0</c2>
+        <gaugefat>gauge_fat</gaugefat>
+        <gaugelong>gauge_long</gaugelong>
+        <mass>0.1</mass>
+        <tad>1.0</tad>
+        <twist>0 0 0</twist>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>stag_cg_ref</name>
+        <type>MSolver::StagCGMILC</type>
+      </id>
+      <options>
+        <action>stag_mass_ref</action>
+        <maxIteration>10000</maxIteration>
+        <residual>1e-12</residual>
+        <guesser></guesser>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>sink_zero_mom</name>
+        <type>MSink::ScalarPoint</type>
+      </id>
+      <options>
+        <mom>0 0 0</mom>
+      </options>
+    </module>
+    <!--
+      32 requested spin-taste labels used for both source construction and tie-up.
+      All spinTaste blocks below set applyG5=true. The sink companion uses (G5 G5),
+      which becomes the identity after applyG5.
+      ops = (G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT)
+    (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T)
+    (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT)
+    (G5Z GYT) (G5 G5X)
+    -->
+    <!-- Hypercube point source at (0 0 0 0); output has 32 correlators, each of length Nt. -->
+    <module>
+      <id>
+        <name>src_x0y0z0t0</name>
+        <type>MSource::StagPoint</type>
+      </id>
+      <options>
+        <position>0 0 0 0</position>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_ops_x0y0z0t0</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x0y0z0t0</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_sink_x0y0z0t0</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x0y0z0t0</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G5 G5)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>corr_32_x0y0z0t0</name>
+        <type>MContraction::StagMeson</type>
+      </id>
+      <options>
+        <output>point-source-spintaste-reference/corr_32_x0y0z0t0</output>
+        <sink>q_sink_x0y0z0t0</sink>
+        <sinkFunc>sink_zero_mom</sinkFunc>
+        <sinkSpinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </sinkSpinTaste>
+        <source>q_ops_x0y0z0t0</source>
+        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
+        <sourceShift></sourceShift>
+      </options>
+    </module>
+    <!-- Hypercube point source at (1 0 0 0); output has 32 correlators, each of length Nt. -->
+    <module>
+      <id>
+        <name>src_x1y0z0t0</name>
+        <type>MSource::StagPoint</type>
+      </id>
+      <options>
+        <position>1 0 0 0</position>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_ops_x1y0z0t0</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x1y0z0t0</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_sink_x1y0z0t0</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x1y0z0t0</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G5 G5)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>corr_32_x1y0z0t0</name>
+        <type>MContraction::StagMeson</type>
+      </id>
+      <options>
+        <output>point-source-spintaste-reference/corr_32_x1y0z0t0</output>
+        <sink>q_sink_x1y0z0t0</sink>
+        <sinkFunc>sink_zero_mom</sinkFunc>
+        <sinkSpinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </sinkSpinTaste>
+        <source>q_ops_x1y0z0t0</source>
+        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
+        <sourceShift></sourceShift>
+      </options>
+    </module>
+    <!-- Hypercube point source at (0 1 0 0); output has 32 correlators, each of length Nt. -->
+    <module>
+      <id>
+        <name>src_x0y1z0t0</name>
+        <type>MSource::StagPoint</type>
+      </id>
+      <options>
+        <position>0 1 0 0</position>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_ops_x0y1z0t0</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x0y1z0t0</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_sink_x0y1z0t0</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x0y1z0t0</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G5 G5)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>corr_32_x0y1z0t0</name>
+        <type>MContraction::StagMeson</type>
+      </id>
+      <options>
+        <output>point-source-spintaste-reference/corr_32_x0y1z0t0</output>
+        <sink>q_sink_x0y1z0t0</sink>
+        <sinkFunc>sink_zero_mom</sinkFunc>
+        <sinkSpinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </sinkSpinTaste>
+        <source>q_ops_x0y1z0t0</source>
+        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
+        <sourceShift></sourceShift>
+      </options>
+    </module>
+    <!-- Hypercube point source at (1 1 0 0); output has 32 correlators, each of length Nt. -->
+    <module>
+      <id>
+        <name>src_x1y1z0t0</name>
+        <type>MSource::StagPoint</type>
+      </id>
+      <options>
+        <position>1 1 0 0</position>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_ops_x1y1z0t0</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x1y1z0t0</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_sink_x1y1z0t0</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x1y1z0t0</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G5 G5)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>corr_32_x1y1z0t0</name>
+        <type>MContraction::StagMeson</type>
+      </id>
+      <options>
+        <output>point-source-spintaste-reference/corr_32_x1y1z0t0</output>
+        <sink>q_sink_x1y1z0t0</sink>
+        <sinkFunc>sink_zero_mom</sinkFunc>
+        <sinkSpinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </sinkSpinTaste>
+        <source>q_ops_x1y1z0t0</source>
+        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
+        <sourceShift></sourceShift>
+      </options>
+    </module>
+    <!-- Hypercube point source at (0 0 1 0); output has 32 correlators, each of length Nt. -->
+    <module>
+      <id>
+        <name>src_x0y0z1t0</name>
+        <type>MSource::StagPoint</type>
+      </id>
+      <options>
+        <position>0 0 1 0</position>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_ops_x0y0z1t0</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x0y0z1t0</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_sink_x0y0z1t0</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x0y0z1t0</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G5 G5)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>corr_32_x0y0z1t0</name>
+        <type>MContraction::StagMeson</type>
+      </id>
+      <options>
+        <output>point-source-spintaste-reference/corr_32_x0y0z1t0</output>
+        <sink>q_sink_x0y0z1t0</sink>
+        <sinkFunc>sink_zero_mom</sinkFunc>
+        <sinkSpinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </sinkSpinTaste>
+        <source>q_ops_x0y0z1t0</source>
+        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
+        <sourceShift></sourceShift>
+      </options>
+    </module>
+    <!-- Hypercube point source at (1 0 1 0); output has 32 correlators, each of length Nt. -->
+    <module>
+      <id>
+        <name>src_x1y0z1t0</name>
+        <type>MSource::StagPoint</type>
+      </id>
+      <options>
+        <position>1 0 1 0</position>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_ops_x1y0z1t0</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x1y0z1t0</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_sink_x1y0z1t0</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x1y0z1t0</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G5 G5)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>corr_32_x1y0z1t0</name>
+        <type>MContraction::StagMeson</type>
+      </id>
+      <options>
+        <output>point-source-spintaste-reference/corr_32_x1y0z1t0</output>
+        <sink>q_sink_x1y0z1t0</sink>
+        <sinkFunc>sink_zero_mom</sinkFunc>
+        <sinkSpinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </sinkSpinTaste>
+        <source>q_ops_x1y0z1t0</source>
+        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
+        <sourceShift></sourceShift>
+      </options>
+    </module>
+    <!-- Hypercube point source at (0 1 1 0); output has 32 correlators, each of length Nt. -->
+    <module>
+      <id>
+        <name>src_x0y1z1t0</name>
+        <type>MSource::StagPoint</type>
+      </id>
+      <options>
+        <position>0 1 1 0</position>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_ops_x0y1z1t0</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x0y1z1t0</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_sink_x0y1z1t0</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x0y1z1t0</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G5 G5)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>corr_32_x0y1z1t0</name>
+        <type>MContraction::StagMeson</type>
+      </id>
+      <options>
+        <output>point-source-spintaste-reference/corr_32_x0y1z1t0</output>
+        <sink>q_sink_x0y1z1t0</sink>
+        <sinkFunc>sink_zero_mom</sinkFunc>
+        <sinkSpinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </sinkSpinTaste>
+        <source>q_ops_x0y1z1t0</source>
+        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
+        <sourceShift></sourceShift>
+      </options>
+    </module>
+    <!-- Hypercube point source at (1 1 1 0); output has 32 correlators, each of length Nt. -->
+    <module>
+      <id>
+        <name>src_x1y1z1t0</name>
+        <type>MSource::StagPoint</type>
+      </id>
+      <options>
+        <position>1 1 1 0</position>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_ops_x1y1z1t0</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x1y1z1t0</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_sink_x1y1z1t0</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x1y1z1t0</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G5 G5)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>corr_32_x1y1z1t0</name>
+        <type>MContraction::StagMeson</type>
+      </id>
+      <options>
+        <output>point-source-spintaste-reference/corr_32_x1y1z1t0</output>
+        <sink>q_sink_x1y1z1t0</sink>
+        <sinkFunc>sink_zero_mom</sinkFunc>
+        <sinkSpinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </sinkSpinTaste>
+        <source>q_ops_x1y1z1t0</source>
+        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
+        <sourceShift></sourceShift>
+      </options>
+    </module>
+    <!-- Hypercube point source at (0 0 0 1); output has 32 correlators, each of length Nt. -->
+    <module>
+      <id>
+        <name>src_x0y0z0t1</name>
+        <type>MSource::StagPoint</type>
+      </id>
+      <options>
+        <position>0 0 0 1</position>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_ops_x0y0z0t1</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x0y0z0t1</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_sink_x0y0z0t1</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x0y0z0t1</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G5 G5)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>corr_32_x0y0z0t1</name>
+        <type>MContraction::StagMeson</type>
+      </id>
+      <options>
+        <output>point-source-spintaste-reference/corr_32_x0y0z0t1</output>
+        <sink>q_sink_x0y0z0t1</sink>
+        <sinkFunc>sink_zero_mom</sinkFunc>
+        <sinkSpinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </sinkSpinTaste>
+        <source>q_ops_x0y0z0t1</source>
+        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
+        <sourceShift></sourceShift>
+      </options>
+    </module>
+    <!-- Hypercube point source at (1 0 0 1); output has 32 correlators, each of length Nt. -->
+    <module>
+      <id>
+        <name>src_x1y0z0t1</name>
+        <type>MSource::StagPoint</type>
+      </id>
+      <options>
+        <position>1 0 0 1</position>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_ops_x1y0z0t1</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x1y0z0t1</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_sink_x1y0z0t1</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x1y0z0t1</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G5 G5)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>corr_32_x1y0z0t1</name>
+        <type>MContraction::StagMeson</type>
+      </id>
+      <options>
+        <output>point-source-spintaste-reference/corr_32_x1y0z0t1</output>
+        <sink>q_sink_x1y0z0t1</sink>
+        <sinkFunc>sink_zero_mom</sinkFunc>
+        <sinkSpinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </sinkSpinTaste>
+        <source>q_ops_x1y0z0t1</source>
+        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
+        <sourceShift></sourceShift>
+      </options>
+    </module>
+    <!-- Hypercube point source at (0 1 0 1); output has 32 correlators, each of length Nt. -->
+    <module>
+      <id>
+        <name>src_x0y1z0t1</name>
+        <type>MSource::StagPoint</type>
+      </id>
+      <options>
+        <position>0 1 0 1</position>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_ops_x0y1z0t1</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x0y1z0t1</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_sink_x0y1z0t1</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x0y1z0t1</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G5 G5)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>corr_32_x0y1z0t1</name>
+        <type>MContraction::StagMeson</type>
+      </id>
+      <options>
+        <output>point-source-spintaste-reference/corr_32_x0y1z0t1</output>
+        <sink>q_sink_x0y1z0t1</sink>
+        <sinkFunc>sink_zero_mom</sinkFunc>
+        <sinkSpinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </sinkSpinTaste>
+        <source>q_ops_x0y1z0t1</source>
+        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
+        <sourceShift></sourceShift>
+      </options>
+    </module>
+    <!-- Hypercube point source at (1 1 0 1); output has 32 correlators, each of length Nt. -->
+    <module>
+      <id>
+        <name>src_x1y1z0t1</name>
+        <type>MSource::StagPoint</type>
+      </id>
+      <options>
+        <position>1 1 0 1</position>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_ops_x1y1z0t1</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x1y1z0t1</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_sink_x1y1z0t1</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x1y1z0t1</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G5 G5)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>corr_32_x1y1z0t1</name>
+        <type>MContraction::StagMeson</type>
+      </id>
+      <options>
+        <output>point-source-spintaste-reference/corr_32_x1y1z0t1</output>
+        <sink>q_sink_x1y1z0t1</sink>
+        <sinkFunc>sink_zero_mom</sinkFunc>
+        <sinkSpinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </sinkSpinTaste>
+        <source>q_ops_x1y1z0t1</source>
+        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
+        <sourceShift></sourceShift>
+      </options>
+    </module>
+    <!-- Hypercube point source at (0 0 1 1); output has 32 correlators, each of length Nt. -->
+    <module>
+      <id>
+        <name>src_x0y0z1t1</name>
+        <type>MSource::StagPoint</type>
+      </id>
+      <options>
+        <position>0 0 1 1</position>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_ops_x0y0z1t1</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x0y0z1t1</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_sink_x0y0z1t1</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x0y0z1t1</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G5 G5)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>corr_32_x0y0z1t1</name>
+        <type>MContraction::StagMeson</type>
+      </id>
+      <options>
+        <output>point-source-spintaste-reference/corr_32_x0y0z1t1</output>
+        <sink>q_sink_x0y0z1t1</sink>
+        <sinkFunc>sink_zero_mom</sinkFunc>
+        <sinkSpinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </sinkSpinTaste>
+        <source>q_ops_x0y0z1t1</source>
+        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
+        <sourceShift></sourceShift>
+      </options>
+    </module>
+    <!-- Hypercube point source at (1 0 1 1); output has 32 correlators, each of length Nt. -->
+    <module>
+      <id>
+        <name>src_x1y0z1t1</name>
+        <type>MSource::StagPoint</type>
+      </id>
+      <options>
+        <position>1 0 1 1</position>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_ops_x1y0z1t1</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x1y0z1t1</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_sink_x1y0z1t1</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x1y0z1t1</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G5 G5)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>corr_32_x1y0z1t1</name>
+        <type>MContraction::StagMeson</type>
+      </id>
+      <options>
+        <output>point-source-spintaste-reference/corr_32_x1y0z1t1</output>
+        <sink>q_sink_x1y0z1t1</sink>
+        <sinkFunc>sink_zero_mom</sinkFunc>
+        <sinkSpinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </sinkSpinTaste>
+        <source>q_ops_x1y0z1t1</source>
+        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
+        <sourceShift></sourceShift>
+      </options>
+    </module>
+    <!-- Hypercube point source at (0 1 1 1); output has 32 correlators, each of length Nt. -->
+    <module>
+      <id>
+        <name>src_x0y1z1t1</name>
+        <type>MSource::StagPoint</type>
+      </id>
+      <options>
+        <position>0 1 1 1</position>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_ops_x0y1z1t1</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x0y1z1t1</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_sink_x0y1z1t1</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x0y1z1t1</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G5 G5)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>corr_32_x0y1z1t1</name>
+        <type>MContraction::StagMeson</type>
+      </id>
+      <options>
+        <output>point-source-spintaste-reference/corr_32_x0y1z1t1</output>
+        <sink>q_sink_x0y1z1t1</sink>
+        <sinkFunc>sink_zero_mom</sinkFunc>
+        <sinkSpinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </sinkSpinTaste>
+        <source>q_ops_x0y1z1t1</source>
+        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
+        <sourceShift></sourceShift>
+      </options>
+    </module>
+    <!-- Hypercube point source at (1 1 1 1); output has 32 correlators, each of length Nt. -->
+    <module>
+      <id>
+        <name>src_x1y1z1t1</name>
+        <type>MSource::StagPoint</type>
+      </id>
+      <options>
+        <position>1 1 1 1</position>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_ops_x1y1z1t1</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x1y1z1t1</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT)
+            (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY
+            GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5)
+            (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_sink_x1y1z1t1</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>src_x1y1z1t1</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G5 G5)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>corr_32_x1y1z1t1</name>
+        <type>MContraction::StagMeson</type>
+      </id>
+      <options>
+        <output>point-source-spintaste-reference/corr_32_x1y1z1t1</output>
+        <sink>q_sink_x1y1z1t1</sink>
+        <sinkFunc>sink_zero_mom</sinkFunc>
+        <sinkSpinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </sinkSpinTaste>
+        <source>q_ops_x1y1z1t1</source>
+        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
+        <sourceShift></sourceShift>
+      </options>
+    </module>
+  </modules>
+</grid>
