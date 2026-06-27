@@ -1,3 +1,4 @@
+#include "Modules/MAction/HighlyImprovedStaggered.hpp"
 #include "Modules/MAction/ImprovedStaggered.hpp"
 #include "Modules/MAction/ImprovedStaggered5D.hpp"
 #include "Modules/MContraction/ASlashMesonField.hpp"

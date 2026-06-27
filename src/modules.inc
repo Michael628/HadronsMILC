@@ -1,4 +1,5 @@
 modules_cpp =\
+  Modules/MAction/HighlyImprovedStaggered.cpp \
   Modules/MAction/ImprovedStaggered.cpp \
   Modules/MAction/ImprovedStaggered5D.cpp \
   Modules/MContraction/ASlashMesonField.cpp \
@@ -27,6 +28,7 @@ modules_cpp =\
   Modules/MUtilities/ModifyEigenPack.cpp
 
 modules_hpp =\
+  Modules/MAction/HighlyImprovedStaggered.hpp \
   Modules/MAction/ImprovedStaggered.hpp \
   Modules/MAction/ImprovedStaggered5D.hpp \
   Modules/MContraction/ASlashMesonField.hpp \

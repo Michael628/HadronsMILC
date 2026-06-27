@@ -609,7 +609,7 @@ void A2AMatrixBlockComputationMILC<T, Field, MetadataType, TIo>::execute(
 
       {
         int next = _next, nstr = _nstr, Lt = _nt;
-        ComplexD *evals_p = (ComplexD *)&evals[0];
+        ComplexD *evals_p = evals.empty() ? nullptr : (ComplexD *)&evals[0];
         TIo *result_p = mBuf.data();
         T *cache_p = mBlock.data();
         // accelerator_for(jj,N_jj,1,{

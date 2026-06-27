@@ -141,7 +141,8 @@ std::vector<std::string> TA2AVectorsMILC<FImpl, Pack>::getOutput(void) {
 template <typename FImpl, typename Pack>
 void TA2AVectorsMILC<FImpl, Pack>::setup(void) {
   auto &action = envGet(FMat, par().action);
-  bool lowGuess = envHasType(std::vector<FermionField>, par().lowModes);
+  bool lowGuess = !par().lowModes.empty() &&
+                  envHasType(std::vector<FermionField>, par().lowModes);
   int Ls = env().getObjectLs(par().action);
 
   if (lowGuess) {
@@ -197,7 +198,7 @@ void TA2AVectorsMILC<FImpl, Pack>::execute(void) {
   auto &action = envGet(FMat, par().action);
 
   bool hasLow = !par().lowModes.empty();
-  bool lowGuess = envHasType(std::vector<FermionField>, par().lowModes);
+  bool lowGuess = hasLow && envHasType(std::vector<FermionField>, par().lowModes);
 
   if (hasLow) {
     LOG(Message) << "Computing all-to-all vectors "
