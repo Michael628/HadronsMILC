@@ -1,4 +1,3 @@
-#include "Modules/MAction/HighlyImprovedStaggered.cpp"
 #include "Modules/MAction/ImprovedStaggered.cpp"
 #include "Modules/MAction/ImprovedStaggered5D.cpp"
 #include "Modules/MContraction/ASlashMesonField.cpp"
@@ -8,6 +7,7 @@
 #include "Modules/MFermion/GaugeProp.cpp"
 #include "Modules/MFermion/SpinTaste.cpp"
 #include "Modules/MGauge/APBCGauge.cpp"
+#include "Modules/MGauge/HISQSmear.cpp"
 #include "Modules/MGauge/StochEmFunc.cpp"
 #include "Modules/MIO/SaveVector.cpp"
 #include "Modules/MNoise/FullVolumeSpinColorDiagonal.cpp"

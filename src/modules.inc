@@ -1,5 +1,4 @@
 modules_cpp =\
-  Modules/MAction/HighlyImprovedStaggered.cpp \
   Modules/MAction/ImprovedStaggered.cpp \
   Modules/MAction/ImprovedStaggered5D.cpp \
   Modules/MContraction/ASlashMesonField.cpp \
@@ -9,6 +8,7 @@ modules_cpp =\
   Modules/MFermion/GaugeProp.cpp \
   Modules/MFermion/SpinTaste.cpp \
   Modules/MGauge/APBCGauge.cpp \
+  Modules/MGauge/HISQSmear.cpp \
   Modules/MGauge/StochEmFunc.cpp \
   Modules/MIO/SaveVector.cpp \
   Modules/MNoise/FullVolumeSpinColorDiagonal.cpp \
@@ -28,7 +28,6 @@ modules_cpp =\
   Modules/MUtilities/ModifyEigenPack.cpp
 
 modules_hpp =\
-  Modules/MAction/HighlyImprovedStaggered.hpp \
   Modules/MAction/ImprovedStaggered.hpp \
   Modules/MAction/ImprovedStaggered5D.hpp \
   Modules/MContraction/ASlashMesonField.hpp \
@@ -38,6 +37,7 @@ modules_hpp =\
   Modules/MFermion/GaugeProp.hpp \
   Modules/MFermion/SpinTaste.hpp \
   Modules/MGauge/APBCGauge.hpp \
+  Modules/MGauge/HISQSmear.hpp \
   Modules/MGauge/StochEmFunc.hpp \
   Modules/MIO/SaveVector.hpp \
   Modules/MNoise/FullVolumeSpinColorDiagonal.hpp \
