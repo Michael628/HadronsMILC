@@ -10,6 +10,7 @@ modules_cpp =\
   Modules/MGauge/APBCGauge.cpp \
   Modules/MGauge/HISQSmear.cpp \
   Modules/MGauge/StochEmFunc.cpp \
+  Modules/MIO/LoadMilc.cpp \
   Modules/MIO/SaveIldg.cpp \
   Modules/MIO/SaveVector.cpp \
   Modules/MNoise/FullVolumeSpinColorDiagonal.cpp \
@@ -40,6 +41,7 @@ modules_hpp =\
   Modules/MGauge/APBCGauge.hpp \
   Modules/MGauge/HISQSmear.hpp \
   Modules/MGauge/StochEmFunc.hpp \
+  Modules/MIO/LoadMilc.hpp \
   Modules/MIO/SaveIldg.hpp \
   Modules/MIO/SaveVector.hpp \
   Modules/MNoise/FullVolumeSpinColorDiagonal.hpp \

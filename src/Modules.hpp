@@ -9,6 +9,7 @@
 #include "Modules/MGauge/APBCGauge.hpp"
 #include "Modules/MGauge/HISQSmear.hpp"
 #include "Modules/MGauge/StochEmFunc.hpp"
+#include "Modules/MIO/LoadMilc.hpp"
 #include "Modules/MIO/SaveIldg.hpp"
 #include "Modules/MIO/SaveVector.hpp"
 #include "Modules/MNoise/FullVolumeSpinColorDiagonal.hpp"
