@@ -14,9 +14,5 @@ nobase_libHadronsMILC_a_HEADERS = \
 	A2AMatrix.hpp             \
 	DilutedNoise.hpp          \
 	Modules.hpp               \
-	a2a/A2ATask.h             \
-	a2a/A2AView.h             \
-	a2a/A2AWorker.h           \
 	a2a/A2AWorker_old.h       \
-	spin/StagGamma.h          \
 	$(modules_hpp)

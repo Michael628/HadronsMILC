@@ -1,6 +1,6 @@
 #pragma once
 #include <Grid/Grid_Eigen_Tensor.h>
-#include <spin/StagGamma.h>
+#include <GridMilc/GridMilc.h>
 
 NAMESPACE_BEGIN(Grid);
 

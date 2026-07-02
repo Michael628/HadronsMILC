@@ -37,7 +37,7 @@
 #include <Hadrons/Module.hpp>
 #include <Hadrons/ModuleFactory.hpp>
 #include <Hadrons/Solver.hpp>
-#include <spin/StagGamma.h>
+#include <GridMilc/GridMilc.h>
 
 BEGIN_HADRONS_NAMESPACE
 

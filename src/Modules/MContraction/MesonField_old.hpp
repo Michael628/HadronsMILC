@@ -37,7 +37,7 @@
 #include <A2AMatrix.hpp>
 #include <EigenPack.hpp>
 #include <a2a/A2AWorker_old.h>
-#include <spin/StagGamma.h>
+#include <GridMilc/GridMilc.h>
 
 BEGIN_HADRONS_NAMESPACE
 

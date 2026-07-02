@@ -47,13 +47,14 @@ CXXFLAGS="$CXXFLAGS `hadrons-config --cxxflags`"
 LDFLAGS="$LDFLAGS `hadrons-config --ldflags`"
 CXXFLAGS="$AM_CXXFLAGS $CXXFLAGS"
 LDFLAGS="$AM_LDFLAGS $LDFLAGS"
-LIBS=" -lHadrons $LIBS `hadrons-config --libs`"
+LIBS=" -lHadrons -lGridMilc $LIBS `hadrons-config --libs`"
 
-AC_MSG_CHECKING([that a minimal Grid/Hadrons program compiles]);
+AC_MSG_CHECKING([that a minimal Grid/Hadrons/GridMilc program compiles]);
 AC_LINK_IFELSE(
         [AC_LANG_SOURCE([[
     #include <Grid/Grid.h>
     #include <Hadrons/Application.hpp>
+    #include <GridMilc/GridMilc.h>
 
     using namespace Grid;
     using namespace Hadrons;
@@ -71,7 +72,7 @@ AC_LINK_IFELSE(
     ]])],
         [AC_MSG_RESULT([yes])],
     [AC_MSG_RESULT([no])]
-    [AC_MSG_ERROR([Could not compile a minimal Hadrons program])])
+    [AC_MSG_ERROR([Could not compile a minimal Hadrons/GridMilc program])])
 
 AC_SUBST([CXXLD])
 AC_SUBST([AM_CXXFLAGS])
