@@ -22,37 +22,13 @@ int main(int argc, char *argv[]) {
   LOG(Message) << "Grid initialized" << std::endl;
 
   // run setup ///////////////////////////////////////////////////////////////
-  Application app;
-  Application::GlobalPar par;
-  Application::ObjectId id;
+  std::string paramFile = argv[1];
+  Application app(paramFile);
 
-  std::string vecDesc, paramFile;
-
-  paramFile = argv[1];
-  XmlReader reader(paramFile, false, HADRONS_XML_TOPLEV);
-
-  read(reader, "parameters", par);
-  app.setPar(par);
-
-  if (!push(reader, "modules")) {
-    HADRONS_ERROR(Parsing, "Cannot open node 'modules' in parameter file '" +
-                               paramFile + "'");
-  }
-  if (!push(reader, "module")) {
-    HADRONS_ERROR(Parsing,
-                  "Cannot open node 'modules/module' in parameter file '" +
-                      paramFile + "'");
-  }
-  do {
-    read(reader, "id", id);
-    // if (!myCreateModule(app, id.name, id.type, reader)) {
-    app.createModule(id.name, id.type, reader);
-    // }
-  } while (reader.nextElement("module"));
-  pop(reader);
-  pop(reader);
-
-  // execution
+  // execution — run() auto-calls parseParameterFile() because the filename
+  // constructor set parameterFileName_ and no modules exist yet. This reads
+  // <parameters>, creates all modules from <modules> (including optional
+  // <subgrid> tags), then executes the trajectory loop.
   app.run();
 
   // epilogue
