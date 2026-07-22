@@ -115,6 +115,13 @@ public:
     _worker =
         std::make_unique<A2AWorkerLocal<FImpl>>(grid, mom, gammas, orthogDir);
   }
+  void setWorkerSpinTaste(GridBase *grid,
+                          const std::vector<ComplexField> &mom,
+                          const std::vector<StagGamma::SpinTastePair> &gammas,
+                          int orthogDir, LatticeGaugeField *U) {
+    _worker = std::make_unique<A2AWorkerSpinTaste<FImpl>>(grid, mom, gammas, U,
+                                                          orthogDir);
+  }
 
 private:
   template <typename TFImpl, typename... Args>
@@ -158,7 +165,8 @@ public:
 private:
   bool _hasPhase{false};
   std::string _momphName;
-  std::vector<StagGamma::SpinTastePair> _gammas, _gammaComms, _gammaLocal;
+  std::vector<StagGamma::SpinTastePair> _gammas, _gammaComms, _gammaLocal,
+      _gammaMulti;
   std::vector<std::vector<Real>> _mom;
 };
 
@@ -211,6 +219,7 @@ void TMesonFieldMILC<FImpl, Pack>::setup(void) {
 
   _gammaComms.clear();
   _gammaLocal.clear();
+  _gammaMulti.clear();
 
   StagGamma spinTaste;
   for (auto &g : _gammas) {
@@ -221,6 +230,23 @@ void TMesonFieldMILC<FImpl, Pack>::setup(void) {
     } else {
       _gammaLocal.push_back(g);
     }
+  }
+
+  // Split _gammaComms by exact popcount: popcount==1 stays in _gammaComms
+  // (A2AWorkerOnelink), popcount>=2 moves to _gammaMulti (A2AWorkerSpinTaste).
+  {
+    std::vector<StagGamma::SpinTastePair> gammaOne;
+    StagGamma spinTaste;
+    for (auto &g : _gammaComms) {
+      spinTaste.setSpinTaste(g);
+      int pc = StagGamma::popcountShift(spinTaste._spin, spinTaste._taste);
+      if (pc >= 2) {
+        _gammaMulti.push_back(g);
+      } else {
+        gammaOne.push_back(g);
+      }
+    }
+    _gammaComms = gammaOne; // now popcount==1 only
   }
 
   _mom.clear();
@@ -256,6 +282,9 @@ void TMesonFieldMILC<FImpl, Pack>::setup(void) {
 
   envTmp(Computation, "computationComms", 1, envGetGrid(FermionField),
          env().getNd() - 1, _mom.size(), _gammaComms.size(), par().block, this);
+
+  envTmp(Computation, "computationMulti", 1, envGetGrid(FermionField),
+         env().getNd() - 1, _mom.size(), _gammaMulti.size(), par().block, this);
 
   envTmp(std::vector<FermionField>, "dummy", 1, 0, envGetGrid(FermionField));
 }
@@ -380,6 +409,7 @@ void TMesonFieldMILC<FImpl, Pack>::execute(void) {
 
   envGetTmp(Computation, computationLocal);
   envGetTmp(Computation, computationComms);
+  envGetTmp(Computation, computationMulti);
 
   Kernel kernel(envGetGrid(FermionField));
 
@@ -423,6 +453,14 @@ void TMesonFieldMILC<FImpl, Pack>::execute(void) {
             *left, *right, kernel, gammaIOnameFn, gammaFilenameFn,
             gammaMetadataFn, &lowModes.evec, lowModes.eval, &swapEvecCheckerFn);
       }
+      if (_gammaMulti.size() > 0) {
+        _gammas = _gammaMulti;
+        kernel.setWorkerSpinTaste(envGetGrid(FermionField), ph, _gammas,
+                                  orthogDir, U);
+        computationMulti.execute(
+            *left, *right, kernel, gammaIOnameFn, gammaFilenameFn,
+            gammaMetadataFn, &lowModes.evec, lowModes.eval, &swapEvecCheckerFn);
+      }
     } else {
       if (_gammaLocal.size() > 0) {
         _gammas = _gammaLocal;
@@ -438,6 +476,14 @@ void TMesonFieldMILC<FImpl, Pack>::execute(void) {
                                  gammaFilenameFn, gammaMetadataFn,
                                  &lowModes.evec, lowModes.eval);
       }
+      if (_gammaMulti.size() > 0) {
+        _gammas = _gammaMulti;
+        kernel.setWorkerSpinTaste(envGetGrid(FermionField), ph, _gammas,
+                                  orthogDir, U);
+        computationMulti.execute(*left, *right, kernel, gammaIOnameFn,
+                                 gammaFilenameFn, gammaMetadataFn,
+                                 &lowModes.evec, lowModes.eval);
+      }
     }
   } else {
     if (_gammaLocal.size() > 0) {
@@ -450,6 +496,13 @@ void TMesonFieldMILC<FImpl, Pack>::execute(void) {
       _gammas = _gammaComms;
       kernel.setWorker(envGetGrid(FermionField), ph, _gammas, orthogDir, U);
       computationComms.execute(*left, *right, kernel, gammaIOnameFn,
+                               gammaFilenameFn, gammaMetadataFn);
+    }
+    if (_gammaMulti.size() > 0) {
+      _gammas = _gammaMulti;
+      kernel.setWorkerSpinTaste(envGetGrid(FermionField), ph, _gammas,
+                                orthogDir, U);
+      computationMulti.execute(*left, *right, kernel, gammaIOnameFn,
                                gammaFilenameFn, gammaMetadataFn);
     }
   }
