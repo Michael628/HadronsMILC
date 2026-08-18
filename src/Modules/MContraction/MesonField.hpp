@@ -45,14 +45,21 @@ BEGIN_HADRONS_NAMESPACE
  ******************************************************************************/
 BEGIN_MODULE_NAMESPACE(MContraction)
 
+// useStencil is carried as a STRING, not a bool: a missing XML node for a
+// scalar bool member aborts at parameter load (generic readDefault feeds the
+// empty string into fromString<bool> -> failbit -> abort, BaseIO.h:518-533),
+// while a missing string node is tolerated with a warning (XmlIO.cc:175-188).
+// Old schedules have no <useStencil> node; setup() parses ""/"false" ->
+// false, "true" -> true, anything else -> HADRONS_ERROR.
 class MesonFieldMILCPar : Serializable {
 public:
   GRID_SERIALIZABLE_CLASS_MEMBERS(MesonFieldMILCPar, int, block, std::string,
                                   lowModes, std::string, left, std::string,
                                   action, std::string, right, std::string,
                                   output, SpinTasteParams, spinTaste,
-                                  std::vector<std::string>, mom);
-  MesonFieldMILCPar() {}
+                                  std::vector<std::string>, mom, std::string,
+                                  useStencil);
+  MesonFieldMILCPar() : useStencil("") {}
 };
 
 class MesonFieldMILCMetadata : Serializable {
@@ -85,13 +92,18 @@ public:
                           const FermionField *left_o,
                           const FermionField *right_e,
                           const FermionField *right_o) {
-    MesonFunction<FImpl>(m, left_e, left_o, right_e, right_o);
+    if (_stencilWorker) {
+      MesonFunctionStencil<FImpl>(m, left_e, right_e);
+    } else {
+      MesonFunction<FImpl>(m, left_e, left_o, right_e, right_o);
+    }
   }
 
   virtual double flops(const unsigned int blockSizei,
                        const unsigned int blockSizej, int cbDiv = 1) {
-
-    return _vol / cbDiv * (_worker->getFlops()) * blockSizei * blockSizej;
+    double perSite = _stencilWorker ? _stencilWorker->getFlops()
+                                    : _worker->getFlops();
+    return _vol / cbDiv * perSite * blockSizei * blockSizej;
   }
 
   virtual double bytes(const unsigned int blockSizei,
@@ -101,8 +113,12 @@ public:
     return -1.0;
   }
 
-  virtual double kernelTime() { return _worker->_t_kernel; }
-  virtual double globalSumTime() { return _worker->_t_gsum; }
+  virtual double kernelTime() {
+    return _stencilWorker ? _stencilWorker->_t_kernel : _worker->_t_kernel;
+  }
+  virtual double globalSumTime() {
+    return _stencilWorker ? _stencilWorker->_t_gsum : _worker->_t_gsum;
+  }
   void setWorker(GridBase *grid, const std::vector<ComplexField> &mom,
                  const std::vector<StagGamma::SpinTastePair> &gammas,
                  int orthogDir, LatticeGaugeField *U) {
@@ -122,6 +138,13 @@ public:
     _worker = std::make_unique<A2AWorkerSpinTaste<FImpl>>(grid, mom, gammas, U,
                                                           orthogDir);
   }
+  void setWorkerStencil(GridCartesian *grid,
+                        const std::vector<ComplexField> &mom,
+                        const std::vector<StagGamma::SpinTastePair> &gammas,
+                        int orthogDir, LatticeGaugeField *U) {
+    _stencilWorker = std::make_unique<A2AWorkerSpinTasteStencil<FImpl>>(
+        grid, mom, gammas, U, orthogDir);
+  }
 
 private:
   template <typename TFImpl, typename... Args>
@@ -134,9 +157,25 @@ private:
     _worker->StagMesonField(args...);
   }
 
+  template <typename TFImpl, typename... Args>
+  IfNotStag<TFImpl, void> MesonFunctionStencil(Args &&...) {
+    assert(0);
+  }
+
+  template <typename TFImpl>
+  IfStag<TFImpl, void> MesonFunctionStencil(A2AMatrixSet<T> &m,
+                                            const FermionField *left_e,
+                                            const FermionField *right_e) {
+    // Full-array entry on the full-grid arrays; CB blocks are rejected at
+    // module setup.
+    _stencilWorker->StagMesonField(m, left_e, right_e, (int)m.dimension(3),
+                                   (int)m.dimension(4));
+  }
+
 private:
   double _vol;
   std::unique_ptr<A2AWorkerBase<FImpl>> _worker;
+  std::unique_ptr<A2AWorkerSpinTasteStencil<FImpl>> _stencilWorker;
 };
 
 template <typename FImpl, typename Pack>
@@ -165,6 +204,7 @@ public:
 private:
   bool _hasPhase{false};
   std::string _momphName;
+  bool _useStencil{false};
   std::vector<StagGamma::SpinTastePair> _gammas, _gammaComms, _gammaLocal,
       _gammaMulti;
   std::vector<std::vector<Real>> _mom;
@@ -214,8 +254,30 @@ std::vector<std::string> TMesonFieldMILC<FImpl, Pack>::getOutput(void) {
 // setup ///////////////////////////////////////////////////////////////////////
 template <typename FImpl, typename Pack>
 void TMesonFieldMILC<FImpl, Pack>::setup(void) {
+  // useStencil flag parse (the string carrier is parsed once here -- see the
+  // param-struct note above): ""/"false" -> off, "true" -> on, anything
+  // else is a hard error.
+  {
+    const std::string &s = par().useStencil;
+    if (s == "true") {
+      _useStencil = true;
+    } else if (s.empty() || s == "false") {
+      _useStencil = false;
+    } else {
+      HADRONS_ERROR(Argument, "MesonField 'useStencil' must be \"true\" or "
+                              "\"false\" (got '" +
+                                  s + "')");
+    }
+  }
+
   _gammas = StagGamma::ParseSpinTasteString(par().spinTaste.gammas,
                                             par().spinTaste.applyG5);
+
+  if (_gammas.empty()) {
+    LOG(Warning) << "MesonField: empty spin-taste gamma list; no meson "
+                    "fields will be computed"
+                 << std::endl;
+  }
 
   _gammaComms.clear();
   _gammaLocal.clear();
@@ -272,6 +334,36 @@ void TMesonFieldMILC<FImpl, Pack>::setup(void) {
   if (allzero)
     nmom = 0;
 
+  if (_useStencil) {
+    if (!par().action.empty()) {
+      HADRONS_ERROR(Implementation,
+                    "MesonField 'useStencil': checkerboarded low modes are "
+                    "not supported yet (stencil implements ContractType::Full "
+                    "only); unset 'action' or disable 'useStencil'");
+    }
+    bool anyMomentum = false;
+    for (auto &p : _mom)
+      for (auto pmu : p)
+        if (pmu != 0.0)
+          anyMomentum = true;
+    if (anyMomentum) {
+      HADRONS_ERROR(Argument,
+                    "MesonField 'useStencil': momentum projection is not "
+                    "implemented on the stencil path; use zero momentum or "
+                    "disable 'useStencil'");
+    }
+    if (_mom.size() > 1) {
+      HADRONS_ERROR(Argument,
+                    "MesonField 'useStencil': at most one (zero) momentum is "
+                    "supported; got " +
+                        std::to_string(_mom.size()));
+    }
+    if (par().spinTaste.gauge.empty()) {
+      HADRONS_ERROR(Argument,
+                    "MesonField 'useStencil' requires 'spinTaste.gauge'");
+    }
+  }
+
   envCache(std::vector<ComplexField>, _momphName, 1, nmom,
            envGetGrid(ComplexField));
 
@@ -285,6 +377,9 @@ void TMesonFieldMILC<FImpl, Pack>::setup(void) {
 
   envTmp(Computation, "computationMulti", 1, envGetGrid(FermionField),
          env().getNd() - 1, _mom.size(), _gammaMulti.size(), par().block, this);
+
+  envTmp(Computation, "computationStencil", 1, envGetGrid(FermionField),
+         env().getNd() - 1, _mom.size(), _gammas.size(), par().block, this);
 
   envTmp(std::vector<FermionField>, "dummy", 1, 0, envGetGrid(FermionField));
 }
@@ -419,6 +514,30 @@ void TMesonFieldMILC<FImpl, Pack>::execute(void) {
   }
 
   int orthogDir = env().getNd() - 1;
+
+  if (_useStencil && _gammas.size() > 0) {
+    // One stencil worker serves every gamma group: the task handles mixed
+    // popcounts natively (per-gamma endpoint tables), amortizing the
+    // gauge-chain setup across the whole run.
+    envGetTmp(Computation, computationStencil);
+    GridCartesian *grid =
+        dynamic_cast<GridCartesian *>(envGetGrid(FermionField));
+    if (grid == nullptr) {
+      HADRONS_ERROR(Implementation,
+                    "MesonField 'useStencil' requires a Cartesian grid");
+    }
+    kernel.setWorkerStencil(grid, ph, _gammas, orthogDir, U);
+    if (hasLowModes) {
+      auto &lowModes = envGet(Pack, par().lowModes);
+      computationStencil.execute(*left, *right, kernel, gammaIOnameFn,
+                                 gammaFilenameFn, gammaMetadataFn,
+                                 &lowModes.evec, lowModes.eval);
+    } else {
+      computationStencil.execute(*left, *right, kernel, gammaIOnameFn,
+                                 gammaFilenameFn, gammaMetadataFn);
+    }
+    return;
+  }
 
   if (hasLowModes) {
     auto &lowModes = envGet(Pack, par().lowModes);
