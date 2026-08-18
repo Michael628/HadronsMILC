@@ -63,14 +63,9 @@
       </id>
       <options>
         <Ls>1</Ls>
-        <boundary>1 1 1 1</boundary>
-        <c1>1.0</c1>
-        <c2>1.0</c2>
         <gaugefat>gauge_fat</gaugefat>
         <gaugelong>gauge_long</gaugelong>
         <mass>0.1</mass>
-        <tad>1.0</tad>
-        <twist>0 0 0</twist>
       </options>
     </module>
     <module>
