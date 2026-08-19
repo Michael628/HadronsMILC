@@ -3,7 +3,7 @@
 #include "Modules/MContraction/ASlashMesonField.cpp"
 #include "Modules/MContraction/Meson.cpp"
 #include "Modules/MContraction/MesonField.cpp"
-#include "Modules/MContraction/MesonField_old.cpp"
+#include "Modules/MContraction/MesonFieldLegacy.cpp"
 #include "Modules/MFermion/GaugeProp.cpp"
 #include "Modules/MFermion/SpinTaste.cpp"
 #include "Modules/MGauge/APBCGauge.cpp"

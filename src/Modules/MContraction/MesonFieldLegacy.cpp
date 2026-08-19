@@ -1,9 +1,8 @@
 /*
- * A2AMesonFieldMILC.cpp, part of Hadrons (https://github.com/aportelli/Hadrons)
+ * MesonFieldLegacy.cpp, part of Hadrons (https://github.com/aportelli/Hadrons)
  *
  * Copyright (C) 2015 - 2020
  *
- * Author: Antonin Portelli <antonin.portelli@me.com>
  * Author: Michael Lynch <michaellynch628@gmail.com>
  *
  * Hadrons is free software: you can redistribute it and/or modify
@@ -19,15 +18,15 @@
  * You should have received a copy of the GNU General Public License
  * along with Hadrons.  If not, see <http://www.gnu.org/licenses/>.
  *
- * See the full license in the file "LICENSE" in the top level distribution 
+ * See the full license in the file "LICENSE" in the top level distribution
  * directory.
  */
 
 /*  END LEGAL */
-#include "MesonField_old.hpp"
+#include "MesonFieldLegacy.hpp"
 
 using namespace Grid;
 using namespace Hadrons;
 using namespace MContraction;
 
-template class Grid::Hadrons::MContraction::TA2AMesonFieldMILC<STAGIMPL,MassShiftEigenPack<STAGIMPL> >;
+template class Grid::Hadrons::MContraction::TMesonFieldMILCLegacy<STAGIMPL,MassShiftEigenPack<STAGIMPL> >;

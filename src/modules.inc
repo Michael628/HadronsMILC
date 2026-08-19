@@ -4,7 +4,7 @@ modules_cpp =\
   Modules/MContraction/ASlashMesonField.cpp \
   Modules/MContraction/Meson.cpp \
   Modules/MContraction/MesonField.cpp \
-  Modules/MContraction/MesonField_old.cpp \
+  Modules/MContraction/MesonFieldLegacy.cpp \
   Modules/MFermion/GaugeProp.cpp \
   Modules/MFermion/SpinTaste.cpp \
   Modules/MGauge/APBCGauge.cpp \
@@ -35,7 +35,7 @@ modules_hpp =\
   Modules/MContraction/ASlashMesonField.hpp \
   Modules/MContraction/Meson.hpp \
   Modules/MContraction/MesonField.hpp \
-  Modules/MContraction/MesonField_old.hpp \
+  Modules/MContraction/MesonFieldLegacy.hpp \
   Modules/MFermion/GaugeProp.hpp \
   Modules/MFermion/SpinTaste.hpp \
   Modules/MGauge/APBCGauge.hpp \
