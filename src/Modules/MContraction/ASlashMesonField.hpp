@@ -351,7 +351,7 @@ void TASlashMesonFieldMILC<FImpl, Pack>::execute(void) {
       for (unsigned int k = 0; k < env().getNd(); ++k) {
         gamma.setSpinTaste(gamma_vals[k]);
         coor = PeekIndex<LorentzIndex>(AField, k);
-        gamma.applyPhase(coor, coor);
+        gamma.applyCoeffsAndPhase(coor, coor);
         Amu[j] += coor;
       }
     }
