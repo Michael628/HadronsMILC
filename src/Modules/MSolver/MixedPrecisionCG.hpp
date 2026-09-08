@@ -34,6 +34,8 @@
 #include <Hadrons/ModuleFactory.hpp>
 #include <Hadrons/Solver.hpp>
 
+#include <algorithm>
+
 BEGIN_HADRONS_NAMESPACE
 
 /******************************************************************************
@@ -180,6 +182,7 @@ TMixedPrecisionCGMILC<FImplInner, FImplOuter>::getObjectDependencies(void) {
   MixedPrecisionConjugateGradient<FermionFieldOuter, FermionFieldInner> mpcg(  \
       par().residual, par().maxInnerIteration, par().maxOuterIteration,        \
       getGrid<FermionFieldInner>(false, Ls), ihermOp, ohermOp);                \
+  mpcg.InnerTolerance = std::max(par().residual, 1e-6);                        \
   mpcg.useGuesser(iguesser);                                                   \
   omat.Mdag(source, tmp);                                                      \
   oguesser(source, sol);                                                       \
