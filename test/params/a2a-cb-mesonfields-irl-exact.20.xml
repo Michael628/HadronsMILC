@@ -1,0 +1,302 @@
+<grid>
+  <parameters>
+    <genetic>
+      <maxCstGen>100</maxCstGen>
+      <maxGen>1000</maxGen>
+      <mutationRate>0.1</mutationRate>
+      <popSize>20</popSize>
+    </genetic>
+    <graphFile></graphFile>
+    <parallelWriteMaxRetry>-1</parallelWriteMaxRetry>
+    <runId>IRL-exact-CB-mesons-384</runId>
+    <saveSchedule>false</saveSchedule>
+    <scheduleFile></scheduleFile>
+    <trajCounter>
+      <end>10000</end>
+      <start>20</start>
+      <step>10000</step>
+    </trajCounter>
+  </parameters>
+  <modules>
+    <!-- Same 4^4 test configuration used by the point-source and LMA tests. -->
+    <module>
+      <id>
+        <name>gauge</name>
+        <type>MIO::LoadIldg</type>
+      </id>
+      <options>
+        <file>lat/lat.sample.l4444.ildg</file>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>gauge_fat</name>
+        <type>MIO::LoadIldg</type>
+      </id>
+      <options>
+        <file>lat/fatlinks.l4444.ildg</file>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>gauge_long</name>
+        <type>MIO::LoadIldg</type>
+      </id>
+      <options>
+        <file>lat/longlinks.l4444.ildg</file>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>stag_mass_zero</name>
+        <type>MAction::ImprovedStaggeredMILC</type>
+      </id>
+      <options>
+        <Ls>1</Ls>
+        <gaugefat>gauge_fat</gaugefat>
+        <gaugelong>gauge_long</gaugelong>
+        <mass>0.0</mass>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>stag_op</name>
+        <type>MFermion::StagOperators</type>
+      </id>
+      <options>
+        <action>stag_mass_zero</action>
+      </options>
+    </module>
+    <!--
+      4^4 lattice, odd checkerboard: 4^4/2 * 3 colors = 384 is the *exact*
+      dimension of the preconditioned operator, so requesting Nstop = Nk = 384
+      with Nm = 385 forces IRL to span the full space and converge to machine
+      precision in a single Lanczos pass (same setup as
+      a2a-g1g1-irl-exact.20.xml).
+    -->
+    <module>
+      <id>
+        <name>epack</name>
+        <type>MSolver::StagFermionIRL</type>
+      </id>
+      <options>
+        <evenEigen>false</evenEigen>
+        <lanczosParams>
+          <Cheby>
+            <Npoly>11</Npoly>
+            <alpha>0.009</alpha>
+            <beta>24.0</beta>
+          </Cheby>
+          <MaxIt>5000</MaxIt>
+          <MinRes>0</MinRes>
+          <Nk>384</Nk>
+          <Nm>385</Nm>
+          <Nstop>384</Nstop>
+          <betastp>0</betastp>
+          <resid>1e-08</resid>
+        </lanczosParams>
+        <multiFile>false</multiFile>
+        <op>stag_op_schur</op>
+        <output></output>
+        <redBlack>true</redBlack>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>evecs_mass_l</name>
+        <type>MUtilities::ModifyEigenPackMILC</type>
+      </id>
+      <options>
+        <eigenPack>epack</eigenPack>
+        <evenEigen>false</evenEigen>
+        <mass>0.1</mass>
+        <normalizeCheckerboard>false</normalizeCheckerboard>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>stag_mass_l</name>
+        <type>MAction::ImprovedStaggeredMILC</type>
+      </id>
+      <options>
+        <gaugefat>gauge_fat</gaugefat>
+        <gaugelong>gauge_long</gaugelong>
+        <mass>0.1</mass>
+      </options>
+    </module>
+    <!--
+      Two distinct pair-source instances over the same pack: the framework
+      holds the right-side result across the whole left-side block loop, so
+      the two sides cannot share one bank (distinct objects enforced at
+      module setup and in A2AMatrixBlockComputationMILC::execute).
+    -->
+    <module>
+      <id>
+        <name>cbpairs_l</name>
+        <type>MUtilities::EigenPackCBPairs</type>
+      </id>
+      <options>
+        <action>stag_mass_l</action>
+        <eigenPack>evecs_mass_l</eigenPack>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>cbpairs_r</name>
+        <type>MUtilities::EigenPackCBPairs</type>
+      </id>
+      <options>
+        <action>stag_mass_l</action>
+        <eigenPack>evecs_mass_l</eigenPack>
+      </options>
+    </module>
+    <!--
+      Checkerboarded pure low-mode meson fields, BOTH implementations on the
+      same pack, split into popcount-separated module pairs: the legacy
+      module routes every popcount>=2 gamma through ONE A2AWorkerSpinTaste,
+      which Grid constrains to a uniform popcount (A2AWorker.h asserts and
+      aborts on a mixed multi group), so each pc>=2 popcount value needs its
+      own module pair. pc 0/1 gammas may share a module with any single
+      pc>=2 value. Together the three pairs span spin^taste popcount 0-4,
+      exercising both sigma signs (+1 even / -1 odd pc) of the legacy-slot
+      reconstruction table. Displacing gammas need the gauge field (stencil
+      module requires spinTaste.gauge; the worker asserts non-null U when
+      any gamma displaces).
+    -->
+    <module>
+      <id>
+        <name>mf_stencil_pc012</name>
+        <type>MContraction::StagA2AMesonField</type>
+      </id>
+      <options>
+        <block>768</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft>
+        <cbPairsRight>cbpairs_r</cbPairsRight>
+        <left></left>
+        <lowModes>evecs_mass_l</lowModes>
+        <mom>
+          <elem>0 0 0</elem>
+        </mom>
+        <output>e384n1dt1-cb/mesons/m01/mf_stencil_pc012</output>
+        <right></right>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(G1 G1)(GX G1)(GXY G1)</gammas>
+          <gauge>gauge</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>mf_legacy_pc012</name>
+        <type>MContraction::StagA2AMesonFieldLegacy</type>
+      </id>
+      <options>
+        <action>stag_mass_l</action>
+        <block>768</block>
+        <left></left>
+        <lowModes>evecs_mass_l</lowModes>
+        <mom>
+          <elem>0 0 0</elem>
+        </mom>
+        <output>e384n1dt1-cb/mesons/m01/mf_legacy_pc012</output>
+        <right></right>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(G1 G1)(GX G1)(GXY G1)</gammas>
+          <gauge>gauge</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>mf_stencil_pc3</name>
+        <type>MContraction::StagA2AMesonField</type>
+      </id>
+      <options>
+        <block>768</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft>
+        <cbPairsRight>cbpairs_r</cbPairsRight>
+        <left></left>
+        <lowModes>evecs_mass_l</lowModes>
+        <mom>
+          <elem>0 0 0</elem>
+        </mom>
+        <output>e384n1dt1-cb/mesons/m01/mf_stencil_pc3</output>
+        <right></right>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(G5T G1)</gammas>
+          <gauge>gauge</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>mf_legacy_pc3</name>
+        <type>MContraction::StagA2AMesonFieldLegacy</type>
+      </id>
+      <options>
+        <action>stag_mass_l</action>
+        <block>768</block>
+        <left></left>
+        <lowModes>evecs_mass_l</lowModes>
+        <mom>
+          <elem>0 0 0</elem>
+        </mom>
+        <output>e384n1dt1-cb/mesons/m01/mf_legacy_pc3</output>
+        <right></right>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(G5T G1)</gammas>
+          <gauge>gauge</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>mf_stencil_pc4</name>
+        <type>MContraction::StagA2AMesonField</type>
+      </id>
+      <options>
+        <block>768</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft>
+        <cbPairsRight>cbpairs_r</cbPairsRight>
+        <left></left>
+        <lowModes>evecs_mass_l</lowModes>
+        <mom>
+          <elem>0 0 0</elem>
+        </mom>
+        <output>e384n1dt1-cb/mesons/m01/mf_stencil_pc4</output>
+        <right></right>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(G5 G1)</gammas>
+          <gauge>gauge</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>mf_legacy_pc4</name>
+        <type>MContraction::StagA2AMesonFieldLegacy</type>
+      </id>
+      <options>
+        <action>stag_mass_l</action>
+        <block>768</block>
+        <left></left>
+        <lowModes>evecs_mass_l</lowModes>
+        <mom>
+          <elem>0 0 0</elem>
+        </mom>
+        <output>e384n1dt1-cb/mesons/m01/mf_legacy_pc4</output>
+        <right></right>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(G5 G1)</gammas>
+          <gauge>gauge</gauge>
+        </spinTaste>
+      </options>
+    </module>
+  </modules>
+</grid>
