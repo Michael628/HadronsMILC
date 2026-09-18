@@ -1,0 +1,204 @@
+<grid>
+  <parameters>
+    <!--
+      Run A of the full-volume-noise equivalence check.  runId and trajCounter
+      must stay identical to random-wall-spintaste-32.xml (run B): the module
+      RNG seed string is "<runId>-<module name>-<trajectory>", so the
+      FullVolumeSpinColorDiagonal module named "td_sc_noise" below draws the
+      same noise as run B's internally-generating RandomWall "td_sc_noise".
+    -->
+    <genetic>
+      <maxCstGen>100</maxCstGen>
+      <maxGen>1000</maxGen>
+      <mutationRate>0.1</mutationRate>
+      <popSize>20</popSize>
+    </genetic>
+    <graphFile></graphFile>
+    <parallelWriteMaxRetry>-1</parallelWriteMaxRetry>
+    <runId>32-td-cg</runId>
+    <saveSchedule>false</saveSchedule>
+    <scheduleFile></scheduleFile>
+    <trajCounter>
+      <end>10000</end>
+      <start>20</start>
+      <step>10000</step>
+    </trajCounter>
+  </parameters>
+  <modules>
+    <!-- Gauge fields loaded from the 4^4 test configuration set. -->
+    <module>
+      <id>
+        <name>gauge</name>
+        <type>MIO::LoadIldg</type>
+      </id>
+      <options>
+        <file>lat/lat.sample.l4444.ildg</file>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>gauge_apbc</name>
+        <type>MGauge::APBCGauge</type>
+      </id>
+      <options>
+        <gauge>gauge</gauge>
+        <boundary>1 1 1 -1</boundary>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>gauge_fat</name>
+        <type>MIO::LoadIldg</type>
+      </id>
+      <options>
+        <file>lat/fatlinks.l4444.ildg</file>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>gauge_long</name>
+        <type>MIO::LoadIldg</type>
+      </id>
+      <options>
+        <file>lat/longlinks.l4444.ildg</file>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>stag_mass_ref</name>
+        <type>MAction::ImprovedStaggeredMILC</type>
+      </id>
+      <options>
+        <Ls>1</Ls>
+        <boundary>1 1 1 1</boundary>
+        <c1>1.0</c1>
+        <c2>1.0</c2>
+        <gaugefat>gauge_fat</gaugefat>
+        <gaugelong>gauge_long</gaugelong>
+        <mass>0.1</mass>
+        <tad>1.0</tad>
+        <twist>0 0 0</twist>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>stag_cg_ref</name>
+        <type>MSolver::StagCGMILC</type>
+      </id>
+      <options>
+        <action>stag_mass_ref</action>
+        <maxIteration>10000</maxIteration>
+        <residual>1e-12</residual>
+        <guesser></guesser>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>sink_zero_mom</name>
+        <type>MSink::ScalarPoint</type>
+      </id>
+      <options>
+        <mom>0 0 0</mom>
+      </options>
+    </module>
+
+    <!--
+      Full-volume noise module NAMED "td_sc_noise" so that its RNG stream
+      (seed = runId + module name + trajectory) matches the RandomWall named
+      "td_sc_noise" in random-wall-spintaste-32.xml.  With nsrc = nSrc = 1 the
+      generated noise is bit-identical, so the correlators produced by the two
+      configs must agree exactly.
+    -->
+    <module>
+      <id>
+        <name>td_sc_noise</name>
+        <type>MNoise::StagFullVolumeSpinColorDiagonal</type>
+      </id>
+      <options>
+        <nsrc>1</nsrc>
+      </options>
+    </module>
+
+    <!--
+      Random wall source fed by the external full-volume noise above.
+      Parameters identical to the td_sc_noise RandomWall of
+      random-wall-spintaste-32.xml (colorDiag/nSrc/reuset0/t0/tStep).
+    -->
+    <module>
+      <id>
+        <name>td_sc_noise_ext</name>
+        <type>MSource::StagRandomWall</type>
+      </id>
+      <options>
+        <colorDiag>true</colorDiag>
+        <nSrc>1</nSrc>
+        <noise>td_sc_noise</noise>
+        <reuset0>false</reuset0>
+        <t0>0</t0>
+        <tStep>1</tStep>
+      </options>
+    </module>
+
+    <!-- 32 requested spin-taste labels used for both source construction and tie-up. -->
+    <module>
+      <id>
+        <name>q_ops_rw</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>td_sc_noise_ext</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT)
+            (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY
+            GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5)
+            (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>q_sink_rw</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <options>
+        <guess></guess>
+        <solver>stag_cg_ref</solver>
+        <source>td_sc_noise_ext</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G5 G5)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>corr_32_rw</name>
+        <type>MContraction::StagMeson</type>
+      </id>
+      <options>
+        <output>random-wall-fullvolume-test/corr_32_rw</output>
+        <sink>q_sink_rw</sink>
+        <sinkFunc>sink_zero_mom</sinkFunc>
+        <sinkSpinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT)
+            (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY
+            GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5)
+            (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge_apbc</gauge>
+        </sinkSpinTaste>
+        <source>q_ops_rw</source>
+        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT
+          GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX)
+          (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X
+          G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
+        <sourceShift>td_sc_noise_ext_shift</sourceShift>
+      </options>
+    </module>
+  </modules>
+</grid>
