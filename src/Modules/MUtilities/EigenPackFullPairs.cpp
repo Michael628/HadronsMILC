@@ -1,0 +1,31 @@
+/*
+ * EigenPackFullPairs.cpp, part of Hadrons (https://github.com/aportelli/Hadrons)
+ *
+ * Copyright (C) 2015 - 2026
+ *
+ * Author: Michael Lynch <michaellynch628@gmail.com>
+ *
+ * Hadrons is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * Hadrons is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Hadrons.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * (same GNU GPL as the repo headers; see the LICENSE file).
+ */
+
+/*  END LEGAL */
+#include "EigenPackFullPairs.hpp"
+
+using namespace Grid;
+using namespace Hadrons;
+using namespace MUtilities;
+
+template class Grid::Hadrons::MUtilities::TEigenPackFullPairs<STAGIMPL, MassShiftEigenPack<STAGIMPL>>;

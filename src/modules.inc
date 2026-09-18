@@ -10,6 +10,7 @@ modules_cpp =\
   Modules/MGauge/APBCGauge.cpp \
   Modules/MGauge/HISQSmear.cpp \
   Modules/MGauge/StochEmFunc.cpp \
+  Modules/MIO/LoadMesonField.cpp \
   Modules/MIO/LoadMilc.cpp \
   Modules/MIO/SaveIldg.cpp \
   Modules/MIO/SaveVector.cpp \
@@ -20,6 +21,7 @@ modules_cpp =\
   Modules/MSolver/ImplicitlyRestartedLanczos.cpp \
   Modules/MSolver/LowModeProj.cpp \
   Modules/MSolver/LowModeProjFull.cpp \
+  Modules/MSolver/LowModeProjMesonField.cpp \
   Modules/MSolver/MixedPrecisionCG.cpp \
   Modules/MSolver/MixedPrecisionRBPrecCG.cpp \
   Modules/MSolver/RBPrecCG.cpp \
@@ -27,6 +29,7 @@ modules_cpp =\
   Modules/MSource/SeqAslash.cpp \
   Modules/MSource/SeqGamma.cpp \
   Modules/MUtilities/EigenPackExtractEvals.cpp \
+  Modules/MUtilities/EigenPackFullPairs.cpp \
   Modules/MUtilities/ModifyEigenPack.cpp
 
 modules_hpp =\
@@ -41,6 +44,7 @@ modules_hpp =\
   Modules/MGauge/APBCGauge.hpp \
   Modules/MGauge/HISQSmear.hpp \
   Modules/MGauge/StochEmFunc.hpp \
+  Modules/MIO/LoadMesonField.hpp \
   Modules/MIO/LoadMilc.hpp \
   Modules/MIO/SaveIldg.hpp \
   Modules/MIO/SaveVector.hpp \
@@ -51,6 +55,7 @@ modules_hpp =\
   Modules/MSolver/ImplicitlyRestartedLanczos.hpp \
   Modules/MSolver/LowModeProj.hpp \
   Modules/MSolver/LowModeProjFull.hpp \
+  Modules/MSolver/LowModeProjMesonField.hpp \
   Modules/MSolver/MixedPrecisionCG.hpp \
   Modules/MSolver/MixedPrecisionRBPrecCG.hpp \
   Modules/MSolver/RBPrecCG.hpp \
@@ -58,5 +63,6 @@ modules_hpp =\
   Modules/MSource/SeqAslash.hpp \
   Modules/MSource/SeqGamma.hpp \
   Modules/MUtilities/EigenPackExtractEvals.hpp \
+  Modules/MUtilities/EigenPackFullPairs.hpp \
   Modules/MUtilities/ModifyEigenPack.hpp
 
