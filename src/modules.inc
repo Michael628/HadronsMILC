@@ -28,6 +28,7 @@ modules_cpp =\
   Modules/MSource/RandomWall.cpp \
   Modules/MSource/SeqAslash.cpp \
   Modules/MSource/SeqGamma.cpp \
+  Modules/MUtilities/EigenPackCBPairs.cpp \
   Modules/MUtilities/EigenPackExtractEvals.cpp \
   Modules/MUtilities/EigenPackFullPairs.cpp \
   Modules/MUtilities/ModifyEigenPack.cpp
@@ -62,6 +63,7 @@ modules_hpp =\
   Modules/MSource/RandomWall.hpp \
   Modules/MSource/SeqAslash.hpp \
   Modules/MSource/SeqGamma.hpp \
+  Modules/MUtilities/EigenPackCBPairs.hpp \
   Modules/MUtilities/EigenPackExtractEvals.hpp \
   Modules/MUtilities/EigenPackFullPairs.hpp \
   Modules/MUtilities/ModifyEigenPack.hpp

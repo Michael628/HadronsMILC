@@ -46,18 +46,21 @@ BEGIN_HADRONS_NAMESPACE
 BEGIN_MODULE_NAMESPACE(MContraction)
 
 // Stencil flavour of the A2A meson-field module: the
-// A2AWorkerSpinTasteStencil full-grid worker. v1: the stencil path
-// implements ContractType::Full only (checkerboarded low modes and momentum
-// projection are rejected at setup) and the kernel base is still the 4-field
-// A2AKernelMILC shared with the legacy module until the A2AMatrix fork. The
-// pre-stencil implementation lives on as StagA2AMesonFieldLegacy in
-// MesonFieldLegacy.hpp.
+// A2AWorkerSpinTasteStencil full-grid worker. Supports full-grid and
+// checkerboarded low modes (the latter via two distinct EigenPackCBPairs
+// module instances named by cbPairsLeft/cbPairsRight; the kernel packs the
+// CB arrays into full-grid objects, contracts with the worker's CB
+// ContractType modes, and converts the raw parity partials to the legacy
+// interleaved layout). Momentum projection is still rejected at setup (the
+// stencil worker does not implement it). The pre-stencil implementation
+// lives on as StagA2AMesonFieldLegacy in MesonFieldLegacy.hpp.
 class MesonFieldMILCPar : Serializable {
 public:
   GRID_SERIALIZABLE_CLASS_MEMBERS(MesonFieldMILCPar, int, block, std::string,
                                   lowModes, std::string, left, std::string,
-                                  action, std::string, right, std::string,
-                                  output, SpinTasteParams, spinTaste,
+                                  cbPairsLeft, std::string, cbPairsRight,
+                                  std::string, right, std::string, output,
+                                  SpinTasteParams, spinTaste,
                                   std::vector<std::string>, mom);
   MesonFieldMILCPar() {}
 };
@@ -92,9 +95,12 @@ public:
                           const FermionField *left_o,
                           const FermionField *right_e,
                           const FermionField *right_o) {
-    // Full-array entry on the full-grid arrays; CB blocks are rejected at
-    // module setup (v1: stencil implements ContractType::Full only).
-    MesonFunctionStencil<FImpl>(m, left_e, right_e);
+    if (left_o == nullptr && right_o == nullptr) {
+      // Full-array entry on the full-grid arrays (high modes).
+      MesonFunctionStencil<FImpl>(m, left_e, right_e);
+    } else {
+      MesonFunctionStencilCB<FImpl>(m, left_e, left_o, right_e, right_o);
+    }
   }
 
   virtual double flops(const unsigned int blockSizei,
@@ -116,12 +122,20 @@ public:
                         int orthogDir, LatticeGaugeField *U) {
     _stencilWorker = std::make_unique<A2AWorkerSpinTasteStencil<FImpl>>(
         grid, mom, gammas, U, orthogDir);
+    _sigma.clear();
+    StagGamma spinTaste;
+    for (auto &g : gammas) {
+      spinTaste.setSpinTaste(g);
+      int pc = StagGamma::popcountShift(spinTaste._spin, spinTaste._taste);
+      _sigma.push_back((pc & 1) ? -1.0 : 1.0);
+    }
   }
 
 private:
   template <typename TFImpl, typename... Args>
   IfNotStag<TFImpl, void> MesonFunctionStencil(Args &&...) {
-    assert(0);
+    HADRONS_ERROR(Implementation, "MesonField stencil kernel requires a "
+                                  "staggered fermion implementation");
   }
 
   template <typename TFImpl>
@@ -134,9 +148,126 @@ private:
                                    (int)m.dimension(4));
   }
 
+  template <typename TFImpl, typename... Args>
+  IfNotStag<TFImpl, void> MesonFunctionStencilCB(Args &&...) {
+    HADRONS_ERROR(Implementation, "MesonField stencil kernel requires a "
+                                  "staggered fermion implementation");
+  }
+
+  template <typename TFImpl>
+  IfStag<TFImpl, void> MesonFunctionStencilCB(A2AMatrixSet<T> &m,
+                                              const FermionField *left_e,
+                                              const FermionField *left_o,
+                                              const FermionField *right_e,
+                                              const FermionField *right_o) {
+    int N_ii = m.dimension(3), N_jj = m.dimension(4);
+    bool leftCB = (left_o != nullptr), rightCB = (right_o != nullptr);
+    if (leftCB && (N_ii % 2 != 0)) {
+      HADRONS_ERROR(Size, "MesonField kernel: checkerboarded left block "
+                          "size must be even, got " + std::to_string(N_ii));
+    }
+    if (rightCB && (N_jj % 2 != 0)) {
+      HADRONS_ERROR(Size, "MesonField kernel: checkerboarded right block "
+                          "size must be even, got " + std::to_string(N_jj));
+    }
+    int sizeL = leftCB ? N_ii / 2 : N_ii;
+    int sizeR = rightCB ? N_jj / 2 : N_jj;
+
+    ContractType ct = (leftCB && rightCB) ? ContractType::BothHalf
+                      : leftCB            ? ContractType::LeftHalf
+                                          : ContractType::RightHalf;
+
+    const FermionField *lhs, *rhs;
+    if (leftCB) {
+      growPack(_packL, sizeL, left_e, left_o);
+      lhs = _packL.data();
+    } else {
+      lhs = left_e;
+    }
+    if (rightCB) {
+      growPack(_packR, sizeR, right_e, right_o);
+      rhs = _packR.data();
+    } else {
+      rhs = right_e;
+    }
+
+    // The worker emits raw parity partials in one uniform block layout
+    // (2*sizeL, sizeR): rows [0,sizeL) = M0 (even source sites), rows
+    // [sizeL,2*sizeL) = M1 (odd). That layout equals mBlock only for
+    // LeftHalf (RightHalf has equal element count but different dims,
+    // BothHalf half the elements) -- always contract into a scratch at
+    // the worker-native shape, then convert to the legacy interleaved
+    // (M, M-dagger) slot layout the framework bake and HDF5 consumers
+    // expect.
+    _scratch.resize(m.dimension(0) * m.dimension(1) * m.dimension(2) *
+                    (2 * sizeL) * sizeR);
+    A2AMatrixSet<T> mScratch(_scratch.data(), m.dimension(0), m.dimension(1),
+                             m.dimension(2), 2 * sizeL, sizeR);
+
+    // Contents change at fixed buffer addresses: force the worker to
+    // re-pack (its address cache would otherwise contract stale data).
+    _stencilWorker->resetCache();
+    _stencilWorker->StagMesonField(mScratch, lhs, rhs, sizeL, sizeR, ct);
+
+    reconstructLegacy(m, mScratch, sizeL, sizeR, leftCB, rightCB);
+  }
+
+  // Pack n CB pairs into cached full-grid objects: E copy on even
+  // sites, O copy on odd (the setCheckerboard convention the worker's CB
+  // modes expect; Test_a2a_stencil.cc packing precedent).
+  void growPack(std::vector<FermionField> &pack, const int n,
+                const FermionField *even, const FermionField *odd) {
+    if ((int)pack.size() < n) {
+      pack.resize(n, _stencilWorker->_grid);
+    }
+    for (int k = 0; k < n; ++k) {
+      pack[k] = Zero();
+      setCheckerboard(pack[k], even[k]);
+      setCheckerboard(pack[k], odd[k]);
+    }
+  }
+
+  // Convert the raw (2*sizeL, sizeR) parity partials M0/M1 into the legacy
+  // interleaved slot layout -- the exact algebraic image of the legacy
+  // simdSumHalf/simdSumMixed tables, validated value-for-value against the
+  // legacy 4-arg worker in Grid's Test_a2a_stencil.cc reconstructLegacySlot:
+  // sigma = -1 for odd popcount(spin^taste), entering RightHalf's rc=1 slot
+  // and BothHalf's rc=1 column slots only (LeftHalf is sigma-free).
+  void reconstructLegacy(A2AMatrixSet<T> &m, const A2AMatrixSet<T> &mScratch,
+                         const int sizeL, const int sizeR, const bool leftCB,
+                         const bool rightCB) {
+    int next = m.dimension(0), nstr = m.dimension(1), nt = m.dimension(2);
+    for (int e = 0; e < next; ++e)
+      for (int s = 0; s < nstr; ++s) {
+        RealD sig = _sigma[s];
+        for (int t = 0; t < nt; ++t) {
+          for (int l = 0; l < sizeL; ++l)
+            for (int r = 0; r < sizeR; ++r) {
+              T M0 = mScratch(e, s, t, l, r);
+              T M1 = mScratch(e, s, t, sizeL + l, r);
+              if (leftCB && rightCB) {
+                m(e, s, t, 2 * l, 2 * r) = M0 + M1;
+                m(e, s, t, 2 * l, 2 * r + 1) = sig * (M0 - M1);
+                m(e, s, t, 2 * l + 1, 2 * r) = M0 - M1;
+                m(e, s, t, 2 * l + 1, 2 * r + 1) = sig * (M0 + M1);
+              } else if (leftCB) {
+                m(e, s, t, 2 * l, r) = M0 + M1;
+                m(e, s, t, 2 * l + 1, r) = M0 - M1;
+              } else {
+                m(e, s, t, l, 2 * r) = M0 + M1;
+                m(e, s, t, l, 2 * r + 1) = sig * (M0 - M1);
+              }
+            }
+        }
+      }
+  }
+
 private:
   double _vol;
   std::unique_ptr<A2AWorkerSpinTasteStencil<FImpl>> _stencilWorker;
+  std::vector<FermionField> _packL, _packR; // full-grid packing buffers (grow-only)
+  std::vector<T> _scratch;                  // raw (2*sizeL, sizeR) worker output
+  std::vector<RealD> _sigma;                // per-gamma sign (+1/-1)
 };
 
 template <typename FImpl, typename Pack>
@@ -190,8 +321,10 @@ std::vector<std::string> TMesonFieldMILC<FImpl, Pack>::getInput(void) {
     in.push_back(par().right);
 
   if (!par().lowModes.empty()) {
-    if (!par().action.empty())
-      in.push_back(par().action);
+    if (!par().cbPairsLeft.empty()) {
+      in.push_back(par().cbPairsLeft);
+      in.push_back(par().cbPairsRight);
+    }
     in.push_back(par().lowModes);
   }
 
@@ -244,11 +377,19 @@ void TMesonFieldMILC<FImpl, Pack>::setup(void) {
   if (allzero)
     nmom = 0;
 
-  if (!par().action.empty()) {
-    HADRONS_ERROR(Implementation,
-                  "MesonField: checkerboarded low modes are not supported "
-                  "yet (stencil implements ContractType::Full only); unset "
-                  "'action' or use StagA2AMesonFieldLegacy");
+  if (!par().cbPairsLeft.empty() != !par().cbPairsRight.empty()) {
+    HADRONS_ERROR(Argument,
+                  "MesonField: 'cbPairsLeft' and 'cbPairsRight' must be "
+                  "set together (two EigenPackCBPairs module instances)");
+  }
+  if (!par().cbPairsLeft.empty() &&
+      par().cbPairsLeft == par().cbPairsRight) {
+    HADRONS_ERROR(Argument, "MesonField: 'cbPairsLeft' and 'cbPairsRight' "
+                            "must name distinct EigenPackCBPairs instances");
+  }
+  if (!par().cbPairsLeft.empty() && par().lowModes.empty()) {
+    HADRONS_ERROR(Argument, "MesonField: 'cbPairsLeft'/'cbPairsRight' "
+                            "require 'lowModes'");
   }
   bool anyMomentum = false;
   for (auto &p : _mom)
@@ -285,7 +426,7 @@ void TMesonFieldMILC<FImpl, Pack>::setup(void) {
 template <typename FImpl, typename Pack>
 void TMesonFieldMILC<FImpl, Pack>::execute(void) {
   bool hasLowModes = (!par().lowModes.empty());
-  bool isCheckerBoarded = (!par().action.empty());
+  bool isCheckerBoarded = (!par().cbPairsLeft.empty());
 
   std::vector<FermionField> *left, *right;
 
@@ -417,9 +558,20 @@ void TMesonFieldMILC<FImpl, Pack>::execute(void) {
     kernel.setWorkerStencil(grid, ph, _gammas, orthogDir, U);
     if (hasLowModes) {
       auto &lowModes = envGet(Pack, par().lowModes);
-      computationStencil.execute(*left, *right, kernel, gammaIOnameFn,
-                                 gammaFilenameFn, gammaMetadataFn,
-                                 &lowModes.evec, lowModes.eval);
+      if (isCheckerBoarded) {
+        auto &pairLeft = envGet(A2ALowModePairSourceMILC<FermionField>,
+                                par().cbPairsLeft);
+        auto &pairRight = envGet(A2ALowModePairSourceMILC<FermionField>,
+                                 par().cbPairsRight);
+        computationStencil.execute(*left, *right, kernel, gammaIOnameFn,
+                                   gammaFilenameFn, gammaMetadataFn,
+                                   &lowModes.evec, lowModes.eval, nullptr,
+                                   &pairLeft, &pairRight);
+      } else {
+        computationStencil.execute(*left, *right, kernel, gammaIOnameFn,
+                                   gammaFilenameFn, gammaMetadataFn,
+                                   &lowModes.evec, lowModes.eval);
+      }
     } else {
       computationStencil.execute(*left, *right, kernel, gammaIOnameFn,
                                  gammaFilenameFn, gammaMetadataFn);

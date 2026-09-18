@@ -84,6 +84,30 @@ public:
 };
 
 /******************************************************************************
+ *              Abstract class for CB low-mode pair sources                   *
+ ******************************************************************************/
+// Supplier of checkerboarded low-mode (even, odd) fermion arrays for the
+// A2AMatrix block loop (A2AMatrixBlockComputationMILC::execute). For a
+// request [start, start+n) of eigenvectors, get() fills source-managed,
+// grow-only buffers with the even-CB and odd-CB parts of each evec in the
+// range and returns pointers to the two length-n arrays -- first always
+// Checkerboard()==Even content, second always Checkerboard()==Odd. The
+// eigenpack itself is never mutated (unlike the legacy SwapFn mechanism,
+// which destructively swaps evec content in place and restores it after
+// each block). Interface consumed through envCreateDerived/envGet, the
+// same base-typed product pattern as FMat/noise modules; A2AKernelMILC
+// above is the framework-interface precedent.
+template <typename Field> class A2ALowModePairSourceMILC {
+public:
+  A2ALowModePairSourceMILC(void) = default;
+  virtual ~A2ALowModePairSourceMILC(void) = default;
+  // (even array, odd array) for evecs [start, start+n); the buffers are
+  // owned by the source and valid until the next get() call.
+  virtual std::pair<const Field *, const Field *> get(const int start,
+                                                      const int n) = 0;
+};
+
+/******************************************************************************
  *                  Class to handle A2A matrix block HDF5 I/O                 *
  ******************************************************************************/
 template <typename T> class A2AMatrixIoMILC {
@@ -148,7 +172,9 @@ public:
                const FilenameFn &filenameFn, const MetadataFn &metadataFn,
                std::vector<Field> *evecs = nullptr,
                const std::vector<ComplexD> &evals = {},
-               const SwapFn *swapEvecCheckerFn = nullptr);
+               const SwapFn *swapEvecCheckerFn = nullptr,
+               A2ALowModePairSourceMILC<Field> *pairSourceLeft = nullptr,
+               A2ALowModePairSourceMILC<Field> *pairSourceRight = nullptr);
 
 private:
   // I/O handler
@@ -416,7 +442,9 @@ void A2AMatrixBlockComputationMILC<T, Field, MetadataType, TIo>::execute(
     A2AKernelMILC<T, Field> &kernel, const FilenameFn &ionameFn,
     const FilenameFn &filenameFn, const MetadataFn &metadataFn,
     std::vector<Field> *evecs, const std::vector<ComplexD> &evals,
-    const SwapFn *swapEvecCheckerFn) {
+    const SwapFn *swapEvecCheckerFn,
+    A2ALowModePairSourceMILC<Field> *pairSourceLeft,
+    A2ALowModePairSourceMILC<Field> *pairSourceRight) {
   //////////////////////////////////////////////////////////////////////////
   // i,j   is first  loop over _blockSize factors
   // Total index is sum of these  i+ii+iii etc...
@@ -430,7 +458,29 @@ void A2AMatrixBlockComputationMILC<T, Field, MetadataType, TIo>::execute(
 
   std::vector<TIo> mBuf;
 
-  bool checkerboarded_low = (swapEvecCheckerFn != nullptr);
+  const int nPairSources =
+      (pairSourceLeft != nullptr) + (pairSourceRight != nullptr);
+  if (swapEvecCheckerFn != nullptr && nPairSources != 0) {
+    HADRONS_ERROR(Argument,
+                  "A2AMatrixBlockComputationMILC::execute: pass either a "
+                  "SwapFn or low-mode pair sources, not both");
+  }
+  if (nPairSources == 1) {
+    HADRONS_ERROR(
+        Argument,
+        "A2AMatrixBlockComputationMILC::execute: checkerboarded low modes "
+        "need BOTH a left and a right pair source");
+  }
+  if (nPairSources == 2 && pairSourceLeft == pairSourceRight) {
+    HADRONS_ERROR(
+        Argument,
+        "A2AMatrixBlockComputationMILC::execute: left and right pair "
+        "sources must be distinct objects (the block loop holds the "
+        "right-side result across the whole left-side loop, so the two "
+        "sides cannot share one bank)");
+  }
+  bool checkerboarded_low =
+      (swapEvecCheckerFn != nullptr || nPairSources == 2);
   int Ncb = checkerboarded_low
                 ? 2
                 : 1; // Ncb == 2 if the low modes are checkerboarded
@@ -483,12 +533,14 @@ void A2AMatrixBlockComputationMILC<T, Field, MetadataType, TIo>::execute(
           "Blocksize must be divisible by 2 for checkerboarded low modes");
     }
 
-    if (!skip_low_left)
-      _lowBuf_i.resize(
-          _blockSize / 2,
-          evecs->at(0).Grid()); // storage for caching checkerboards
-    if (!skip_low_right)
-      _lowBuf_j.resize(_blockSize / 2, evecs->at(0).Grid());
+    if (swapEvecCheckerFn != nullptr) {
+      if (!skip_low_left)
+        _lowBuf_i.resize(
+            _blockSize / 2,
+            evecs->at(0).Grid()); // storage for caching checkerboards
+      if (!skip_low_right)
+        _lowBuf_j.resize(_blockSize / 2, evecs->at(0).Grid());
+    }
   }
 
   int NBlock_i = N_i / _blockSize +
@@ -509,7 +561,11 @@ void A2AMatrixBlockComputationMILC<T, Field, MetadataType, TIo>::execute(
     if (low_j) {
       N_jj = MIN(N_low - j, _blockSize);
 
-      if (checkerboarded_low) {
+      if (pairSourceRight != nullptr) {
+        auto pairs = pairSourceRight->get(evec_j, N_jj / 2);
+        r_temp_e = pairs.first;
+        r_temp_o = pairs.second;
+      } else if (checkerboarded_low) {
         for (int idxj = evec_j; idxj < (MIN(N_low, j + N_jj) / 2); idxj++) {
           _lowBuf_j[idxj - evec_j] = evecs->at(
               idxj); // Cache original evecs to avoid excessive Meooe ops.
@@ -554,6 +610,10 @@ void A2AMatrixBlockComputationMILC<T, Field, MetadataType, TIo>::execute(
           else
             l_temp_o = nullptr;
 
+        } else if (pairSourceLeft != nullptr) {
+          auto pairs = pairSourceLeft->get(evec_i, N_ii / 2);
+          l_temp_e = pairs.first;
+          l_temp_o = pairs.second;
         } else if (checkerboarded_low) {
           for (int idxi = evec_i; idxi < (MIN(N_low, i + N_ii) / 2); idxi++) {
             _lowBuf_i[idxi - evec_i] = evecs->at(idxi);
@@ -688,7 +748,8 @@ void A2AMatrixBlockComputationMILC<T, Field, MetadataType, TIo>::execute(
                    << blockSize / ioTime * 1.0e6 / 1024 / 1024 << " MB/s)"
                    << std::endl;
 
-      if (checkerboarded_low && low_i && (skip_low_right || i != j)) {
+      if (swapEvecCheckerFn != nullptr && low_i &&
+          (skip_low_right || i != j)) {
         for (int idxi = evec_i; idxi < (MIN(N_low, i + N_ii) / 2); idxi++)
           evecs->at(idxi) = _lowBuf_i[idxi - evec_i];
       }
@@ -696,7 +757,7 @@ void A2AMatrixBlockComputationMILC<T, Field, MetadataType, TIo>::execute(
       evec_i += (N_ii / Ncb);
     } // End while (i < N_i) Loop
 
-    if (checkerboarded_low && low_j) {
+    if (swapEvecCheckerFn != nullptr && low_j) {
       for (int idxj = evec_j; idxj < (MIN(N_low, j + N_jj) / 2); idxj++)
         evecs->at(idxj) = _lowBuf_j[idxj - evec_j];
     }

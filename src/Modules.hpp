@@ -27,6 +27,7 @@
 #include "Modules/MSource/RandomWall.hpp"
 #include "Modules/MSource/SeqAslash.hpp"
 #include "Modules/MSource/SeqGamma.hpp"
+#include "Modules/MUtilities/EigenPackCBPairs.hpp"
 #include "Modules/MUtilities/EigenPackExtractEvals.hpp"
 #include "Modules/MUtilities/EigenPackFullPairs.hpp"
 #include "Modules/MUtilities/ModifyEigenPack.hpp"
