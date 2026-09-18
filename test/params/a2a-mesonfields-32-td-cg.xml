@@ -1,0 +1,233 @@
+<grid>
+  <modules>
+    <!-- Gauge fields from the 4^4 test configuration set (trajectory suffix supplied by
+    trajCounter). -->
+    <module>
+      <id>
+        <name>gauge</name>
+        <type>MIO::LoadIldg</type>
+      </id>
+      <options>
+        <file>lat/lat.sample.l4444.ildg</file>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>gauge_fat</name>
+        <type>MIO::LoadIldg</type>
+      </id>
+      <options>
+        <file>lat/fatlinks.l4444.ildg</file>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>gauge_long</name>
+        <type>MIO::LoadIldg</type>
+      </id>
+      <options>
+        <file>lat/longlinks.l4444.ildg</file>
+      </options>
+    </module>
+
+    <!-- Staggered action used by the CG solve.  No eigenvectors/low modes are used. -->
+    <module>
+      <id>
+        <name>stag_mass_ref</name>
+        <type>MAction::ImprovedStaggeredMILC</type>
+      </id>
+      <options>
+        <Ls>1</Ls>
+        <boundary>1 1 1 1</boundary>
+        <c1>1.0</c1>
+        <c2>1.0</c2>
+        <gaugefat>gauge_fat</gaugefat>
+        <gaugelong>gauge_long</gaugelong>
+        <mass>0.1</mass>
+        <tad>1.0</tad>
+        <twist>0 0 0</twist>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>stag_cg_ref</name>
+        <type>MSolver::StagCGMILC</type>
+      </id>
+      <options>
+        <action>stag_mass_ref</action>
+        <maxIteration>10000</maxIteration>
+        <residual>1e-12</residual>
+        <guesser></guesser>
+      </options>
+    </module>
+
+    <!-- Time-diluted spin-color diagonal source vectors. -->
+    <module>
+      <id>
+        <name>td_sc_noise</name>
+        <type>MNoise::StagTimeDilutedSpinColorDiagonal</type>
+      </id>
+      <options>
+        <nsrc>1</nsrc>
+        <tStep>1</tStep>
+      </options>
+    </module>
+
+    <!-- CG solves for the td_sc_noise_vec source vector; lowModes is intentionally empty. -->
+    <module>
+      <id>
+        <name>td_sc_a2a</name>
+        <type>MSolver::StagA2AVectors</type>
+      </id>
+      <options>
+        <noise>td_sc_noise_vec</noise>
+        <action>stag_mass_ref</action>
+        <lowModes></lowModes>
+        <solver>stag_cg_ref</solver>
+        <highOutput></highOutput>
+        <highMultiFile>false</highMultiFile>
+      </options>
+    </module>
+
+    <!--
+      Build A2A meson fields with left = original source vector and
+      right = corresponding CG solve vector.  The first block is the 16 local
+      spin-taste bilinears; the second block is the 16 one-link bilinears.
+    -->
+    <module>
+      <id>
+        <name>mf_td_cg_local_16</name>
+        <type>MContraction::StagA2AMesonField</type>
+      </id>
+      <options>
+        <action>stag_mass_ref</action>
+        <block>12</block>
+        <left>td_sc_noise_vec</left>
+        <lowModes></lowModes>
+        <mom>
+          <elem>0 0 0</elem>
+        </mom>
+        <output>a2a-mesonfields-32/td_cg</output>
+        <right>td_sc_a2a_v</right>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT)
+            (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5)</gammas>
+          <gauge></gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <!--
+      The one-link A2A worker creates two shifts per gamma. Grid's small
+      AcceleratorVector used by the stencil path has MaxEntries=16, so keep
+      each one-link module to <= 8 gammas.  Four chunks of four are used here
+      to leave margin and make failures easier to localize.
+    -->
+    <module>
+      <id>
+        <name>mf_td_cg_onelink_00_03</name>
+        <type>MContraction::StagA2AMesonField</type>
+      </id>
+      <options>
+        <action>stag_mass_ref</action>
+        <block>12</block>
+        <left>td_sc_noise_vec</left>
+        <lowModes></lowModes>
+        <mom>
+          <elem>0 0 0</elem>
+        </mom>
+        <output>a2a-mesonfields-32/td_cg</output>
+        <right>td_sc_a2a_v</right>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(G1 GX) (GZ GZX) (GY GXY) (GYZ G5T)</gammas>
+          <gauge>gauge</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>mf_td_cg_onelink_04_07</name>
+        <type>MContraction::StagA2AMesonField</type>
+      </id>
+      <options>
+        <action>stag_mass_ref</action>
+        <block>12</block>
+        <left>td_sc_noise_vec</left>
+        <lowModes></lowModes>
+        <mom>
+          <elem>0 0 0</elem>
+        </mom>
+        <output>a2a-mesonfields-32/td_cg</output>
+        <right>td_sc_a2a_v</right>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(GX G1) (GZX GZ) (GXY GY) (G5T GYZ)</gammas>
+          <gauge>gauge</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>mf_td_cg_onelink_08_11</name>
+        <type>MContraction::StagA2AMesonField</type>
+      </id>
+      <options>
+        <action>stag_mass_ref</action>
+        <block>12</block>
+        <left>td_sc_noise_vec</left>
+        <lowModes></lowModes>
+        <mom>
+          <elem>0 0 0</elem>
+        </mom>
+        <output>a2a-mesonfields-32/td_cg</output>
+        <right>td_sc_a2a_v</right>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5)</gammas>
+          <gauge>gauge</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>mf_td_cg_onelink_12_15</name>
+        <type>MContraction::StagA2AMesonField</type>
+      </id>
+      <options>
+        <action>stag_mass_ref</action>
+        <block>12</block>
+        <left>td_sc_noise_vec</left>
+        <lowModes></lowModes>
+        <mom>
+          <elem>0 0 0</elem>
+        </mom>
+        <output>a2a-mesonfields-32/td_cg</output>
+        <right>td_sc_a2a_v</right>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+          <gauge>gauge</gauge>
+        </spinTaste>
+      </options>
+    </module>
+  </modules>
+  <parameters>
+    <genetic>
+      <maxCstGen>100</maxCstGen>
+      <maxGen>1000</maxGen>
+      <mutationRate>0.1</mutationRate>
+      <popSize>20</popSize>
+    </genetic>
+    <graphFile></graphFile>
+    <parallelWriteMaxRetry>-1</parallelWriteMaxRetry>
+    <runId>32-td-cg</runId>
+    <saveSchedule>false</saveSchedule>
+    <scheduleFile></scheduleFile>
+    <trajCounter>
+      <end>10000</end>
+      <start>20</start>
+      <step>10000</step>
+    </trajCounter>
+  </parameters>
+</grid>

@@ -1,0 +1,151 @@
+<!--
+  test-full-lma-a.20-split.xml  (TAGGING-PATTERN TEMPLATE)
+  Adapted from test-full-lma-a.20.xml (154 modules). Adds a <split> block and
+  tags per-source modules with a bare <subgrid>k</subgrid> leaf.
+
+  THIS IS A TEMPLATE + INSTRUCTIONS, not a standalone runnable config. To
+  complete it: copy the FULL <modules> block from test-full-lma-a.20.xml
+  verbatim, then insert a <subgrid> tag into each per-source module per the
+  table below. Copy the <parameters> block and add <split>.
+
+  TAGGING STRATEGY (data-parallel by time slice, nrhs=4):
+  +----------------------+--------------+------------------------------+
+  | Module               | subgrid value| Notes                        |
+  +----------------------+--------------+------------------------------+
+  | quark_*_t0 (x16)     | 0            | GaugeProp, subcomm 0         |
+  | corr_*_t0   (x16)    | 0            | StagMeson, subcomm 0         |
+  | quark_*_t1 (x16)     | 1            | GaugeProp, subcomm 1         |
+  | corr_*_t1   (x16)    | 1            | StagMeson, subcomm 1         |
+  | quark_*_t2 (x16)     | 2            | GaugeProp, subcomm 2         |
+  | corr_*_t2   (x16)    | 2            | StagMeson, subcomm 2         |
+  | quark_*_t3 (x16)     | 3            | GaugeProp, subcomm 3         |
+  | corr_*_t3   (x16)    | 3            | StagMeson, subcomm 3         |
+  | noise_t0..t3         | (none)       | global phase, scattered      |
+  | gauge, LoadIldg,...   | (none)       | shared, global phase         |
+  | ImprovedStaggered... | (none)       | action, transitive closure P6|
+  | StagMixedPrecisionCG | (none)       | solver, transitive closure   |
+  | StagLMA, EigenPack.. | (none)       | eigensolve, global phase     |
+  +----------------------+--------------+------------------------------+
+
+  GENERAL RULE: time slice tN -> subcomm (N % nrhs).
+  With nrhs=4 and slices t0..t3, each slice maps to its own subcomm.
+
+  SYNTAX:
+    <subgrid>k</subgrid>            -> bare leaf, space-unnecessary (one int)
+                                       placed AFTER </id>, BEFORE <options>
+    <mpiSplit>1 1 2 2</mpiSplit>    -> space-separated ints (boundary/twist
+                                       convention), ONE entry per lattice dim
+
+  mpiSplit: product(mpiSplit) must equal (nproc / nrhs). The value below
+  assumes a 16-rank world split into 4 subcomms of 4 ranks each (product=4).
+  ADJUST the concrete integers to match the run's MPI size and lattice layout.
+  buildSubGrids (Phase 6) checks: product(mpiSplit)*nrhs==nproc AND
+  processors[d] % mpiSplit[d]==0, else HADRONS_ERROR.
+-->
+
+<grid>
+  <modules>
+    <!-- ... COPY ALL 154 MODULES from test-full-lma-a.20.xml ... -->
+
+    <!-- TAGGED MODULE EXAMPLE (t0 -> subgrid 0): insert <subgrid> AFTER </id>, BEFORE <options> -->
+    <module>
+      <id>
+        <name>quark_ama_pion_local_mass_l_t0</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <subgrid>0</subgrid>
+      <options>
+        <guess>quark_ranLL_pion_local_mass_l_t0</guess>
+        <solver>stag_ama_mass_l</solver>
+        <source>noise_t0</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G5 G5)</gammas>
+          <gauge></gauge>
+        </spinTaste>
+      </options>
+    </module>
+
+    <module>
+      <id>
+        <name>corr_ama_pion_local_mass_l_t0</name>
+        <type>MContraction::StagMeson</type>
+      </id>
+      <subgrid>0</subgrid>
+      <options>
+        <output>.../corr_pion_local_ama_m002426_t0_a</output>
+        <sink>quark_ama_pion_local_mass_l_t0</sink>
+        <sinkFunc>sink</sinkFunc>
+        <sinkSpinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G5 G5)</gammas>
+          <gauge></gauge>
+        </sinkSpinTaste>
+        <source>quark_ama_pion_local_mass_l_t0</source>
+        <sourceGammas>(G5 G5)</sourceGammas>
+        <sourceShift>noise_t0_shift</sourceShift>
+        <!-- ... -->
+      </options>
+    </module>
+
+    <!-- TAGGED MODULE EXAMPLE (t1 -> subgrid 1): same structure, value=1 -->
+    <module>
+      <id>
+        <name>quark_ama_pion_local_mass_l_t1</name>
+        <type>MFermion::StagGaugeProp</type>
+      </id>
+      <subgrid>1</subgrid>
+      <options>
+        <guess>quark_ranLL_pion_local_mass_l_t1</guess>
+        <solver>stag_ama_mass_l</solver>
+        <source>noise_t1</source>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G5 G5)</gammas>
+          <gauge></gauge>
+        </spinTaste>
+      </options>
+    </module>
+
+    <!-- UNTAGGED MODULE EXAMPLE (noise -- global phase, scattered at boundary): NO <subgrid> tag -->
+    <module>
+      <id>
+        <name>noise_t0</name>
+        <type>MSource::StagRandomWall</type>
+      </id>
+      <options>
+        <colorDiag>true</colorDiag>
+        <nSrc>1</nSrc>
+        <noise></noise>
+        <t0>0</t0>
+        <tStep>4</tStep>
+      </options>
+    </module>
+    <!-- ... rest of modules copied verbatim, tagged per table ... -->
+  </modules>
+
+  <parameters>
+    <split>
+      <!-- 16-rank world -> 4 subcomms of 4 ranks each. product(mpiSplit)=4=16/4.
+           ADJUST integers to match your MPI size & lattice layout.
+           Space-separated string (same convention as <boundary>/<twist>). -->
+      <mpiSplit>1 1 2 2</mpiSplit>
+    </split>
+    <genetic>
+      <maxCstGen>100</maxCstGen>
+      <maxGen>1000</maxGen>
+      <mutationRate>0.1</mutationRate>
+      <popSize>20</popSize>
+    </genetic>
+    <graphFile></graphFile>
+    <parallelWriteMaxRetry>-1</parallelWriteMaxRetry>
+    <runId>LMI-RW-series-a-100-eigs-1-noise-split</runId>
+    <saveSchedule>false</saveSchedule>
+    <scheduleFile>schedules/full-lma-a.20-split.sched</scheduleFile>
+    <trajCounter>
+      <end>10000</end>
+      <start>20</start>
+      <step>10000</step>
+    </trajCounter>
+  </parameters>
+</grid>

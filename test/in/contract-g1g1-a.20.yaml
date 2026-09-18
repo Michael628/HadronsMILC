@@ -1,0 +1,37 @@
+diagrams:
+  g1g1:
+    contraction_type: TWOPOINT
+    eig_range:
+      max: 768
+      min: 0
+    gammas:
+    - G1_G1
+    mesons:
+    - file:
+        ext: .20/{gamma}_0_0_0.h5
+        filestem: /workspaces/HadronsMILC/code/test/e384n1dt1/mesons/m01/mf
+        good_size: 1286000
+      mass: &id001
+        l: 0.01
+        zero: 0.0
+      mass_shift:
+        milc_mass: true
+        original: l
+        updated: null
+    - file:
+        ext: .20/{gamma}_0_0_0.h5
+        filestem: /workspaces/HadronsMILC/code/test/e384n1dt1/mesons/m01/mf
+        good_size: 1286000
+      mass: *id001
+      mass_shift:
+        milc_mass: true
+        original: l
+        updated: null
+    outfile:
+      ext: .20.h5
+      filestem: /workspaces/HadronsMILC/code/test/e384n1dt1-g1g1/correlators/m01/g1g1/a2aLL/corr_g1g1_a2aLL_m01
+      good_size: 400
+    symmetric: true
+logging_level: DEBUG
+runid: LMI-RW-series-a-384-eigs-1-noise
+time: 4

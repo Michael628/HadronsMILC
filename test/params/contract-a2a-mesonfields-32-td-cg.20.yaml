@@ -1,0 +1,65 @@
+diagrams:
+- all_mesonfields_connected_2pt
+
+diagram_params:
+  all_mesonfields_connected_2pt:
+    contraction_type: TWOPOINT
+    eig_range:
+      min: 0
+      max: 12
+    gammas:
+    - G1_G1
+    - GZ_GZ
+    - GY_GY
+    - GYZ_GYZ
+    - GX_GX
+    - GZX_GZX
+    - GXY_GXY
+    - G5T_G5T
+    - GT_GT
+    - GZT_GZT
+    - GYT_GYT
+    - G5X_G5X
+    - GXT_GXT
+    - G5Y_G5Y
+    - G5Z_G5Z
+    - G5_G5
+    - G1_GX
+    - GZ_GZX
+    - GY_GXY
+    - GYZ_G5T
+    - GX_G1
+    - GZX_GZ
+    - GXY_GY
+    - G5T_GYZ
+    - GT_GXT
+    - GZT_G5Y
+    - GYT_G5Z
+    - G5X_G5
+    - GXT_GT
+    - G5Y_GZT
+    - G5Z_GYT
+    - G5_G5X
+    mesons:
+    - file:
+        filestem: /workspaces/HadronsMILC/code/test/a2a-mesonfields-32/td_cg
+        ext: .20/{gamma}_0_0_0.h5
+        good_size: 8624
+      mass: ref
+    - file:
+        filestem: /workspaces/HadronsMILC/code/test/a2a-mesonfields-32/td_cg
+        ext: .20/{gamma}_0_0_0.h5
+        good_size: 8624
+      mass: ref
+    outfile:
+      filestem: /workspaces/HadronsMILC/code/test/a2a-mesonfields-32/correlators/td_cg/conn_2pt_all_mesonfields_td_cg
+      ext: .20.h5
+      good_size: 400
+    symmetric: true
+
+mass:
+  ref: 0.1
+logging_level: DEBUG
+overwrite: true
+runid: a2a-mesonfields-32-td-cg-contract
+time: 4

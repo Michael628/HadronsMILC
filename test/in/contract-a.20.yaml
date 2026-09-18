@@ -1,0 +1,51 @@
+diagrams:
+  test_tau:
+    contraction_type: TWOPOINT
+    eig_range:
+      max: 768
+      min: 0
+    gammas:
+    - G5T_G5
+    mesons:
+    - evalfile:
+        ext: .20.h5
+        filestem: /workspaces/qcd-development/HadronsMILC/test/eigen/eval/eval4444nv384
+        good_size: 815
+      file:
+        ext: .20/{gamma}_0_0_0.h5
+        filestem: /workspaces/qcd-development/HadronsMILC/test/e384n1dt1/mesons/m01/mf
+        good_size: 1286000
+      mass:
+        l: 0.01
+        r: 0.1
+        s: 0.4
+        zero: 0.0
+      mass_shift:
+        milc_mass: true
+        original: l
+        updated: r
+    - evalfile:
+        ext: .20.h5
+        filestem: /workspaces/qcd-development/HadronsMILC/test/eigen/eval/eval4444nv384
+        good_size: 815
+      file:
+        ext: .20/{gamma}_0_0_0.h5
+        filestem: /workspaces/qcd-development/HadronsMILC/test/e384n1dt1/mesons/m01/mf
+        good_size: 1286000
+      mass:
+        l: 0.01
+        r: 0.1
+        s: 0.4
+        zero: 0.0
+      mass_shift:
+        milc_mass: true
+        original: l
+        updated: s
+    outfile:
+      ext: .20.h5
+      filestem: /workspaces/qcd-development/HadronsMILC/test/e384n1dt1/correlators/m1_m4/test_tau/a2aLL/corr_test_tau_a2aLL_m1_m4
+      good_size: 400
+    symmetric: true
+logging_level: DEBUG
+runid: LMI-RW-series-a-384-eigs-1-noise
+time: 4
