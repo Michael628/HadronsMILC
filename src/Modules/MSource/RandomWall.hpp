@@ -39,14 +39,25 @@
 BEGIN_HADRONS_NAMESPACE
 
 /*
- 
+
  Random Wall source
  -----------------------------
- 
+
  * options:
- - tW:   source timeslice (integer)
- - size: number of sources (integer)
- 
+ - tStep:     step between source timeslices (integer)
+ - t0:        first source timeslice, must be < tStep (integer)
+ - nSrc:      number of noise sources (integer)
+ - reuset0:   reuse noise vectors at t=t0 and shift in time ("true"/"false")
+ - colorDiag: store propagator fields if true, fermion fields if false
+ - noise:     name of an external spin-color diagonal noise module, either
+              time-diluted (MNoise::TimeDilutedSpinColorDiagonal) or
+              full-volume (MNoise::FullVolumeSpinColorDiagonal); if empty,
+              time-diluted noise is generated internally. Full-volume noise
+              is masked to a single time slice per source (zeros elsewhere),
+              matching the internal-noise output bit-for-bit when the noise
+              module name in this run equals the RandomWall module name in
+              the internal-noise run (same RNG stream) with nsrc >= nSrc.
+
  */
 
 /******************************************************************************
@@ -128,6 +139,7 @@ void TRandomWallMILC<FImpl>::setup(void)
         envTmp(TimeDilutedNoiseMILC<FImpl>, "noise", 1, envGetGrid(FermionField), par().nSrc);
     }
     envTmpLat(PropagatorField, "shiftedField");
+    envTmp(Lattice<iScalar<vInteger>>, "t", 1, envGetGrid(PropagatorField));
     envTmpLat(FermionField,"ferm");
 
     if (par().colorDiag) {
@@ -150,15 +162,27 @@ template <typename FImpl>
 void TRandomWallMILC<FImpl>::execute(void)
 {    
     SpinColorDiagonalNoiseMILC<FImpl> *noise;
+    bool fullVolumeNoise = false;
     if (par().noise.empty()) {
         noise = env().template getObject<TimeDilutedNoiseMILC<FImpl> >(getName() + "_tmp_noise");
         LOG(Message) << "Generating " << par().nSrc << " time-diluted, spin-color diagonal noise sources at every " << par().tStep << " time step(s)" << std::endl;
         noise->generateNoise(rng4d());
     } else {
         noise = env().template getObject<SpinColorDiagonalNoiseMILC<FImpl> >(par().noise);
+        if (static_cast<int>(par().nSrc) > noise->size()) {
+            HADRONS_ERROR(Logic,"external noise '" + par().noise + "' provides "
+                         + std::to_string(noise->size()) + " source(s),"
+                         + " cannot feed nSrc = " + std::to_string(par().nSrc));
+        }
+        fullVolumeNoise = (dynamic_cast<FullVolumeNoiseMILC<FImpl> *>(noise) != nullptr);
+        if (fullVolumeNoise) {
+            LOG(Message) << "Reading full-volume, spin-color diagonal noise from '"
+                         << par().noise << "', keeping single time slices only" << std::endl;
+        }
     }
     envGetTmp(PropagatorField,shiftedField);
     envGetTmp(FermionField,ferm);
+    envGetTmp(Lattice<iScalar<vInteger>>, t);
 
     bool colorDiag = par().colorDiag;
 
@@ -178,6 +202,22 @@ void TRandomWallMILC<FImpl>::execute(void)
 
     time_shift.resize(nVecs,0);
 
+    if (fullVolumeNoise) {
+        LatticeCoordinate(t, Tp);
+    }
+
+    // time-diluted noise: propagator index is i*nt + t;
+    // full-volume noise:  propagator index is i, masked to the t time slice
+    auto getNoiseProp = [&](int i, int tSlice) -> PropagatorField & {
+        if (!fullVolumeNoise) {
+            return noise->getProp(i*nt + tSlice);
+        } else {
+            PropagatorField &src = noise->getProp(i);
+            shiftedField = where((t == tSlice), src, 0.*src);
+            return shiftedField;
+        }
+    };
+
     if (reuset0_) {
         LOG(Message) << "Reusing noise vectors at t=0 and shifting by " << par().tStep << std::endl;
     }
@@ -189,14 +229,12 @@ void TRandomWallMILC<FImpl>::execute(void)
 
         for (int i=0;i<nSources;i++) {
             if (reuset0_) {
-                shiftedField = noise->getProp(i*nt + t0);
-                noisevec[i*nSlices] = shiftedField;
+                noisevec[i*nSlices] = getNoiseProp(i, t0);
             }
             for (int j=0;j<nSlices;j++) {
                 int idx = i*nSlices+j;
-                int offset = i*nt+j*tStep+t0;
                 if (!reuset0_) {
-                    noisevec[idx] = noise->getProp(offset);                
+                    noisevec[idx] = getNoiseProp(i, j*tStep+t0);
                 } else {
                     if (j != 0) {
                         noisevec[idx] = Cshift(noisevec[idx-1],Tp,tStep);
@@ -211,20 +249,20 @@ void TRandomWallMILC<FImpl>::execute(void)
 
         for (int i=0;i<nSources;i++) {
             if (reuset0_) {
-                shiftedField = noise->getProp(i*nt+t0);
+                PropagatorField &srcProp = getNoiseProp(i, t0);
                 noisevec[i*nSlices] = Zero();
-                for (int j=0;j<FImpl::Dimension;j++) {
-                    setFerm(ferm,shiftedField,j);
+                for (int k=0;k<FImpl::Dimension;k++) {
+                    setFerm(ferm,srcProp,k);
                     noisevec[i*nSlices] += ferm;
                 }
             }
             for (int j=0;j<nSlices;j++) {
                 int idx = i*nSlices+j;
-                int offset = i*nt+j*tStep+t0;
                 noisevec[idx] = Zero();
                 if (!reuset0_) {
+                    PropagatorField &srcProp = getNoiseProp(i, j*tStep+t0);
                     for (int k=0;k<FImpl::Dimension;k++) {
-                        setFerm(ferm,noise->getProp(offset),k);
+                        setFerm(ferm,srcProp,k);
                         noisevec[idx] += ferm;
                     }
                 } else {
