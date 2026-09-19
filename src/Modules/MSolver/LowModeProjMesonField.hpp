@@ -39,9 +39,13 @@ BEGIN_HADRONS_NAMESPACE
     the <eta_i|e_j>(t)-type contraction coefficients from a meson-field HDF5
     file (loaded by MIO::LoadMesonField) instead of computing them live.
 
-    The file's eigenvector rows come in full-volume |e+o>/|e-o> pairs
-    (rows 2k/2k+1 of eigenpair k). Their sum and difference reconstruct the
-    parity-split inner products LowModeProj computes live:
+    The file's eigenvector rows come in |e+o>/|e-o> pairs (rows 2k/2k+1 of
+    eigenpair k) -- produced identically by EigenPackFullPairs (full-volume)
+    or by MesonField's checkerboarded cbPairs path (on-demand CB pairs; the
+    writer's CB 1/sqrt(2) norm reduction absorbs the pair construction's
+    1/sqrt(2), so the rows are numerically identical either way). Their sum
+    and difference reconstruct the parity-split inner products LowModeProj
+    computes live:
 
       SUM_k(t,j)  = M[t][2k][j] + M[t][2k+1][j] ~ <e_E^k|eta_j,E>(t)
       DIFF_k(t,j) = M[t][2k][j] - M[t][2k+1][j] ~ (i/lam_k) <Meooe(e_E^k)|eta_j,O>(t)
@@ -61,7 +65,6 @@ BEGIN_HADRONS_NAMESPACE
                 eigenvectors/eigenvalues (row pair k <-> evec[k], eval[k])
     mesonField  LoadMesonField module holding the [nt, 2*nEvec, nNoise] table
     noiseIndex  j: which noise vector (file column) this instance projects
-    timeslice   t: which timeslice of the per-timeslice contraction to use
     eigStart    first eigenpair to include (pair space)
     nEigs       number of eigenpairs (< 1: all)
     negFirst    ""/"false" (default): row 2k is |e+o>; "true": |e-o> comes
@@ -74,10 +77,19 @@ BEGIN_HADRONS_NAMESPACE
                 (std::vector<FermionField>, e.g. "<noise module>_vec") used
                 for a one-shot pairing/normalization self-check at setup
 
-    One solver instance is bound to a fixed (noiseIndex, timeslice); its main
-    output ignores the source passed to the solver call (the coefficients
-    come from the file). The "<name>_subtract" variant returns
-    source - projection, mirroring LowModeProj.
+    Instead of a fixed timeslice parameter, the module creates one solver
+    pair per lattice timeslice t in [0, nt): "<name>_t<t>" and
+    "<name>_t<t>_subtract", each a closure over the same solver body with
+    tSlice = t bound by value (the "_subtract" suffix stays last,
+    following LowModeProj's name/name_subtract convention, so appending
+    "_subtract" to any wrapper name yields its subtract variant). The
+    full 2*nt name family is
+    enumerated in getOutput() from env().getDim().back() -- the first
+    HadronsMILC module with a lattice-dimension-dependent output list
+    (FermionFlow/ScalarVP core precedents). A solver call ignores the source
+    passed to it (the coefficients come from the file); the
+    "<name>_t<t>_subtract" variant returns source - projection, mirroring
+    LowModeProj.
  ******************************************************************************/
 BEGIN_MODULE_NAMESPACE(MSolver)
 
@@ -88,7 +100,6 @@ public:
                                   std::string,   lowModes,
                                   std::string,   mesonField,
                                   unsigned int,  noiseIndex,
-                                  unsigned int,  timeslice,
                                   unsigned int,  eigStart,
                                   int,           nEigs,
                                   std::string,   negFirst,
@@ -145,7 +156,14 @@ std::vector<std::string> TLowModeProjMesonField<FImpl, Pack>::getInput(void) {
 
 template <typename FImpl, typename Pack>
 std::vector<std::string> TLowModeProjMesonField<FImpl, Pack>::getOutput(void) {
-  std::vector<std::string> out{getName(), getName() + "_subtract"};
+  std::vector<std::string> out;
+  int nt = env().getDim().back();
+
+  for (int t = 0; t < nt; ++t) {
+    std::string name = getName() + "_t" + std::to_string(t);
+    out.push_back(name);
+    out.push_back(name + "_subtract");
+  }
 
   return out;
 }
@@ -154,16 +172,21 @@ template <typename FImpl, typename Pack>
 DependencyMap
 TLowModeProjMesonField<FImpl, Pack>::getObjectDependencies(void) {
   DependencyMap dep;
+  int nt = env().getDim().back();
 
-  dep.insert({par().action, getName()});
-  dep.insert({par().lowModes, getName()});
-  dep.insert({par().mesonField, getName()});
-  dep.insert({par().action, getName() + "_subtract"});
-  dep.insert({par().lowModes, getName() + "_subtract"});
-  dep.insert({par().mesonField, getName() + "_subtract"});
-  if (!par().noise.empty()) {
-    dep.insert({par().noise, getName()});
-    dep.insert({par().noise, getName() + "_subtract"});
+  // every wrapper name carries its own {action, lowModes, mesonField}
+  // (and noise) edges so the GC never frees the loaded table before
+  // late-timeslice consumers run
+  for (int t = 0; t < nt; ++t) {
+    for (auto &suffix : {"", "_subtract"}) {
+      std::string name = getName() + "_t" + std::to_string(t) + suffix;
+      dep.insert({par().action, name});
+      dep.insert({par().lowModes, name});
+      dep.insert({par().mesonField, name});
+      if (!par().noise.empty()) {
+        dep.insert({par().noise, name});
+      }
+    }
   }
 
   return dep;
@@ -203,8 +226,8 @@ void TLowModeProjMesonField<FImpl, Pack>::setup(void) {
                << "for action '" << par().action
                << "' using eigenvectors from '" << par().lowModes
                << "' and meson field from '" << par().mesonField
-               << "' (noise index " << par().noiseIndex << ", timeslice "
-               << par().timeslice << ")" << std::endl;
+               << "' (noise index " << par().noiseIndex << ", one solver "
+               << "pair per timeslice)" << std::endl;
 
   auto &mat = envGet(FMat, par().action);
   auto &epack = envGet(Pack, par().lowModes);
@@ -232,11 +255,6 @@ void TLowModeProjMesonField<FImpl, Pack>::setup(void) {
     HADRONS_ERROR(Size, "meson field has " + std::to_string(mf.size()) +
                             " timeslices, expected " + std::to_string(nt));
   }
-  if (par().timeslice >= static_cast<unsigned int>(nt)) {
-    HADRONS_ERROR(Argument,
-                  "timeslice " + std::to_string(par().timeslice) +
-                      " out of range (nt = " + std::to_string(nt) + ")");
-  }
   // NOTE: the row-count (mf[0].rows() == 2*evec.size()), column-count
   // (noiseIndex < mf[0].cols()) and D9 self-check validations live in
   // execute(), not here: the scheduler dry-runs every module's setup()
@@ -247,13 +265,13 @@ void TLowModeProjMesonField<FImpl, Pack>::setup(void) {
   envCache(FermionField, "rbTempNeg", 1, envGetRbGrid(FermionField));
   envCache(FermionField, "rbFermNeg", 1, envGetRbGrid(FermionField));
 
-  // bind the fixed instance indices NOW (LowModeProj captures bound values
-  // by value, not par() at call time)
-  const unsigned int tSlice = par().timeslice;
+  // bind the fixed instance index NOW (LowModeProj captures bound values
+  // by value, not par() at call time); the timeslice enters as a factory
+  // argument so each wrapper closes over its own copy
   const unsigned int jIdx = par().noiseIndex;
 
   auto makeSolver = [&mat, &epack, &mf, eigStart, nEigs, negFirst, pairScale,
-                     tSlice, jIdx, this](bool subGuess) {
+                     jIdx, this](const unsigned int tSlice, bool subGuess) {
     return [&mat, &epack, &mf, subGuess, eigStart, nEigs, negFirst, pairScale,
             tSlice, jIdx, this](FermionField &sol,
                                 const FermionField &source) {
@@ -308,10 +326,14 @@ void TLowModeProjMesonField<FImpl, Pack>::setup(void) {
     };
   };
 
-  auto solver = makeSolver(false);
-  auto solver_subtract = makeSolver(true);
-  envCreate(Solver, getName(), Ls, solver, mat);
-  envCreate(Solver, getName() + "_subtract", Ls, solver_subtract, mat);
+  // one <name>_t<t> / <name>_t<t>_subtract pair per timeslice; the loop
+  // recomputes exactly the name family getOutput() declares at push time
+  // (FermionFlow pattern -- nothing is cached between calls)
+  for (int t = 0; t < nt; ++t) {
+    std::string name = getName() + "_t" + std::to_string(t);
+    envCreate(Solver, name, Ls, makeSolver(t, false), mat);
+    envCreate(Solver, name + "_subtract", Ls, makeSolver(t, true), mat);
+  }
 }
 
 /******************************************************************************
