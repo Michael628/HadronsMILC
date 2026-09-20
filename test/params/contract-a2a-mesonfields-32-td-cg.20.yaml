@@ -42,17 +42,17 @@ diagram_params:
     - G5_G5X
     mesons:
     - file:
-        filestem: /workspaces/HadronsMILC/code/test/a2a-mesonfields-32/td_cg
+        filestem: work/a2a-mesonfields-32/td_cg
         ext: .20/{gamma}_0_0_0.h5
         good_size: 8624
       mass: ref
     - file:
-        filestem: /workspaces/HadronsMILC/code/test/a2a-mesonfields-32/td_cg
+        filestem: work/a2a-mesonfields-32/td_cg
         ext: .20/{gamma}_0_0_0.h5
         good_size: 8624
       mass: ref
     outfile:
-      filestem: /workspaces/HadronsMILC/code/test/a2a-mesonfields-32/correlators/td_cg/conn_2pt_all_mesonfields_td_cg
+      filestem: work/a2a-mesonfields-32/correlators/td_cg/conn_2pt_all_mesonfields_td_cg
       ext: .20.h5
       good_size: 400
     symmetric: true

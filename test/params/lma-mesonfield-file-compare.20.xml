@@ -115,7 +115,7 @@
         <left></left>
         <lowModes>eig</lowModes>
         <mom><elem>0 0 0</elem></mom>
-        <output>mfout</output>
+        <output>work/mfout</output>
         <right>noise_vec</right>
         <spinTaste>
           <applyG5>false</applyG5>
@@ -129,7 +129,7 @@
     <module>
       <id><name>mf</name><type>MIO::LoadMesonField</type></id>
       <options>
-        <file>mfout.@traj@/G1_G1_0_0_0.h5</file>
+        <file>work/mfout.@traj@/G1_G1_0_0_0.h5</file>
         <dataset>G1_G1_0_0_0</dataset>
         <side></side>
         <lowModes></lowModes>
@@ -214,7 +214,7 @@
         <left>eigfull_vec</left>
         <lowModes></lowModes>
         <mom><elem>0 0 0</elem></mom>
-        <output>lma-file-compare/ref</output>
+        <output>work/lma-file-compare/ref</output>
         <right>gprop_ref</right>
         <spinTaste>
           <applyG5>false</applyG5>
@@ -231,7 +231,7 @@
         <left>eigfull_vec</left>
         <lowModes></lowModes>
         <mom><elem>0 0 0</elem></mom>
-        <output>lma-file-compare/file</output>
+        <output>work/lma-file-compare/file</output>
         <right>gprop_file</right>
         <spinTaste>
           <applyG5>false</applyG5>

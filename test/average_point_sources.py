@@ -13,7 +13,7 @@ import re
 import h5py
 import numpy as np
 
-SRC_DIR = os.path.join(os.path.dirname(__file__), "point-source-spintaste-reference")
+SRC_DIR = os.path.join(os.path.dirname(__file__), "work", "point-source-spintaste")
 OUT_FILE = os.path.join(SRC_DIR, "all-points.20.h5")
 N_MESON = 48
 T_RE = re.compile(r"t(\d+)")

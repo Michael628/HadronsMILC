@@ -179,7 +179,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y0z0t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y0z0t0</output>
         <sink>q_sink_x0y0z0t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -240,7 +240,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y0z0t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y0z0t0</output>
         <sink>q_sink_x1y0z0t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -301,7 +301,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y0z0t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y0z0t0</output>
         <sink>q_sink_x2y0z0t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -362,7 +362,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y0z0t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y0z0t0</output>
         <sink>q_sink_x3y0z0t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -423,7 +423,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y1z0t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y1z0t0</output>
         <sink>q_sink_x0y1z0t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -484,7 +484,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y1z0t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y1z0t0</output>
         <sink>q_sink_x1y1z0t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -545,7 +545,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y1z0t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y1z0t0</output>
         <sink>q_sink_x2y1z0t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -606,7 +606,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y1z0t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y1z0t0</output>
         <sink>q_sink_x3y1z0t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -667,7 +667,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y2z0t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y2z0t0</output>
         <sink>q_sink_x0y2z0t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -728,7 +728,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y2z0t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y2z0t0</output>
         <sink>q_sink_x1y2z0t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -789,7 +789,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y2z0t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y2z0t0</output>
         <sink>q_sink_x2y2z0t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -850,7 +850,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y2z0t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y2z0t0</output>
         <sink>q_sink_x3y2z0t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -911,7 +911,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y3z0t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y3z0t0</output>
         <sink>q_sink_x0y3z0t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -972,7 +972,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y3z0t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y3z0t0</output>
         <sink>q_sink_x1y3z0t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -1033,7 +1033,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y3z0t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y3z0t0</output>
         <sink>q_sink_x2y3z0t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -1094,7 +1094,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y3z0t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y3z0t0</output>
         <sink>q_sink_x3y3z0t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -1155,7 +1155,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y0z1t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y0z1t0</output>
         <sink>q_sink_x0y0z1t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -1216,7 +1216,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y0z1t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y0z1t0</output>
         <sink>q_sink_x1y0z1t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -1277,7 +1277,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y0z1t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y0z1t0</output>
         <sink>q_sink_x2y0z1t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -1338,7 +1338,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y0z1t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y0z1t0</output>
         <sink>q_sink_x3y0z1t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -1399,7 +1399,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y1z1t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y1z1t0</output>
         <sink>q_sink_x0y1z1t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -1460,7 +1460,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y1z1t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y1z1t0</output>
         <sink>q_sink_x1y1z1t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -1521,7 +1521,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y1z1t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y1z1t0</output>
         <sink>q_sink_x2y1z1t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -1582,7 +1582,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y1z1t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y1z1t0</output>
         <sink>q_sink_x3y1z1t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -1643,7 +1643,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y2z1t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y2z1t0</output>
         <sink>q_sink_x0y2z1t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -1704,7 +1704,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y2z1t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y2z1t0</output>
         <sink>q_sink_x1y2z1t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -1765,7 +1765,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y2z1t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y2z1t0</output>
         <sink>q_sink_x2y2z1t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -1826,7 +1826,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y2z1t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y2z1t0</output>
         <sink>q_sink_x3y2z1t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -1887,7 +1887,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y3z1t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y3z1t0</output>
         <sink>q_sink_x0y3z1t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -1948,7 +1948,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y3z1t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y3z1t0</output>
         <sink>q_sink_x1y3z1t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -2009,7 +2009,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y3z1t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y3z1t0</output>
         <sink>q_sink_x2y3z1t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -2070,7 +2070,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y3z1t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y3z1t0</output>
         <sink>q_sink_x3y3z1t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -2131,7 +2131,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y0z2t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y0z2t0</output>
         <sink>q_sink_x0y0z2t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -2192,7 +2192,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y0z2t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y0z2t0</output>
         <sink>q_sink_x1y0z2t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -2253,7 +2253,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y0z2t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y0z2t0</output>
         <sink>q_sink_x2y0z2t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -2314,7 +2314,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y0z2t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y0z2t0</output>
         <sink>q_sink_x3y0z2t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -2375,7 +2375,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y1z2t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y1z2t0</output>
         <sink>q_sink_x0y1z2t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -2436,7 +2436,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y1z2t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y1z2t0</output>
         <sink>q_sink_x1y1z2t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -2497,7 +2497,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y1z2t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y1z2t0</output>
         <sink>q_sink_x2y1z2t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -2558,7 +2558,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y1z2t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y1z2t0</output>
         <sink>q_sink_x3y1z2t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -2619,7 +2619,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y2z2t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y2z2t0</output>
         <sink>q_sink_x0y2z2t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -2680,7 +2680,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y2z2t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y2z2t0</output>
         <sink>q_sink_x1y2z2t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -2741,7 +2741,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y2z2t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y2z2t0</output>
         <sink>q_sink_x2y2z2t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -2802,7 +2802,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y2z2t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y2z2t0</output>
         <sink>q_sink_x3y2z2t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -2863,7 +2863,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y3z2t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y3z2t0</output>
         <sink>q_sink_x0y3z2t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -2924,7 +2924,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y3z2t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y3z2t0</output>
         <sink>q_sink_x1y3z2t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -2985,7 +2985,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y3z2t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y3z2t0</output>
         <sink>q_sink_x2y3z2t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -3046,7 +3046,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y3z2t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y3z2t0</output>
         <sink>q_sink_x3y3z2t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -3107,7 +3107,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y0z3t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y0z3t0</output>
         <sink>q_sink_x0y0z3t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -3168,7 +3168,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y0z3t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y0z3t0</output>
         <sink>q_sink_x1y0z3t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -3229,7 +3229,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y0z3t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y0z3t0</output>
         <sink>q_sink_x2y0z3t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -3290,7 +3290,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y0z3t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y0z3t0</output>
         <sink>q_sink_x3y0z3t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -3351,7 +3351,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y1z3t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y1z3t0</output>
         <sink>q_sink_x0y1z3t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -3412,7 +3412,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y1z3t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y1z3t0</output>
         <sink>q_sink_x1y1z3t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -3473,7 +3473,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y1z3t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y1z3t0</output>
         <sink>q_sink_x2y1z3t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -3534,7 +3534,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y1z3t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y1z3t0</output>
         <sink>q_sink_x3y1z3t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -3595,7 +3595,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y2z3t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y2z3t0</output>
         <sink>q_sink_x0y2z3t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -3656,7 +3656,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y2z3t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y2z3t0</output>
         <sink>q_sink_x1y2z3t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -3717,7 +3717,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y2z3t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y2z3t0</output>
         <sink>q_sink_x2y2z3t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -3778,7 +3778,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y2z3t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y2z3t0</output>
         <sink>q_sink_x3y2z3t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -3839,7 +3839,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y3z3t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y3z3t0</output>
         <sink>q_sink_x0y3z3t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -3900,7 +3900,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y3z3t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y3z3t0</output>
         <sink>q_sink_x1y3z3t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -3961,7 +3961,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y3z3t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y3z3t0</output>
         <sink>q_sink_x2y3z3t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -4022,7 +4022,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y3z3t0</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y3z3t0</output>
         <sink>q_sink_x3y3z3t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -4083,7 +4083,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y0z0t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y0z0t1</output>
         <sink>q_sink_x0y0z0t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -4144,7 +4144,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y0z0t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y0z0t1</output>
         <sink>q_sink_x1y0z0t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -4205,7 +4205,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y0z0t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y0z0t1</output>
         <sink>q_sink_x2y0z0t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -4266,7 +4266,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y0z0t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y0z0t1</output>
         <sink>q_sink_x3y0z0t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -4327,7 +4327,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y1z0t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y1z0t1</output>
         <sink>q_sink_x0y1z0t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -4388,7 +4388,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y1z0t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y1z0t1</output>
         <sink>q_sink_x1y1z0t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -4449,7 +4449,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y1z0t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y1z0t1</output>
         <sink>q_sink_x2y1z0t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -4510,7 +4510,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y1z0t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y1z0t1</output>
         <sink>q_sink_x3y1z0t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -4571,7 +4571,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y2z0t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y2z0t1</output>
         <sink>q_sink_x0y2z0t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -4632,7 +4632,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y2z0t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y2z0t1</output>
         <sink>q_sink_x1y2z0t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -4693,7 +4693,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y2z0t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y2z0t1</output>
         <sink>q_sink_x2y2z0t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -4754,7 +4754,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y2z0t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y2z0t1</output>
         <sink>q_sink_x3y2z0t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -4815,7 +4815,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y3z0t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y3z0t1</output>
         <sink>q_sink_x0y3z0t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -4876,7 +4876,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y3z0t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y3z0t1</output>
         <sink>q_sink_x1y3z0t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -4937,7 +4937,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y3z0t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y3z0t1</output>
         <sink>q_sink_x2y3z0t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -4998,7 +4998,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y3z0t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y3z0t1</output>
         <sink>q_sink_x3y3z0t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -5059,7 +5059,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y0z1t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y0z1t1</output>
         <sink>q_sink_x0y0z1t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -5120,7 +5120,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y0z1t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y0z1t1</output>
         <sink>q_sink_x1y0z1t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -5181,7 +5181,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y0z1t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y0z1t1</output>
         <sink>q_sink_x2y0z1t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -5242,7 +5242,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y0z1t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y0z1t1</output>
         <sink>q_sink_x3y0z1t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -5303,7 +5303,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y1z1t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y1z1t1</output>
         <sink>q_sink_x0y1z1t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -5364,7 +5364,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y1z1t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y1z1t1</output>
         <sink>q_sink_x1y1z1t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -5425,7 +5425,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y1z1t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y1z1t1</output>
         <sink>q_sink_x2y1z1t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -5486,7 +5486,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y1z1t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y1z1t1</output>
         <sink>q_sink_x3y1z1t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -5547,7 +5547,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y2z1t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y2z1t1</output>
         <sink>q_sink_x0y2z1t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -5608,7 +5608,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y2z1t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y2z1t1</output>
         <sink>q_sink_x1y2z1t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -5669,7 +5669,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y2z1t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y2z1t1</output>
         <sink>q_sink_x2y2z1t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -5730,7 +5730,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y2z1t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y2z1t1</output>
         <sink>q_sink_x3y2z1t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -5791,7 +5791,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y3z1t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y3z1t1</output>
         <sink>q_sink_x0y3z1t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -5852,7 +5852,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y3z1t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y3z1t1</output>
         <sink>q_sink_x1y3z1t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -5913,7 +5913,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y3z1t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y3z1t1</output>
         <sink>q_sink_x2y3z1t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -5974,7 +5974,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y3z1t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y3z1t1</output>
         <sink>q_sink_x3y3z1t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -6035,7 +6035,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y0z2t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y0z2t1</output>
         <sink>q_sink_x0y0z2t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -6096,7 +6096,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y0z2t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y0z2t1</output>
         <sink>q_sink_x1y0z2t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -6157,7 +6157,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y0z2t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y0z2t1</output>
         <sink>q_sink_x2y0z2t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -6218,7 +6218,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y0z2t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y0z2t1</output>
         <sink>q_sink_x3y0z2t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -6279,7 +6279,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y1z2t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y1z2t1</output>
         <sink>q_sink_x0y1z2t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -6340,7 +6340,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y1z2t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y1z2t1</output>
         <sink>q_sink_x1y1z2t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -6401,7 +6401,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y1z2t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y1z2t1</output>
         <sink>q_sink_x2y1z2t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -6462,7 +6462,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y1z2t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y1z2t1</output>
         <sink>q_sink_x3y1z2t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -6523,7 +6523,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y2z2t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y2z2t1</output>
         <sink>q_sink_x0y2z2t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -6584,7 +6584,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y2z2t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y2z2t1</output>
         <sink>q_sink_x1y2z2t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -6645,7 +6645,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y2z2t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y2z2t1</output>
         <sink>q_sink_x2y2z2t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -6706,7 +6706,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y2z2t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y2z2t1</output>
         <sink>q_sink_x3y2z2t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -6767,7 +6767,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y3z2t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y3z2t1</output>
         <sink>q_sink_x0y3z2t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -6828,7 +6828,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y3z2t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y3z2t1</output>
         <sink>q_sink_x1y3z2t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -6889,7 +6889,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y3z2t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y3z2t1</output>
         <sink>q_sink_x2y3z2t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -6950,7 +6950,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y3z2t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y3z2t1</output>
         <sink>q_sink_x3y3z2t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -7011,7 +7011,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y0z3t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y0z3t1</output>
         <sink>q_sink_x0y0z3t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -7072,7 +7072,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y0z3t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y0z3t1</output>
         <sink>q_sink_x1y0z3t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -7133,7 +7133,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y0z3t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y0z3t1</output>
         <sink>q_sink_x2y0z3t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -7194,7 +7194,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y0z3t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y0z3t1</output>
         <sink>q_sink_x3y0z3t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -7255,7 +7255,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y1z3t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y1z3t1</output>
         <sink>q_sink_x0y1z3t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -7316,7 +7316,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y1z3t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y1z3t1</output>
         <sink>q_sink_x1y1z3t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -7377,7 +7377,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y1z3t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y1z3t1</output>
         <sink>q_sink_x2y1z3t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -7438,7 +7438,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y1z3t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y1z3t1</output>
         <sink>q_sink_x3y1z3t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -7499,7 +7499,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y2z3t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y2z3t1</output>
         <sink>q_sink_x0y2z3t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -7560,7 +7560,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y2z3t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y2z3t1</output>
         <sink>q_sink_x1y2z3t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -7621,7 +7621,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y2z3t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y2z3t1</output>
         <sink>q_sink_x2y2z3t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -7682,7 +7682,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y2z3t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y2z3t1</output>
         <sink>q_sink_x3y2z3t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -7743,7 +7743,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y3z3t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y3z3t1</output>
         <sink>q_sink_x0y3z3t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -7804,7 +7804,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y3z3t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y3z3t1</output>
         <sink>q_sink_x1y3z3t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -7865,7 +7865,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y3z3t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y3z3t1</output>
         <sink>q_sink_x2y3z3t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -7926,7 +7926,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y3z3t1</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y3z3t1</output>
         <sink>q_sink_x3y3z3t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -7987,7 +7987,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y0z0t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y0z0t2</output>
         <sink>q_sink_x0y0z0t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -8048,7 +8048,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y0z0t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y0z0t2</output>
         <sink>q_sink_x1y0z0t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -8109,7 +8109,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y0z0t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y0z0t2</output>
         <sink>q_sink_x2y0z0t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -8170,7 +8170,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y0z0t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y0z0t2</output>
         <sink>q_sink_x3y0z0t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -8231,7 +8231,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y1z0t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y1z0t2</output>
         <sink>q_sink_x0y1z0t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -8292,7 +8292,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y1z0t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y1z0t2</output>
         <sink>q_sink_x1y1z0t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -8353,7 +8353,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y1z0t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y1z0t2</output>
         <sink>q_sink_x2y1z0t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -8414,7 +8414,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y1z0t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y1z0t2</output>
         <sink>q_sink_x3y1z0t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -8475,7 +8475,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y2z0t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y2z0t2</output>
         <sink>q_sink_x0y2z0t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -8536,7 +8536,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y2z0t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y2z0t2</output>
         <sink>q_sink_x1y2z0t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -8597,7 +8597,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y2z0t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y2z0t2</output>
         <sink>q_sink_x2y2z0t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -8658,7 +8658,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y2z0t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y2z0t2</output>
         <sink>q_sink_x3y2z0t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -8719,7 +8719,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y3z0t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y3z0t2</output>
         <sink>q_sink_x0y3z0t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -8780,7 +8780,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y3z0t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y3z0t2</output>
         <sink>q_sink_x1y3z0t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -8841,7 +8841,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y3z0t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y3z0t2</output>
         <sink>q_sink_x2y3z0t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -8902,7 +8902,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y3z0t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y3z0t2</output>
         <sink>q_sink_x3y3z0t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -8963,7 +8963,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y0z1t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y0z1t2</output>
         <sink>q_sink_x0y0z1t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -9024,7 +9024,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y0z1t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y0z1t2</output>
         <sink>q_sink_x1y0z1t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -9085,7 +9085,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y0z1t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y0z1t2</output>
         <sink>q_sink_x2y0z1t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -9146,7 +9146,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y0z1t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y0z1t2</output>
         <sink>q_sink_x3y0z1t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -9207,7 +9207,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y1z1t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y1z1t2</output>
         <sink>q_sink_x0y1z1t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -9268,7 +9268,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y1z1t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y1z1t2</output>
         <sink>q_sink_x1y1z1t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -9329,7 +9329,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y1z1t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y1z1t2</output>
         <sink>q_sink_x2y1z1t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -9390,7 +9390,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y1z1t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y1z1t2</output>
         <sink>q_sink_x3y1z1t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -9451,7 +9451,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y2z1t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y2z1t2</output>
         <sink>q_sink_x0y2z1t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -9512,7 +9512,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y2z1t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y2z1t2</output>
         <sink>q_sink_x1y2z1t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -9573,7 +9573,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y2z1t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y2z1t2</output>
         <sink>q_sink_x2y2z1t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -9634,7 +9634,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y2z1t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y2z1t2</output>
         <sink>q_sink_x3y2z1t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -9695,7 +9695,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y3z1t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y3z1t2</output>
         <sink>q_sink_x0y3z1t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -9756,7 +9756,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y3z1t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y3z1t2</output>
         <sink>q_sink_x1y3z1t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -9817,7 +9817,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y3z1t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y3z1t2</output>
         <sink>q_sink_x2y3z1t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -9878,7 +9878,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y3z1t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y3z1t2</output>
         <sink>q_sink_x3y3z1t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -9939,7 +9939,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y0z2t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y0z2t2</output>
         <sink>q_sink_x0y0z2t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -10000,7 +10000,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y0z2t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y0z2t2</output>
         <sink>q_sink_x1y0z2t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -10061,7 +10061,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y0z2t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y0z2t2</output>
         <sink>q_sink_x2y0z2t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -10122,7 +10122,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y0z2t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y0z2t2</output>
         <sink>q_sink_x3y0z2t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -10183,7 +10183,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y1z2t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y1z2t2</output>
         <sink>q_sink_x0y1z2t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -10244,7 +10244,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y1z2t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y1z2t2</output>
         <sink>q_sink_x1y1z2t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -10305,7 +10305,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y1z2t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y1z2t2</output>
         <sink>q_sink_x2y1z2t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -10366,7 +10366,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y1z2t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y1z2t2</output>
         <sink>q_sink_x3y1z2t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -10427,7 +10427,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y2z2t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y2z2t2</output>
         <sink>q_sink_x0y2z2t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -10488,7 +10488,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y2z2t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y2z2t2</output>
         <sink>q_sink_x1y2z2t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -10549,7 +10549,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y2z2t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y2z2t2</output>
         <sink>q_sink_x2y2z2t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -10610,7 +10610,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y2z2t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y2z2t2</output>
         <sink>q_sink_x3y2z2t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -10671,7 +10671,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y3z2t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y3z2t2</output>
         <sink>q_sink_x0y3z2t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -10732,7 +10732,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y3z2t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y3z2t2</output>
         <sink>q_sink_x1y3z2t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -10793,7 +10793,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y3z2t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y3z2t2</output>
         <sink>q_sink_x2y3z2t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -10854,7 +10854,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y3z2t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y3z2t2</output>
         <sink>q_sink_x3y3z2t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -10915,7 +10915,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y0z3t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y0z3t2</output>
         <sink>q_sink_x0y0z3t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -10976,7 +10976,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y0z3t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y0z3t2</output>
         <sink>q_sink_x1y0z3t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -11037,7 +11037,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y0z3t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y0z3t2</output>
         <sink>q_sink_x2y0z3t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -11098,7 +11098,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y0z3t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y0z3t2</output>
         <sink>q_sink_x3y0z3t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -11159,7 +11159,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y1z3t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y1z3t2</output>
         <sink>q_sink_x0y1z3t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -11220,7 +11220,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y1z3t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y1z3t2</output>
         <sink>q_sink_x1y1z3t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -11281,7 +11281,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y1z3t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y1z3t2</output>
         <sink>q_sink_x2y1z3t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -11342,7 +11342,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y1z3t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y1z3t2</output>
         <sink>q_sink_x3y1z3t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -11403,7 +11403,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y2z3t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y2z3t2</output>
         <sink>q_sink_x0y2z3t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -11464,7 +11464,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y2z3t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y2z3t2</output>
         <sink>q_sink_x1y2z3t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -11525,7 +11525,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y2z3t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y2z3t2</output>
         <sink>q_sink_x2y2z3t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -11586,7 +11586,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y2z3t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y2z3t2</output>
         <sink>q_sink_x3y2z3t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -11647,7 +11647,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y3z3t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y3z3t2</output>
         <sink>q_sink_x0y3z3t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -11708,7 +11708,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y3z3t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y3z3t2</output>
         <sink>q_sink_x1y3z3t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -11769,7 +11769,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y3z3t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y3z3t2</output>
         <sink>q_sink_x2y3z3t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -11830,7 +11830,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y3z3t2</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y3z3t2</output>
         <sink>q_sink_x3y3z3t2</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -11891,7 +11891,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y0z0t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y0z0t3</output>
         <sink>q_sink_x0y0z0t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -11952,7 +11952,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y0z0t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y0z0t3</output>
         <sink>q_sink_x1y0z0t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -12013,7 +12013,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y0z0t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y0z0t3</output>
         <sink>q_sink_x2y0z0t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -12074,7 +12074,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y0z0t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y0z0t3</output>
         <sink>q_sink_x3y0z0t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -12135,7 +12135,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y1z0t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y1z0t3</output>
         <sink>q_sink_x0y1z0t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -12196,7 +12196,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y1z0t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y1z0t3</output>
         <sink>q_sink_x1y1z0t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -12257,7 +12257,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y1z0t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y1z0t3</output>
         <sink>q_sink_x2y1z0t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -12318,7 +12318,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y1z0t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y1z0t3</output>
         <sink>q_sink_x3y1z0t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -12379,7 +12379,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y2z0t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y2z0t3</output>
         <sink>q_sink_x0y2z0t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -12440,7 +12440,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y2z0t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y2z0t3</output>
         <sink>q_sink_x1y2z0t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -12501,7 +12501,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y2z0t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y2z0t3</output>
         <sink>q_sink_x2y2z0t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -12562,7 +12562,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y2z0t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y2z0t3</output>
         <sink>q_sink_x3y2z0t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -12623,7 +12623,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y3z0t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y3z0t3</output>
         <sink>q_sink_x0y3z0t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -12684,7 +12684,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y3z0t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y3z0t3</output>
         <sink>q_sink_x1y3z0t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -12745,7 +12745,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y3z0t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y3z0t3</output>
         <sink>q_sink_x2y3z0t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -12806,7 +12806,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y3z0t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y3z0t3</output>
         <sink>q_sink_x3y3z0t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -12867,7 +12867,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y0z1t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y0z1t3</output>
         <sink>q_sink_x0y0z1t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -12928,7 +12928,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y0z1t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y0z1t3</output>
         <sink>q_sink_x1y0z1t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -12989,7 +12989,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y0z1t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y0z1t3</output>
         <sink>q_sink_x2y0z1t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -13050,7 +13050,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y0z1t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y0z1t3</output>
         <sink>q_sink_x3y0z1t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -13111,7 +13111,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y1z1t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y1z1t3</output>
         <sink>q_sink_x0y1z1t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -13172,7 +13172,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y1z1t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y1z1t3</output>
         <sink>q_sink_x1y1z1t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -13233,7 +13233,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y1z1t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y1z1t3</output>
         <sink>q_sink_x2y1z1t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -13294,7 +13294,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y1z1t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y1z1t3</output>
         <sink>q_sink_x3y1z1t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -13355,7 +13355,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y2z1t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y2z1t3</output>
         <sink>q_sink_x0y2z1t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -13416,7 +13416,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y2z1t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y2z1t3</output>
         <sink>q_sink_x1y2z1t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -13477,7 +13477,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y2z1t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y2z1t3</output>
         <sink>q_sink_x2y2z1t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -13538,7 +13538,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y2z1t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y2z1t3</output>
         <sink>q_sink_x3y2z1t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -13599,7 +13599,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y3z1t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y3z1t3</output>
         <sink>q_sink_x0y3z1t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -13660,7 +13660,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y3z1t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y3z1t3</output>
         <sink>q_sink_x1y3z1t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -13721,7 +13721,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y3z1t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y3z1t3</output>
         <sink>q_sink_x2y3z1t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -13782,7 +13782,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y3z1t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y3z1t3</output>
         <sink>q_sink_x3y3z1t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -13843,7 +13843,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y0z2t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y0z2t3</output>
         <sink>q_sink_x0y0z2t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -13904,7 +13904,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y0z2t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y0z2t3</output>
         <sink>q_sink_x1y0z2t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -13965,7 +13965,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y0z2t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y0z2t3</output>
         <sink>q_sink_x2y0z2t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -14026,7 +14026,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y0z2t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y0z2t3</output>
         <sink>q_sink_x3y0z2t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -14087,7 +14087,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y1z2t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y1z2t3</output>
         <sink>q_sink_x0y1z2t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -14148,7 +14148,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y1z2t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y1z2t3</output>
         <sink>q_sink_x1y1z2t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -14209,7 +14209,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y1z2t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y1z2t3</output>
         <sink>q_sink_x2y1z2t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -14270,7 +14270,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y1z2t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y1z2t3</output>
         <sink>q_sink_x3y1z2t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -14331,7 +14331,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y2z2t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y2z2t3</output>
         <sink>q_sink_x0y2z2t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -14392,7 +14392,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y2z2t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y2z2t3</output>
         <sink>q_sink_x1y2z2t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -14453,7 +14453,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y2z2t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y2z2t3</output>
         <sink>q_sink_x2y2z2t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -14514,7 +14514,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y2z2t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y2z2t3</output>
         <sink>q_sink_x3y2z2t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -14575,7 +14575,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y3z2t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y3z2t3</output>
         <sink>q_sink_x0y3z2t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -14636,7 +14636,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y3z2t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y3z2t3</output>
         <sink>q_sink_x1y3z2t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -14697,7 +14697,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y3z2t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y3z2t3</output>
         <sink>q_sink_x2y3z2t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -14758,7 +14758,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y3z2t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y3z2t3</output>
         <sink>q_sink_x3y3z2t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -14819,7 +14819,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y0z3t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y0z3t3</output>
         <sink>q_sink_x0y0z3t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -14880,7 +14880,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y0z3t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y0z3t3</output>
         <sink>q_sink_x1y0z3t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -14941,7 +14941,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y0z3t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y0z3t3</output>
         <sink>q_sink_x2y0z3t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -15002,7 +15002,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y0z3t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y0z3t3</output>
         <sink>q_sink_x3y0z3t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -15063,7 +15063,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y1z3t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y1z3t3</output>
         <sink>q_sink_x0y1z3t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -15124,7 +15124,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y1z3t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y1z3t3</output>
         <sink>q_sink_x1y1z3t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -15185,7 +15185,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y1z3t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y1z3t3</output>
         <sink>q_sink_x2y1z3t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -15246,7 +15246,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y1z3t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y1z3t3</output>
         <sink>q_sink_x3y1z3t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -15307,7 +15307,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y2z3t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y2z3t3</output>
         <sink>q_sink_x0y2z3t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -15368,7 +15368,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y2z3t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y2z3t3</output>
         <sink>q_sink_x1y2z3t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -15429,7 +15429,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y2z3t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y2z3t3</output>
         <sink>q_sink_x2y2z3t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -15490,7 +15490,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y2z3t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y2z3t3</output>
         <sink>q_sink_x3y2z3t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -15551,7 +15551,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x0y3z3t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x0y3z3t3</output>
         <sink>q_sink_x0y3z3t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -15612,7 +15612,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x1y3z3t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x1y3z3t3</output>
         <sink>q_sink_x1y3z3t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -15673,7 +15673,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x2y3z3t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x2y3z3t3</output>
         <sink>q_sink_x2y3z3t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -15734,7 +15734,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-g1g1-mp/corr_32_x3y3z3t3</output>
+        <output>work/point-source-g1g1-mp/corr_32_x3y3z3t3</output>
         <sink>q_sink_x3y3z3t3</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>

@@ -41,8 +41,8 @@ def load(stem, traj):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--ref", default="lma-file-compare/ref")
-    p.add_argument("--file", default="lma-file-compare/file")
+    p.add_argument("--ref", default="work/lma-file-compare/ref")
+    p.add_argument("--file", default="work/lma-file-compare/file")
     p.add_argument("--traj", type=int, default=20)
     p.add_argument("--col", type=int, default=0,
                    help="noise column the file solver is bound to "

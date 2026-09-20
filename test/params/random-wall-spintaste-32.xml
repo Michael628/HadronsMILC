@@ -157,7 +157,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>random-wall-spintaste-reference/corr_32_rw</output>
+        <output>work/random-wall-spintaste/corr_32_rw</output>
         <sink>q_sink_rw</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>

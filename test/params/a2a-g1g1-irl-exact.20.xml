@@ -143,7 +143,7 @@
         <mom>
           <elem>0 0 0</elem>
         </mom>
-        <output>e384n1dt1-irl-exact/mesons/m01/mf</output>
+        <output>work/e384n1dt1-irl-exact/mesons/m01/mf</output>
         <right></right>
         <spinTaste>
           <applyG5>false</applyG5>

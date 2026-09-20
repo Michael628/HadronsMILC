@@ -19,9 +19,10 @@ import numpy as np
 import pandas as pd
 
 TEST_DIR = os.path.dirname(__file__)
-PS_FILE = os.path.join(TEST_DIR, "point-source-spintaste-reference", "all-points.20.h5")
+PS_FILE = os.path.join(TEST_DIR, "ref", "point-source-spintaste", "all-points.20.h5")
 A2A_LOCAL_FILE = os.path.join(
     TEST_DIR,
+    "work",
     "e384n1dt1",
     "correlators",
     "m01",
@@ -31,6 +32,7 @@ A2A_LOCAL_FILE = os.path.join(
 )
 A2A_ONELINK_FILE = os.path.join(
     TEST_DIR,
+    "work",
     "e384n1dt1",
     "correlators",
     "m01",

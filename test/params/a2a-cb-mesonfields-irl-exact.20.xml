@@ -177,7 +177,7 @@
         <mom>
           <elem>0 0 0</elem>
         </mom>
-        <output>e384n1dt1-cb/mesons/m01/mf_stencil_pc012</output>
+        <output>work/e384n1dt1-cb/mesons/m01/mf_stencil_pc012</output>
         <right></right>
         <spinTaste>
           <applyG5>false</applyG5>
@@ -199,7 +199,7 @@
         <mom>
           <elem>0 0 0</elem>
         </mom>
-        <output>e384n1dt1-cb/mesons/m01/mf_legacy_pc012</output>
+        <output>work/e384n1dt1-cb/mesons/m01/mf_legacy_pc012</output>
         <right></right>
         <spinTaste>
           <applyG5>false</applyG5>
@@ -222,7 +222,7 @@
         <mom>
           <elem>0 0 0</elem>
         </mom>
-        <output>e384n1dt1-cb/mesons/m01/mf_stencil_pc3</output>
+        <output>work/e384n1dt1-cb/mesons/m01/mf_stencil_pc3</output>
         <right></right>
         <spinTaste>
           <applyG5>false</applyG5>
@@ -244,7 +244,7 @@
         <mom>
           <elem>0 0 0</elem>
         </mom>
-        <output>e384n1dt1-cb/mesons/m01/mf_legacy_pc3</output>
+        <output>work/e384n1dt1-cb/mesons/m01/mf_legacy_pc3</output>
         <right></right>
         <spinTaste>
           <applyG5>false</applyG5>
@@ -267,7 +267,7 @@
         <mom>
           <elem>0 0 0</elem>
         </mom>
-        <output>e384n1dt1-cb/mesons/m01/mf_stencil_pc4</output>
+        <output>work/e384n1dt1-cb/mesons/m01/mf_stencil_pc4</output>
         <right></right>
         <spinTaste>
           <applyG5>false</applyG5>
@@ -289,7 +289,7 @@
         <mom>
           <elem>0 0 0</elem>
         </mom>
-        <output>e384n1dt1-cb/mesons/m01/mf_legacy_pc4</output>
+        <output>work/e384n1dt1-cb/mesons/m01/mf_legacy_pc4</output>
         <right></right>
         <spinTaste>
           <applyG5>false</applyG5>

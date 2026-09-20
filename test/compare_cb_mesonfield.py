@@ -35,12 +35,12 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
 # (stencil stem, legacy stem) per popcount-separated module pair, matching
 # the module names/output stems in params/a2a-cb-mesonfields-irl-exact.20.xml
 STEM_PAIRS = [
-    ("e384n1dt1-cb/mesons/m01/mf_stencil_pc012",
-     "e384n1dt1-cb/mesons/m01/mf_legacy_pc012"),
-    ("e384n1dt1-cb/mesons/m01/mf_stencil_pc3",
-     "e384n1dt1-cb/mesons/m01/mf_legacy_pc3"),
-    ("e384n1dt1-cb/mesons/m01/mf_stencil_pc4",
-     "e384n1dt1-cb/mesons/m01/mf_legacy_pc4"),
+    ("work/e384n1dt1-cb/mesons/m01/mf_stencil_pc012",
+     "work/e384n1dt1-cb/mesons/m01/mf_legacy_pc012"),
+    ("work/e384n1dt1-cb/mesons/m01/mf_stencil_pc3",
+     "work/e384n1dt1-cb/mesons/m01/mf_legacy_pc3"),
+    ("work/e384n1dt1-cb/mesons/m01/mf_stencil_pc4",
+     "work/e384n1dt1-cb/mesons/m01/mf_legacy_pc4"),
 ]
 
 

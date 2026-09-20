@@ -107,7 +107,7 @@
         <mom>
           <elem>0 0 0</elem>
         </mom>
-        <output>a2a-mesonfields-32/td_cg</output>
+        <output>work/a2a-mesonfields-32/td_cg</output>
         <right>td_sc_a2a_v</right>
         <spinTaste>
           <applyG5>false</applyG5>
@@ -136,7 +136,7 @@
         <mom>
           <elem>0 0 0</elem>
         </mom>
-        <output>a2a-mesonfields-32/td_cg</output>
+        <output>work/a2a-mesonfields-32/td_cg</output>
         <right>td_sc_a2a_v</right>
         <spinTaste>
           <applyG5>false</applyG5>
@@ -158,7 +158,7 @@
         <mom>
           <elem>0 0 0</elem>
         </mom>
-        <output>a2a-mesonfields-32/td_cg</output>
+        <output>work/a2a-mesonfields-32/td_cg</output>
         <right>td_sc_a2a_v</right>
         <spinTaste>
           <applyG5>false</applyG5>
@@ -180,7 +180,7 @@
         <mom>
           <elem>0 0 0</elem>
         </mom>
-        <output>a2a-mesonfields-32/td_cg</output>
+        <output>work/a2a-mesonfields-32/td_cg</output>
         <right>td_sc_a2a_v</right>
         <spinTaste>
           <applyG5>false</applyG5>
@@ -202,7 +202,7 @@
         <mom>
           <elem>0 0 0</elem>
         </mom>
-        <output>a2a-mesonfields-32/td_cg</output>
+        <output>work/a2a-mesonfields-32/td_cg</output>
         <right>td_sc_a2a_v</right>
         <spinTaste>
           <applyG5>false</applyG5>

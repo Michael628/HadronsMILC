@@ -137,7 +137,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-free-field/corr_32_x0y0z0t0</output>
+        <output>work/point-source-spintaste-free-field/corr_32_x0y0z0t0</output>
         <sink>q_sink_x0y0z0t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -198,7 +198,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-free-field/corr_32_x1y0z0t0</output>
+        <output>work/point-source-spintaste-free-field/corr_32_x1y0z0t0</output>
         <sink>q_sink_x1y0z0t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -259,7 +259,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-free-field/corr_32_x0y1z0t0</output>
+        <output>work/point-source-spintaste-free-field/corr_32_x0y1z0t0</output>
         <sink>q_sink_x0y1z0t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -320,7 +320,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-free-field/corr_32_x1y1z0t0</output>
+        <output>work/point-source-spintaste-free-field/corr_32_x1y1z0t0</output>
         <sink>q_sink_x1y1z0t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -381,7 +381,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-free-field/corr_32_x0y0z1t0</output>
+        <output>work/point-source-spintaste-free-field/corr_32_x0y0z1t0</output>
         <sink>q_sink_x0y0z1t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -442,7 +442,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-free-field/corr_32_x1y0z1t0</output>
+        <output>work/point-source-spintaste-free-field/corr_32_x1y0z1t0</output>
         <sink>q_sink_x1y0z1t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -503,7 +503,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-free-field/corr_32_x0y1z1t0</output>
+        <output>work/point-source-spintaste-free-field/corr_32_x0y1z1t0</output>
         <sink>q_sink_x0y1z1t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -564,7 +564,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-free-field/corr_32_x1y1z1t0</output>
+        <output>work/point-source-spintaste-free-field/corr_32_x1y1z1t0</output>
         <sink>q_sink_x1y1z1t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -625,7 +625,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-free-field/corr_32_x0y0z0t1</output>
+        <output>work/point-source-spintaste-free-field/corr_32_x0y0z0t1</output>
         <sink>q_sink_x0y0z0t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -686,7 +686,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-free-field/corr_32_x1y0z0t1</output>
+        <output>work/point-source-spintaste-free-field/corr_32_x1y0z0t1</output>
         <sink>q_sink_x1y0z0t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -747,7 +747,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-free-field/corr_32_x0y1z0t1</output>
+        <output>work/point-source-spintaste-free-field/corr_32_x0y1z0t1</output>
         <sink>q_sink_x0y1z0t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -808,7 +808,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-free-field/corr_32_x1y1z0t1</output>
+        <output>work/point-source-spintaste-free-field/corr_32_x1y1z0t1</output>
         <sink>q_sink_x1y1z0t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -869,7 +869,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-free-field/corr_32_x0y0z1t1</output>
+        <output>work/point-source-spintaste-free-field/corr_32_x0y0z1t1</output>
         <sink>q_sink_x0y0z1t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -930,7 +930,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-free-field/corr_32_x1y0z1t1</output>
+        <output>work/point-source-spintaste-free-field/corr_32_x1y0z1t1</output>
         <sink>q_sink_x1y0z1t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -991,7 +991,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-free-field/corr_32_x0y1z1t1</output>
+        <output>work/point-source-spintaste-free-field/corr_32_x0y1z1t1</output>
         <sink>q_sink_x0y1z1t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
@@ -1055,7 +1055,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-free-field/corr_32_x1y1z1t1</output>
+        <output>work/point-source-spintaste-free-field/corr_32_x1y1z1t1</output>
         <sink>q_sink_x1y1z1t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>

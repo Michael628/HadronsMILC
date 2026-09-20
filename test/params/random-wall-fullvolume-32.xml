@@ -181,7 +181,7 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>random-wall-fullvolume-test/corr_32_rw</output>
+        <output>work/random-wall-fullvolume/corr_32_rw</output>
         <sink>q_sink_rw</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
         <sinkSpinTaste>
