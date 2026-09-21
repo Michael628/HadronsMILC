@@ -585,21 +585,44 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
         // accumulate the two parity channels from the file row pairs;
         // the subtraction channel is accumulated as DIFF/lam so that the
         // live Meooe below completes the 1/lam_D^2 weighting of
-        // LowModeProj
-        for (int k = (eigStart + nEigs - 1); k >= int(eigStart); k--) {
-          const FermionField &e = epack.evec[k];
-          const RealD lam_D = epack.eval[k].imag();
+        // LowModeProj. Both channels are built from the SAME eigenvector,
+        // so one fused element-wise pass updates both accumulators: the
+        // per-element expressions replicate the two former axpy calls
+        // verbatim (bit-identical arithmetic) while streaming e once
+        // instead of twice -- half the kernel invocations and half the
+        // eigenvector traffic. The hoisted aliased Read+Write view pairs
+        // mirror Grid's own in-place axpy idiom (axpy(ret,a,x,ret) opens
+        // separate views on the aliased lattice). The extra scope closes
+        // every view before the Meooe/setCheckerboard sequence below:
+        // those open CPU-mode views, and the Grid memory manager asserts
+        // against mixing concurrent view families on one buffer
+        {
+          autoView(tW_v, rbTemp, AcceleratorWrite);
+          autoView(tR_v, rbTemp, AcceleratorRead);
+          autoView(tnW_v, rbTempNeg, AcceleratorWrite);
+          autoView(tnR_v, rbTempNeg, AcceleratorRead);
+          for (int k = (eigStart + nEigs - 1); k >= int(eigStart); k--) {
+            const FermionField &e = epack.evec[k];
+            const RealD lam_D = epack.eval[k].imag();
 
-          ComplexD sum =
-              ComplexD(mft(2 * k, j)) + ComplexD(mft(2 * k + 1, j));
-          ComplexD diff =
-              ComplexD(mft(2 * k, j)) - ComplexD(mft(2 * k + 1, j));
-          if (negFirst) {
-            diff = -diff;
+            ComplexD sum =
+                ComplexD(mft(2 * k, j)) + ComplexD(mft(2 * k + 1, j));
+            ComplexD diff =
+                ComplexD(mft(2 * k, j)) - ComplexD(mft(2 * k + 1, j));
+            if (negFirst) {
+              diff = -diff;
+            }
+            const ComplexD negC = diff / lam_D;
+
+            autoView(eR_v, e, AcceleratorRead);
+            accelerator_for(ss, eR_v.size(),
+                            FermionField::vector_type::Nsimd(), {
+              auto ev = coalescedRead(eR_v[ss]);
+              coalescedWrite(tW_v[ss], sum * ev + coalescedRead(tR_v[ss]));
+              coalescedWrite(tnW_v[ss],
+                             negC * ev + coalescedRead(tnR_v[ss]));
+            });
           }
-
-          axpy(rbTemp, sum, e, rbTemp);
-          axpy(rbTempNeg, diff / lam_D, e, rbTempNeg);
         }
 
         // ferm_c = (norm/pairScale) *
