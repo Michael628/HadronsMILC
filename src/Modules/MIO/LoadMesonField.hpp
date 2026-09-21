@@ -61,10 +61,12 @@ BEGIN_HADRONS_NAMESPACE
                 the eval_k = 2m + i*lambda_D values; required when
                 side=ket (the eigenvalues are not stored in the HDF5 file)
 
-    The loader refuses files that are not identity spin-taste (G1,G1) at zero
-    momentum: only for that kernel are the stored elements plain per-timeslice
-    overlaps <left_i|right_j>(t), which downstream consumers (the
-    StagLMAMesonField solver) require.
+    The loader refuses files that are not at zero momentum: momenta put
+    site-dependent phases on the stored elements that downstream consumers
+    (the StagLMAMesonField solver) cannot reconstruct from. Any spin-taste
+    is accepted (the original gate allowed identity (G1,G1) only); the
+    loaded spin-taste is logged so a miswired gamma/file pairing is visible
+    in the run log.
  ******************************************************************************/
 BEGIN_MODULE_NAMESPACE(MIO)
 
@@ -158,9 +160,9 @@ void TLoadMesonField<FImpl, Pack>::execute(void) {
   LOG(Message) << "Loading meson field '" << par().dataset << "' from '"
                << fileName << "'" << std::endl;
 
-  // validate metadata: only identity spin-taste at zero momentum stores plain
-  // per-timeslice overlaps, which is what downstream consumers reconstruct
-  // from
+  // validate metadata: zero momentum only (any spin-taste accepted); the
+  // loaded spin-taste is logged so a miswired gamma/file pairing is
+  // visible in the run log
   {
     MContraction::MesonFieldMILCMetadata md;
     Hdf5Reader reader(fileName);
@@ -184,14 +186,22 @@ void TLoadMesonField<FImpl, Pack>::execute(void) {
         zeroMom = false;
       }
     }
-    if (!zeroMom || (md.gamma_spin != StagGamma::StagAlgebra::G1) ||
-        (md.gamma_taste != StagGamma::StagAlgebra::G1)) {
+    if (!zeroMom) {
       HADRONS_ERROR(Argument,
-                    "meson field '" + fileName + "' is not identity "
-                    "spin-taste (G1,G1) at zero momentum: its elements carry "
-                    "spin-taste/momentum phases that cannot be reconstructed "
-                    "from by this module's consumers");
+                    "meson field '" + fileName + "' is not at zero momentum: "
+                    "its elements carry momentum phases that cannot be "
+                    "reconstructed by this module's consumers");
     }
+    if ((md.gamma_spin == StagGamma::StagAlgebra::undef) ||
+        (md.gamma_taste == StagGamma::StagAlgebra::undef)) {
+      HADRONS_ERROR(Argument,
+                    "meson field '" + fileName + "' has no valid spin-taste "
+                    "metadata (gamma_spin/gamma_taste missing or unreadable "
+                    "in MesonFieldMILCMetadata)");
+    }
+    LOG(Message) << "Meson-field spin-taste: '"
+                 << StagGamma::GetName(md.gamma_spin, md.gamma_taste)
+                 << "', zero momentum" << std::endl;
   }
 
   // load the full [nt, N_i, N_j] table (rank-strided read + broadcast).

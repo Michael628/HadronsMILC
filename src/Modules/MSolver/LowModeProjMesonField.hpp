@@ -29,6 +29,7 @@
 #include <Hadrons/Solver.hpp>
 #include <A2AMatrix.hpp>
 #include <EigenPack.hpp>
+#include <GridMilc/GridMilc.h>
 
 BEGIN_HADRONS_NAMESPACE
 
@@ -63,7 +64,15 @@ BEGIN_HADRONS_NAMESPACE
     action      Staggered action module (Meooe parity move)
     lowModes    MassShiftEigenPack module with the CHECKERBOARDED
                 eigenvectors/eigenvalues (row pair k <-> evec[k], eval[k])
-    mesonField  LoadMesonField module holding the [nt, 2*nEvec, nNoise] table
+    gammas      "" (default) or a standard spin-taste pair list
+                "(G1 G1) (G5 G5)" (StagGamma::ParseSpinTasteString, the
+                same parser the meson-field writer uses): one solver
+                family per gamma; empty means the legacy single (G1,G1)
+                family with bare names
+    mesonField  whitespace-separated LoadMesonField module names, one per
+                gamma (positional parallel list, gammas[i] <-> entry i),
+                each holding a [nt, 2*nEvec, nNoise] table whose
+                coefficients already carry that gamma
     noiseIndex  j: which noise vector (file column) this instance projects
     eigStart    first eigenpair to include (pair space)
     nEigs       number of eigenpairs (< 1: all)
@@ -75,21 +84,28 @@ BEGIN_HADRONS_NAMESPACE
                 pack; use 1.0 for unit-norm full-volume Lanczos files)
     noise       optional name of the noise-vector environment object
                 (std::vector<FermionField>, e.g. "<noise module>_vec") used
-                for a one-shot pairing/normalization self-check at setup
+                for a one-shot pairing/normalization self-check at execute
+                time (only the (G1,G1) table is checkable against the live,
+                gamma-independent reference; other gammas log a skip)
 
     Instead of a fixed timeslice parameter, the module creates one solver
-    pair per lattice timeslice t in [0, nt): "<name>_t<t>" and
-    "<name>_t<t>_subtract", each a closure over the same solver body with
-    tSlice = t bound by value (the "_subtract" suffix stays last,
-    following LowModeProj's name/name_subtract convention, so appending
-    "_subtract" to any wrapper name yields its subtract variant). The
-    full 2*nt name family is
-    enumerated in getOutput() from env().getDim().back() -- the first
-    HadronsMILC module with a lattice-dimension-dependent output list
-    (FermionFlow/ScalarVP core precedents). A solver call ignores the source
-    passed to it (the coefficients come from the file); the
-    "<name>_t<t>_subtract" variant returns source - projection, mirroring
-    LowModeProj.
+    pair per lattice timeslice t in [0, nt) PER GAMMA g: "<name>_t<t>" and
+    "<name>_t<t>_subtract" for a single gamma (or an empty gammas list --
+    bit-identical to the previous fixed-G1_G1 behavior), and
+    "<name>_<spin>_<taste>_t<t>" / "..._subtract" when the list holds more
+    than one gamma (GaugeProp/Meson single-gamma-no-suffix convention),
+    each a closure over the same solver body with {table, timeslice} bound
+    by value (the "_subtract" suffix stays last, following LowModeProj's
+    name/name_subtract convention, so appending "_subtract" to any
+    wrapper name yields its subtract variant). The full 2*nt*nGamma name
+    family is enumerated in getOutput() from env().getDim().back() (the
+    first HadronsMILC module with a lattice-dimension-dependent output
+    list -- FermionFlow/ScalarVP core precedents). A solver call ignores
+    the source passed to it (the coefficients come from the file); the
+    "<name>..._subtract" variant returns source - projection, mirroring
+    LowModeProj. The reconstruction body is gamma-blind: the file rows
+    already carry Gamma (see the meson-field writer), so each family
+    applies the identical SUM/DIFF algebra to its own table.
  ******************************************************************************/
 BEGIN_MODULE_NAMESPACE(MSolver)
 
@@ -99,13 +115,15 @@ public:
                                   std::string,   action,
                                   std::string,   lowModes,
                                   std::string,   mesonField,
+                                  std::string,   gammas,
                                   unsigned int,  noiseIndex,
                                   unsigned int,  eigStart,
                                   int,           nEigs,
                                   std::string,   negFirst,
                                   std::string,   pairScale,
                                   std::string,   noise);
-  LowModeProjMesonFieldPar(void) : negFirst(""), pairScale("") {}
+  LowModeProjMesonFieldPar(void)
+      : gammas(""), negFirst(""), pairScale("") {}
 };
 
 template <typename FImpl, typename Pack>
@@ -113,6 +131,17 @@ class TLowModeProjMesonField : public Module<LowModeProjMesonFieldPar> {
 public:
   FERM_TYPE_ALIASES(FImpl, );
   SOLVER_TYPE_ALIASES(FImpl, );
+
+private:
+  // gammas "(G1 G1) (G5 G5)" parsed with the standard spin-taste pair
+  // parser (empty -> the legacy single (G1,G1) default, bare names);
+  // duplicate gamma names are fatal (solver names would collide)
+  std::vector<StagGamma::SpinTastePair> gammaList(void) const;
+  // one LoadMesonField module name per gamma (positional parallel list,
+  // strToVec<std::string>); count mismatch vs the gamma list is fatal
+  // before any positional access
+  std::vector<std::string> mesonFieldList(
+      const std::vector<StagGamma::SpinTastePair> &gammas) const;
 
 public:
   // constructor
@@ -143,10 +172,57 @@ TLowModeProjMesonField<FImpl, Pack>::TLowModeProjMesonField(
     const std::string name)
     : Module<LowModeProjMesonFieldPar>(name) {}
 
+// gamma/meson-field parallel lists //////////////////////////////////////////
+template <typename FImpl, typename Pack>
+std::vector<StagGamma::SpinTastePair>
+TLowModeProjMesonField<FImpl, Pack>::gammaList(void) const {
+  std::vector<StagGamma::SpinTastePair> gammas;
+  if (par().gammas.empty()) {
+    gammas.push_back(std::make_pair(StagGamma::StagAlgebra::G1,
+                                    StagGamma::StagAlgebra::G1));
+  } else {
+    gammas = StagGamma::ParseSpinTasteString(par().gammas);
+  }
+  std::vector<std::string> names;
+  for (auto &g : gammas) {
+    std::string name = StagGamma::GetName(g);
+    for (auto &n : names) {
+      if (n == name) {
+        HADRONS_ERROR(Argument, "duplicate gamma '" + name +
+                                    "' in gammas list (solver names would "
+                                    "collide)");
+      }
+    }
+    names.push_back(name);
+  }
+
+  return gammas;
+}
+
+template <typename FImpl, typename Pack>
+std::vector<std::string> TLowModeProjMesonField<FImpl, Pack>::mesonFieldList(
+    const std::vector<StagGamma::SpinTastePair> &gammas) const {
+  auto mfs = strToVec<std::string>(par().mesonField);
+  if (mfs.size() != gammas.size()) {
+    HADRONS_ERROR(Argument,
+                  "gammas list has " + std::to_string(gammas.size()) +
+                      " entries but mesonField names " +
+                      std::to_string(mfs.size()) +
+                      " module(s): one LoadMesonField module per gamma "
+                      "(positional parallel list)");
+  }
+
+  return mfs;
+}
+
 // dependencies/products ///////////////////////////////////////////////////////
 template <typename FImpl, typename Pack>
 std::vector<std::string> TLowModeProjMesonField<FImpl, Pack>::getInput(void) {
-  std::vector<std::string> in{par().action, par().lowModes, par().mesonField};
+  auto mfs = mesonFieldList(gammaList());
+  std::vector<std::string> in{par().action, par().lowModes};
+  for (auto &mf : mfs) {
+    in.push_back(mf);
+  }
   if (!par().noise.empty()) {
     in.push_back(par().noise);
   }
@@ -157,12 +233,20 @@ std::vector<std::string> TLowModeProjMesonField<FImpl, Pack>::getInput(void) {
 template <typename FImpl, typename Pack>
 std::vector<std::string> TLowModeProjMesonField<FImpl, Pack>::getOutput(void) {
   std::vector<std::string> out;
+  auto gammas = gammaList();
   int nt = env().getDim().back();
 
-  for (int t = 0; t < nt; ++t) {
-    std::string name = getName() + "_t" + std::to_string(t);
-    out.push_back(name);
-    out.push_back(name + "_subtract");
+  // single gamma -> bare names (legacy, bit-identical); multiple gammas ->
+  // "_<spin>_<taste>" segment before the timeslice (GaugeProp.hpp naming
+  // convention), "_subtract" stays last
+  for (unsigned int g = 0; g < gammas.size(); ++g) {
+    std::string suffix =
+        (gammas.size() > 1) ? ("_" + StagGamma::GetName(gammas[g])) : "";
+    for (int t = 0; t < nt; ++t) {
+      std::string name = getName() + suffix + "_t" + std::to_string(t);
+      out.push_back(name);
+      out.push_back(name + "_subtract");
+    }
   }
 
   return out;
@@ -172,19 +256,26 @@ template <typename FImpl, typename Pack>
 DependencyMap
 TLowModeProjMesonField<FImpl, Pack>::getObjectDependencies(void) {
   DependencyMap dep;
+  auto gammas = gammaList();
+  auto mfs = mesonFieldList(gammas);
   int nt = env().getDim().back();
 
-  // every wrapper name carries its own {action, lowModes, mesonField}
-  // (and noise) edges so the GC never frees the loaded table before
-  // late-timeslice consumers run
-  for (int t = 0; t < nt; ++t) {
-    for (auto &suffix : {"", "_subtract"}) {
-      std::string name = getName() + "_t" + std::to_string(t) + suffix;
-      dep.insert({par().action, name});
-      dep.insert({par().lowModes, name});
-      dep.insert({par().mesonField, name});
-      if (!par().noise.empty()) {
-        dep.insert({par().noise, name});
+  // every wrapper name carries its own {action, lowModes, mesonField[g]}
+  // (and noise) edges so the GC never frees a loaded table before
+  // late-timeslice consumers run; each family references only its own
+  // gamma's loader
+  for (unsigned int g = 0; g < gammas.size(); ++g) {
+    std::string suffix =
+        (gammas.size() > 1) ? ("_" + StagGamma::GetName(gammas[g])) : "";
+    for (int t = 0; t < nt; ++t) {
+      for (auto &s : {"", "_subtract"}) {
+        std::string name = getName() + suffix + "_t" + std::to_string(t) + s;
+        dep.insert({par().action, name});
+        dep.insert({par().lowModes, name});
+        dep.insert({mfs[g], name});
+        if (!par().noise.empty()) {
+          dep.insert({par().noise, name});
+        }
       }
     }
   }
@@ -222,12 +313,19 @@ void TLowModeProjMesonField<FImpl, Pack>::setup(void) {
     pairScale = scale[0];
   }
 
+  auto gammas = gammaList();
+  auto mfs = mesonFieldList(gammas);
+
   LOG(Message) << "Setting up meson-field driven low mode projector "
                << "for action '" << par().action
                << "' using eigenvectors from '" << par().lowModes
-               << "' and meson field from '" << par().mesonField
-               << "' (noise index " << par().noiseIndex << ", one solver "
-               << "pair per timeslice)" << std::endl;
+               << "' and meson fields (noise index " << par().noiseIndex
+               << ", one solver pair per timeslice per gamma):"
+               << std::endl;
+  for (unsigned int g = 0; g < gammas.size(); ++g) {
+    LOG(Message) << "  gamma '" << StagGamma::GetName(gammas[g])
+                 << "' from '" << mfs[g] << "'" << std::endl;
+  }
 
   auto &mat = envGet(FMat, par().action);
   auto &epack = envGet(Pack, par().lowModes);
@@ -246,14 +344,20 @@ void TLowModeProjMesonField<FImpl, Pack>::setup(void) {
                   "bounds.");
   }
 
-  // meson-field table: rows must be |e+o>/|e-o> pairs of the pack
-  // eigenvectors (2 rows per eigenpair)
-  auto &mf =
-      envGet(std::vector<A2AMatrix<HADRONS_A2AM_IO_TYPE>>, par().mesonField);
+  // meson-field tables: one per gamma; rows must be |e+o>/|e-o> pairs of
+  // the pack eigenvectors (2 rows per eigenpair)
   int nt = env().getDim().back();
-  if (static_cast<int>(mf.size()) != nt) {
-    HADRONS_ERROR(Size, "meson field has " + std::to_string(mf.size()) +
-                            " timeslices, expected " + std::to_string(nt));
+  std::vector<std::vector<A2AMatrix<HADRONS_A2AM_IO_TYPE>> *> mfTables;
+  for (auto &mfName : mfs) {
+    auto &mf =
+        envGet(std::vector<A2AMatrix<HADRONS_A2AM_IO_TYPE>>, mfName);
+    if (static_cast<int>(mf.size()) != nt) {
+      HADRONS_ERROR(Size, "meson field '" + mfName + "' has " +
+                              std::to_string(mf.size()) +
+                              " timeslices, expected " +
+                              std::to_string(nt));
+    }
+    mfTables.push_back(&mf);
   }
   // NOTE: the row-count (mf[0].rows() == 2*evec.size()), column-count
   // (noiseIndex < mf[0].cols()) and D9 self-check validations live in
@@ -266,13 +370,20 @@ void TLowModeProjMesonField<FImpl, Pack>::setup(void) {
   envCache(FermionField, "rbFermNeg", 1, envGetRbGrid(FermionField));
 
   // bind the fixed instance index NOW (LowModeProj captures bound values
-  // by value, not par() at call time); the timeslice enters as a factory
-  // argument so each wrapper closes over its own copy
+  // by value, not par() at call time); the table index, timeslice and
+  // subtract flag enter as factory arguments so each wrapper closes over
+  // its own copy
   const unsigned int jIdx = par().noiseIndex;
 
-  auto makeSolver = [&mat, &epack, &mf, eigStart, nEigs, negFirst, pairScale,
-                     jIdx, this](const unsigned int tSlice, bool subGuess) {
-    return [&mat, &epack, &mf, subGuess, eigStart, nEigs, negFirst, pairScale,
+  // the solver body is gamma-blind: the file coefficients already carry
+  // Gamma, so every family applies the identical SUM/DIFF algebra to its
+  // own table
+  auto makeSolver = [&mat, &epack, mfTables, eigStart, nEigs, negFirst,
+                     pairScale, jIdx, this](const unsigned int g,
+                                            const unsigned int tSlice,
+                                            bool subGuess) {
+    auto *mf = mfTables[g];
+    return [&mat, &epack, mf, subGuess, eigStart, nEigs, negFirst, pairScale,
             tSlice, jIdx, this](FermionField &sol,
                                 const FermionField &source) {
       auto &rbTemp = envGet(FermionField, "rbTemp");
@@ -283,7 +394,7 @@ void TLowModeProjMesonField<FImpl, Pack>::setup(void) {
 
       RealD norm = 1. / ::sqrt(norm2(epack.evec[0]));
 
-      const A2AMatrix<HADRONS_A2AM_IO_TYPE> &mft = mf[tSlice];
+      const A2AMatrix<HADRONS_A2AM_IO_TYPE> &mft = (*mf)[tSlice];
       const unsigned int j = jIdx;
 
       rbTemp = Zero();
@@ -326,13 +437,18 @@ void TLowModeProjMesonField<FImpl, Pack>::setup(void) {
     };
   };
 
-  // one <name>_t<t> / <name>_t<t>_subtract pair per timeslice; the loop
-  // recomputes exactly the name family getOutput() declares at push time
-  // (FermionFlow pattern -- nothing is cached between calls)
-  for (int t = 0; t < nt; ++t) {
-    std::string name = getName() + "_t" + std::to_string(t);
-    envCreate(Solver, name, Ls, makeSolver(t, false), mat);
-    envCreate(Solver, name + "_subtract", Ls, makeSolver(t, true), mat);
+  // one <name>[_<gamma>]_t<t> / ..._subtract pair per timeslice per
+  // gamma; the loop recomputes exactly the name family getOutput()
+  // declares at push time (FermionFlow pattern -- nothing is cached
+  // between calls)
+  for (unsigned int g = 0; g < gammas.size(); ++g) {
+    std::string suffix =
+        (gammas.size() > 1) ? ("_" + StagGamma::GetName(gammas[g])) : "";
+    for (int t = 0; t < nt; ++t) {
+      std::string name = getName() + suffix + "_t" + std::to_string(t);
+      envCreate(Solver, name, Ls, makeSolver(g, t, false), mat);
+      envCreate(Solver, name + "_subtract", Ls, makeSolver(g, t, true), mat);
+    }
   }
 }
 
@@ -347,70 +463,99 @@ void TLowModeProjMesonField<FImpl, Pack>::execute(void) {
   // by the time this module executes -- but the scheduler's memory-
   // profiling pass dry-runs setup() on every module before anything
   // executes, when the table is still empty
+  auto gammas = gammaList();
+  auto mfs = mesonFieldList(gammas);
   auto &epack = envGet(Pack, par().lowModes);
-  auto &mf =
-      envGet(std::vector<A2AMatrix<HADRONS_A2AM_IO_TYPE>>, par().mesonField);
   int nt = env().getDim().back();
 
-  if (static_cast<unsigned int>(mf[0].rows()) !=
-      2 * static_cast<unsigned int>(epack.evec.size())) {
-    HADRONS_ERROR(Size, "meson field has " + std::to_string(mf[0].rows()) +
-                            " rows, expected 2*" +
-                            std::to_string(epack.evec.size()) +
-                            " (|e+o>/|e-o> pair layout)");
-  }
-  if (par().noiseIndex >= static_cast<unsigned int>(mf[0].cols())) {
-    HADRONS_ERROR(Argument, "noiseIndex " + std::to_string(par().noiseIndex) +
-                                " out of range (Nj = " +
-                                std::to_string(mf[0].cols()) + ")");
+  for (unsigned int g = 0; g < gammas.size(); ++g) {
+    auto &mf =
+        envGet(std::vector<A2AMatrix<HADRONS_A2AM_IO_TYPE>>, mfs[g]);
+    if (static_cast<unsigned int>(mf[0].rows()) !=
+        2 * static_cast<unsigned int>(epack.evec.size())) {
+      HADRONS_ERROR(Size, "meson field '" + mfs[g] + "' has " +
+                              std::to_string(mf[0].rows()) +
+                              " rows, expected 2*" +
+                              std::to_string(epack.evec.size()) +
+                              " (|e+o>/|e-o> pair layout)");
+    }
+    if (par().noiseIndex >= static_cast<unsigned int>(mf[0].cols())) {
+      HADRONS_ERROR(Argument, "noiseIndex " +
+                                  std::to_string(par().noiseIndex) +
+                                  " out of range for '" + mfs[g] +
+                                  "' (Nj = " + std::to_string(mf[0].cols()) +
+                                  ")");
+    }
   }
 
   // optional pairing/normalization self-check: the file pair sum of the
-  // first eigenpair, summed over ALL timeslices, equals P * <e|eta_j,E> with
-  // the live checkerboarded eigenvector; their ratio exposes the production
-  // constant and catches pairing/order/normalization mistakes
+  // first eigenpair, summed over ALL timeslices, equals P * <e|eta_j,E>
+  // with the live checkerboarded eigenvector; their ratio exposes the
+  // production constants and catches pairing/order/normalization
+  // mistakes. The live reference is gamma-independent, so the comparison
+  // is only meaningful for the (G1,G1) table; other gammas get a skip
+  // notice
   if (!par().noise.empty()) {
     auto &noise = envGet(std::vector<FermionField>, par().noise);
     if (par().noiseIndex >= noise.size()) {
       HADRONS_ERROR(Size, "noiseIndex out of range for noise object '" +
                               par().noise + "'");
     }
-    unsigned int eigStart = par().eigStart;
-    RealD pairScale = std::sqrt(2.0);
-    if (!par().pairScale.empty()) {
-      pairScale = strToVec<RealD>(par().pairScale)[0];
+    int gIdentity = -1;
+    for (unsigned int g = 0; g < gammas.size(); ++g) {
+      if ((gammas[g].first == StagGamma::StagAlgebra::G1) &&
+          (gammas[g].second == StagGamma::StagAlgebra::G1)) {
+        gIdentity = g;
+        break;
+      }
     }
+    if (gIdentity < 0) {
+      LOG(Message) << "Self-check skipped: no (G1,G1) gamma in the list "
+                      "(the live reference <e|eta> is gamma-independent)"
+                   << std::endl;
+    } else {
+      auto &mf = envGet(std::vector<A2AMatrix<HADRONS_A2AM_IO_TYPE>>,
+                        mfs[gIdentity]);
+      unsigned int eigStart = par().eigStart;
+      RealD pairScale = std::sqrt(2.0);
+      if (!par().pairScale.empty()) {
+        pairScale = strToVec<RealD>(par().pairScale)[0];
+      }
 
-    FermionField rbNoise(envGetRbGrid(FermionField));
-    int cb = epack.evec[0].Checkerboard();
+      FermionField rbNoise(envGetRbGrid(FermionField));
+      int cb = epack.evec[0].Checkerboard();
 
-    rbNoise = Zero();
-    rbNoise.Checkerboard() = cb;
-    pickCheckerboard(cb, rbNoise, noise[par().noiseIndex]);
+      rbNoise = Zero();
+      rbNoise.Checkerboard() = cb;
+      pickCheckerboard(cb, rbNoise, noise[par().noiseIndex]);
 
-    ComplexD ipFull =
-        TensorRemove(innerProduct(epack.evec[eigStart], rbNoise));
-    ComplexD sumFile = 0.;
-    for (int t = 0; t < nt; ++t) {
-      sumFile += ComplexD(mf[t](2 * eigStart, par().noiseIndex)) +
-                 ComplexD(mf[t](2 * eigStart + 1, par().noiseIndex));
-    }
-    if (std::abs(ipFull) > 1.e-12) {
-      ComplexD pLive = sumFile / ipFull;
-      LOG(Message) << "Self-check: file-derived production constant P = "
-                   << pLive << " (configured pairScale = " << pairScale
-                   << ")" << std::endl;
-      if (std::abs(pLive - pairScale) > 0.05 * std::abs(pairScale)) {
-        LOG(Warning) << "Meson-field pair normalization mismatch: derived P "
-                     << "= " << pLive << " but pairScale = " << pairScale
-                     << " -- check the |e+o>/|e-o> pair ordering and the "
-                        "production normalization"
+      ComplexD ipFull =
+          TensorRemove(innerProduct(epack.evec[eigStart], rbNoise));
+      ComplexD sumFile = 0.;
+      for (int t = 0; t < nt; ++t) {
+        sumFile += ComplexD(mf[t](2 * eigStart, par().noiseIndex)) +
+                   ComplexD(mf[t](2 * eigStart + 1, par().noiseIndex));
+      }
+      if (std::abs(ipFull) > 1.e-12) {
+        ComplexD pLive = sumFile / ipFull;
+        LOG(Message) << "Self-check (gamma '"
+                     << StagGamma::GetName(gammas[gIdentity])
+                     << "'): file-derived production constant P = " << pLive
+                     << " (configured pairScale = " << pairScale
+                     << ")" << std::endl;
+        if (std::abs(pLive - pairScale) > 0.05 * std::abs(pairScale)) {
+          LOG(Warning) << "Meson-field pair normalization mismatch: "
+                          "derived P = " << pLive << " but pairScale = "
+                       << pairScale
+                       << " -- check the |e+o>/|e-o> pair ordering and the "
+                          "production normalization"
+                       << std::endl;
+        }
+      } else {
+        LOG(Warning) << "Self-check skipped: live inner product "
+                        "<e_eigStart|eta_noiseIndex> vanishes"
                      << std::endl;
       }
-    } else {
-      LOG(Warning) << "Self-check skipped: live inner product "
-                      "<e_eigStart|eta_noiseIndex> vanishes"
-                   << std::endl;
     }
   }
 }
