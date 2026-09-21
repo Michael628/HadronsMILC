@@ -43,7 +43,7 @@ Output lands in `work/`. Comparison scripts read `ref/` and `work/`.
 
 | Script | Compares |
 |---|---|
-| `compare_lma_mesonfield.py` | `StagLMAMesonField` vs `StagLMA` projector branch |
+| `compare_lma_mesonfield.py` | `StagLMAMesonFieldProp` (file-driven) vs `StagLMA` projector branch |
 | `compare_cb_mesonfield.py` | stencil CB meson field vs `StagA2AMesonFieldLegacy` |
 | `compare_point_source_a2a.py` | A2A LL correlators vs the point-source reference |
 | `average_point_sources.py` | averages 256 point sources -> `all-points.20.h5` |

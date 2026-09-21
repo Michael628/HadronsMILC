@@ -6,6 +6,7 @@ modules_cpp =\
   Modules/MContraction/MesonField.cpp \
   Modules/MContraction/MesonFieldLegacy.cpp \
   Modules/MFermion/GaugeProp.cpp \
+  Modules/MFermion/LMAMesonFieldProp.cpp \
   Modules/MFermion/SpinTaste.cpp \
   Modules/MGauge/APBCGauge.cpp \
   Modules/MGauge/HISQSmear.cpp \
@@ -21,7 +22,6 @@ modules_cpp =\
   Modules/MSolver/ImplicitlyRestartedLanczos.cpp \
   Modules/MSolver/LowModeProj.cpp \
   Modules/MSolver/LowModeProjFull.cpp \
-  Modules/MSolver/LowModeProjMesonField.cpp \
   Modules/MSolver/MixedPrecisionCG.cpp \
   Modules/MSolver/MixedPrecisionRBPrecCG.cpp \
   Modules/MSolver/RBPrecCG.cpp \
@@ -29,9 +29,11 @@ modules_cpp =\
   Modules/MSource/SeqAslash.cpp \
   Modules/MSource/SeqGamma.cpp \
   Modules/MUtilities/EigenPackCBPairs.cpp \
+  Modules/MUtilities/EigenPackCheck.cpp \
   Modules/MUtilities/EigenPackExtractEvals.cpp \
   Modules/MUtilities/EigenPackFullPairs.cpp \
-  Modules/MUtilities/ModifyEigenPack.cpp
+  Modules/MUtilities/ModifyEigenPack.cpp \
+  Modules/MUtilities/PropToFermions.cpp
 
 modules_hpp =\
   Modules/MAction/ImprovedStaggered.hpp \
@@ -41,6 +43,7 @@ modules_hpp =\
   Modules/MContraction/MesonField.hpp \
   Modules/MContraction/MesonFieldLegacy.hpp \
   Modules/MFermion/GaugeProp.hpp \
+  Modules/MFermion/LMAMesonFieldProp.hpp \
   Modules/MFermion/SpinTaste.hpp \
   Modules/MGauge/APBCGauge.hpp \
   Modules/MGauge/HISQSmear.hpp \
@@ -56,7 +59,6 @@ modules_hpp =\
   Modules/MSolver/ImplicitlyRestartedLanczos.hpp \
   Modules/MSolver/LowModeProj.hpp \
   Modules/MSolver/LowModeProjFull.hpp \
-  Modules/MSolver/LowModeProjMesonField.hpp \
   Modules/MSolver/MixedPrecisionCG.hpp \
   Modules/MSolver/MixedPrecisionRBPrecCG.hpp \
   Modules/MSolver/RBPrecCG.hpp \
@@ -64,7 +66,9 @@ modules_hpp =\
   Modules/MSource/SeqAslash.hpp \
   Modules/MSource/SeqGamma.hpp \
   Modules/MUtilities/EigenPackCBPairs.hpp \
+  Modules/MUtilities/EigenPackCheck.hpp \
   Modules/MUtilities/EigenPackExtractEvals.hpp \
   Modules/MUtilities/EigenPackFullPairs.hpp \
-  Modules/MUtilities/ModifyEigenPack.hpp
+  Modules/MUtilities/ModifyEigenPack.hpp \
+  Modules/MUtilities/PropToFermions.hpp
 

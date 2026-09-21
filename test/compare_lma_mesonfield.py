@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
-"""Bit-compare the file-driven LMA solver (MSolver::StagLMAMesonField) against
-the live LowModeProj (MSolver::StagLMA, projector branch) on the 4^4 test
-configuration.
+"""Bit-compare the file-driven LMA propagator producer
+(MFermion::StagLMAMesonFieldProp) against the live LowModeProj
+(MSolver::StagLMA, projector branch) on the 4^4 test configuration.
 
-Both solvers are applied to the same time-diluted noise source; their output
-fields are contracted against the full |e+o>/|e-o> eigenvector-pair basis
-(MContraction::StagA2AMesonField, identity spin-taste, zero momentum) and the
-two a2aMatrix HDF5 datasets are compared element by element on the bound
-noise column. The file solver is bound to (noiseIndex, timeslice) and returns
-the same field regardless of which noise vector it is applied to, so only
-column noiseIndex of the probe contraction is comparable; all other columns
-of the file-side matrix repeat that field by design. Precedent: fd87d4f
-(conjugation issues found by reference comparison).
+The producer reconstructs one scalar PropagatorField per timeslice per
+gamma from the loaded meson-field tables, assembling color slot c from
+the color-diluted source's table column noiseIndex + c (adjacent columns
+= adjacent colors). MUtilities::PropToFermions extracts those 3 color
+columns as a FermionField vector, which the probe contraction
+(MContraction::StagA2AMesonField, identity spin-taste, zero momentum)
+contracts against the full |e+o>/|e-o> eigenvector-pair basis. The
+reference side applies the live solver to all time-diluted noise fields
+through GaugeProp; its columns noiseIndex..noiseIndex+2 are the three
+color components at the same timeslice, so file column c is compared
+against reference column noiseIndex + c element by element. Precedent:
+fd87d4f (conjugation issues found by reference comparison).
 
 Usage (from the test/ directory, after running the schedule
 params/lma-mesonfield-file-compare.20.xml with ../HadronsMILC --grid 4.4.4.4):
@@ -44,14 +47,17 @@ def main():
     p.add_argument("--ref", default="work/lma-file-compare/ref")
     p.add_argument("--file", default="work/lma-file-compare/file")
     p.add_argument("--traj", type=int, default=20)
+    ncol = 3  # FImpl::Dimension color columns produced by PropToFermions
     p.add_argument("--col", type=int, default=0,
-                   help="noise column the file solver is bound to "
-                        "(noiseIndex); only this column is comparable")
+                   help="base noise column of the color-diluted window "
+                        "(noiseIndex); the file side holds exactly the 3 "
+                        "color columns, compared against reference columns "
+                        "col..col+2")
     p.add_argument("--tol", type=float, default=1e-4)
     args = p.parse_args()
 
-    ref = load(args.ref, args.traj)[:, :, [args.col]]
-    fil = load(args.file, args.traj)[:, :, [args.col]]
+    ref = load(args.ref, args.traj)[:, :, args.col:args.col + ncol]
+    fil = load(args.file, args.traj)[:, :, :ncol]
 
     if ref.shape != fil.shape:
         sys.exit("shape mismatch: {} vs {}".format(ref.shape, fil.shape))
@@ -62,14 +68,15 @@ def main():
     nonzero = dev[dev > 0]
     med = np.median(nonzero) if nonzero.size else 0.0
 
-    print("probe contraction shape: {} (column {})".format(ref.shape, args.col))
+    print("probe contraction shape: {} (columns {}..{})".format(
+        ref.shape, args.col, args.col + ncol - 1))
     print("max |delta|            : {:.3e}".format(dev.max()))
     print("median nonzero |delta| : {:.3e}".format(med))
     print("max relative deviation : {:.3e} (tolerance {:.1e})".format(rel, args.tol))
 
     if rel > args.tol:
         sys.exit("FAIL: relative deviation exceeds tolerance")
-    print("PASS: StagLMAMesonField reproduces StagLMA (projector branch)")
+    print("PASS: StagLMAMesonFieldProp reproduces StagLMA (projector branch)")
 
 
 if __name__ == "__main__":

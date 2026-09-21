@@ -1,5 +1,5 @@
 /*
- * LowModeProjMesonField.cpp, part of Hadrons (https://github.com/aportelli/Hadrons)
+ * PropToFermions.cpp, part of Hadrons (https://github.com/aportelli/Hadrons)
  *
  * Copyright (C) 2015 - 2026
  *
@@ -17,14 +17,13 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with Hadrons.  If not, see <http://www.gnu.org/licenses/>.
- * (same GNU GPL as the header; see the LICENSE file).
  */
 
 /*  END LEGAL */
-#include "LowModeProjMesonField.hpp"
+#include "PropToFermions.hpp"
 
 using namespace Grid;
 using namespace Hadrons;
-using namespace MSolver;
+using namespace MUtilities;
 
-template class Grid::Hadrons::MSolver::TLowModeProjMesonField<STAGIMPL, MassShiftEigenPack<STAGIMPL>>;
+template class Grid::Hadrons::MUtilities::TPropToFermions<STAGIMPL>;

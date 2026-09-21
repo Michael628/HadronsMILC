@@ -148,18 +148,26 @@
       </options>
     </module>
 
-    <!-- File-driven solver family, pairing self-check enabled via the noise
-         object: one lma_file_t<t> / lma_file_t<t>_subtract pair per
-         timeslice. The noise 0 lives on timeslice 0 only, so the reference
-         comparison below uses lma_file_t0 -- the only wrapper whose file
-         rows are non-zero for this time-diluted noise. -->
+    <!-- Eager file-driven propagator producer (replaces the former
+         MSolver solver family and its GaugeProp middleman): one scalar
+         PropagatorField per timeslice in [tA, tB] stride tStep; single
+         (empty) gammas list -> bare name lma_file_t<t>. The time-diluted
+         noise lives on timeslice 0 only, so the range is tA=0, tB=0; its
+         three color components are the table columns 0..2 (noiseIndex is
+         the window base). The pairing self-check runs against noise_vec;
+         the loader's published metadata is cross-checked at execute
+         time. -->
     <module>
-      <id><name>lma_file</name><type>MSolver::StagLMAMesonField</type></id>
+      <id><name>lma_file</name><type>MFermion::StagLMAMesonFieldProp</type></id>
       <options>
         <action>stag</action>
         <lowModes>eig</lowModes>
+        <gammas></gammas>
         <mesonField>mf</mesonField>
         <noiseIndex>0</noiseIndex>
+        <tA>0</tA>
+        <tB>0</tB>
+        <tStep>1</tStep>
         <eigStart>0</eigStart>
         <nEigs>-1</nEigs>
         <negFirst></negFirst>
@@ -168,13 +176,11 @@
       </options>
     </module>
 
-    <!-- Apply each solver to the same raw noise fields: GaugeProp with
-         identity spin-taste and no guess is a plain per-field solver
-         application, out[i] = solver(noise_vec[i]). Single (G1 G1) gamma
-         -> bare module name as the output object (vector<FermionField>).
-         The reference comparison uses gprop_file (lma_file_t0): noise 0
-         lives on timeslice 0, the only slice whose file rows are non-zero
-         for this time-diluted noise. -->
+    <!-- Apply the live reference solver to the same raw noise fields:
+         GaugeProp with identity spin-taste and no guess is a plain
+         per-field solver application, out[i] = solver(noise_vec[i]).
+         Single (G1 G1) gamma -> bare module name as the output object
+         (vector<FermionField>). -->
     <module>
       <id><name>gprop_ref</name><type>MFermion::StagGaugeProp</type></id>
       <options>
@@ -188,24 +194,23 @@
         </spinTaste>
       </options>
     </module>
+
+    <!-- Extract the t=0 propagator's 3 color columns as a FermionField
+         vector for the probe contraction (StagA2AMesonField takes
+         vector<FermionField> only); entry c = table column noiseIndex + c,
+         comparable to the reference probe's noise columns 0..2 (gprop_ref
+         applies the live solver to every noise field; noise 0-2 are the
+         three colors at t=0). -->
     <module>
-      <id><name>gprop_file</name><type>MFermion::StagGaugeProp</type></id>
-      <options>
-        <guess></guess>
-        <solver>lma_file_t0</solver>
-        <source>noise_vec</source>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(G1 G1)</gammas>
-          <gauge>gauge</gauge>
-        </spinTaste>
-      </options>
+      <id><name>prop2f_file</name><type>MUtilities::PropToFermions</type></id>
+      <options><prop>lma_file_t0</prop></options>
     </module>
 
-    <!-- Probe contractions of both solver outputs against the full
-         eigenvector-pair basis (identity spin-taste, zero momentum); row
-         pairs expose even AND odd content of the outputs; compared offline
-         with h5py on column 0 only. -->
+    <!-- Probe contractions of both sides against the full eigenvector-pair
+         basis (identity spin-taste, zero momentum); row pairs expose even
+         AND odd content of the outputs; compared offline with h5py:
+         file-side columns 0..2 are the three colors, compared against
+         reference columns 0..2. -->
     <module>
       <id><name>cmp_ref</name><type>MContraction::StagA2AMesonField</type></id>
       <options>
@@ -232,7 +237,7 @@
         <lowModes></lowModes>
         <mom><elem>0 0 0</elem></mom>
         <output>work/lma-file-compare/file</output>
-        <right>gprop_file</right>
+        <right>prop2f_file</right>
         <spinTaste>
           <applyG5>false</applyG5>
           <gammas>(G1 G1)</gammas>

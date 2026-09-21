@@ -61,12 +61,21 @@ BEGIN_HADRONS_NAMESPACE
                 the eval_k = 2m + i*lambda_D values; required when
                 side=ket (the eigenvalues are not stored in the HDF5 file)
 
+    Besides the coefficient table (published under the module name), the
+    loader publishes the file's validated metadata as a side object named
+    "<name>_metadata" (MesonFieldMILCMetadata: default-constructed with
+    undefined gammas at setup time -- dry-run-safe -- and filled from the
+    file's metadata group at execute time). Downstream consumers such as
+    MFermion::StagLMAMesonFieldProp cross-check their configured gammas
+    against gamma_spin/gamma_taste so a miswired gamma/file pairing fails
+    loudly instead of silently producing mislabeled output names.
+
     The loader refuses files that are not at zero momentum: momenta put
     site-dependent phases on the stored elements that downstream consumers
-    (the StagLMAMesonField solver) cannot reconstruct from. Any spin-taste
-    is accepted (the original gate allowed identity (G1,G1) only); the
-    loaded spin-taste is logged so a miswired gamma/file pairing is visible
-    in the run log.
+    (the StagLMAMesonFieldProp producer) cannot reconstruct from. Any
+    spin-taste is accepted (the original gate allowed identity (G1,G1)
+    only); the loaded spin-taste is logged so a miswired gamma/file
+    pairing is visible in the run log.
  ******************************************************************************/
 BEGIN_MODULE_NAMESPACE(MIO)
 
@@ -122,7 +131,7 @@ std::vector<std::string> TLoadMesonField<FImpl, Pack>::getInput(void) {
 
 template <typename FImpl, typename Pack>
 std::vector<std::string> TLoadMesonField<FImpl, Pack>::getOutput(void) {
-  std::vector<std::string> out = {getName()};
+  std::vector<std::string> out = {getName(), getName() + "_metadata"};
 
   return out;
 }
@@ -145,6 +154,14 @@ void TLoadMesonField<FImpl, Pack>::setup(void) {
                   "side=ket requires the 'lowModes' eigenpack reference for "
                   "the eigenvalues");
   }
+
+  // spin-taste metadata side object: default-constructed (undefined
+  // gammas) here so the dry-run profiling pass sees a fixed allocation;
+  // filled from the file's metadata group at execute time. Consumers
+  // (e.g. MFermion::StagLMAMesonFieldProp) cross-check their configured
+  // gammas against gamma_spin/gamma_taste
+  envCreate(MContraction::MesonFieldMILCMetadata, getName() + "_metadata", 1,
+            MContraction::MesonFieldMILCMetadata{});
 
   envCreate(std::vector<A2AMatrix<HADRONS_A2AM_IO_TYPE>>, getName(), 1, nt);
 }
@@ -202,6 +219,11 @@ void TLoadMesonField<FImpl, Pack>::execute(void) {
     LOG(Message) << "Meson-field spin-taste: '"
                  << StagGamma::GetName(md.gamma_spin, md.gamma_taste)
                  << "', zero momentum" << std::endl;
+
+    // publish the validated metadata: setup() created the side object
+    // with undefined gammas; consumers (e.g. MFermion::StagLMAMesonFieldProp)
+    // cross-check their gammas list against gamma_spin/gamma_taste
+    envGet(MContraction::MesonFieldMILCMetadata, getName() + "_metadata") = md;
   }
 
   // load the full [nt, N_i, N_j] table (rank-strided read + broadcast).

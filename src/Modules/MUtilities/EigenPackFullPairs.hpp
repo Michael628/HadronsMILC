@@ -34,7 +34,7 @@ BEGIN_HADRONS_NAMESPACE
  *        Full-volume |e+o>/|e-o> pair pack from a checkerboarded pack       *
  ******************************************************************************/
 /*  Builds the production-layout eigenvector representation used by
-    MIO::LoadMesonField / MSolver::StagLMAMesonField files: for each
+    MIO::LoadMesonField / MFermion::StagLMAMesonFieldProp files: for each
     checkerboarded eigenvector e_E^k (parity cb, eigenvalue 2m + i*lam_k),
     construct the full-volume pair
 
@@ -49,7 +49,7 @@ BEGIN_HADRONS_NAMESPACE
                   MesonField 'lowModes' with an EMPTY action to write
                   full-volume |e+o>/|e-o> pair files (norm2_full = 1 per
                   pair for unit-checkerboard evecs, so the file's baked norm
-                  is 1 and StagLMAMesonField's default pairScale sqrt(2)
+                  is 1 and StagLMAMesonFieldProp's default pairScale sqrt(2)
                   applies)
  ******************************************************************************/
 BEGIN_MODULE_NAMESPACE(MUtilities)

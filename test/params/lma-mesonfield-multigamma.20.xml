@@ -147,18 +147,25 @@
       </options>
     </module>
 
-    <!-- Multi-gamma file-driven solver family: with two gammas the
-         wrappers are named lma_file_G1_G1_t<t>[_subtract] and
-         lma_file_G5_G5_t<t>[_subtract]. The pairing self-check runs for
-         the (G1,G1) table only (gamma-independent live reference). -->
+    <!-- Eager multi-gamma file-driven propagator producer (replaces the
+         former MSolver solver family and its per-gamma GaugeProp
+         middlemen): with two gammas the outputs are named
+         lma_file_t<t>_G1_G1 and lma_file_t<t>_G5_G5. The time-diluted
+         noise lives on timeslice 0 only, so the range is tA=0, tB=0. The
+         pairing self-check runs for the (G1,G1) table only
+         (gamma-independent live reference); both loaders' metadata is
+         cross-checked against the gammas list at execute time. -->
     <module>
-      <id><name>lma_file</name><type>MSolver::StagLMAMesonField</type></id>
+      <id><name>lma_file</name><type>MFermion::StagLMAMesonFieldProp</type></id>
       <options>
         <action>stag</action>
         <lowModes>eig</lowModes>
         <gammas>(G1 G1) (G5 G5)</gammas>
         <mesonField>mf_g1 mf_g5</mesonField>
         <noiseIndex>0</noiseIndex>
+        <tA>0</tA>
+        <tB>0</tB>
+        <tStep>1</tStep>
         <eigStart>0</eigStart>
         <nEigs>-1</nEigs>
         <negFirst></negFirst>
@@ -167,9 +174,9 @@
       </options>
     </module>
 
-    <!-- Apply each solver to the same raw noise fields (noise 0 lives on
-         timeslice 0, the only slice whose file rows are non-zero for this
-         time-diluted noise). -->
+    <!-- Apply the live reference solver to the raw noise fields (noise 0
+         lives on timeslice 0, the only slice whose file rows are non-zero
+         for this time-diluted noise). -->
     <module>
       <id><name>gprop_ref</name><type>MFermion::StagGaugeProp</type></id>
       <options>
@@ -183,31 +190,17 @@
         </spinTaste>
       </options>
     </module>
+
+    <!-- Extract each gamma's t=0 propagator color columns for the probe
+         contractions (same color-window comparability as the
+         file-compare schedule). -->
     <module>
-      <id><name>gprop_g1</name><type>MFermion::StagGaugeProp</type></id>
-      <options>
-        <guess></guess>
-        <solver>lma_file_G1_G1_t0</solver>
-        <source>noise_vec</source>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(G1 G1)</gammas>
-          <gauge>gauge</gauge>
-        </spinTaste>
-      </options>
+      <id><name>prop2f_g1</name><type>MUtilities::PropToFermions</type></id>
+      <options><prop>lma_file_t0_G1_G1</prop></options>
     </module>
     <module>
-      <id><name>gprop_g5</name><type>MFermion::StagGaugeProp</type></id>
-      <options>
-        <guess></guess>
-        <solver>lma_file_G5_G5_t0</solver>
-        <source>noise_vec</source>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(G1 G1)</gammas>
-          <gauge>gauge</gauge>
-        </spinTaste>
-      </options>
+      <id><name>prop2f_g5</name><type>MUtilities::PropToFermions</type></id>
+      <options><prop>lma_file_t0_G5_G5</prop></options>
     </module>
 
     <!-- Probe contractions of each solver output against the full
@@ -239,7 +232,7 @@
         <lowModes></lowModes>
         <mom><elem>0 0 0</elem></mom>
         <output>work/lma-multigamma/g1</output>
-        <right>gprop_g1</right>
+        <right>prop2f_g1</right>
         <spinTaste>
           <applyG5>false</applyG5>
           <gammas>(G1 G1)</gammas>
@@ -256,7 +249,7 @@
         <lowModes></lowModes>
         <mom><elem>0 0 0</elem></mom>
         <output>work/lma-multigamma/g5</output>
-        <right>gprop_g5</right>
+        <right>prop2f_g5</right>
         <spinTaste>
           <applyG5>false</applyG5>
           <gammas>(G1 G1)</gammas>

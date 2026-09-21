@@ -1,0 +1,628 @@
+/*
+ * LMAMesonFieldProp.hpp, part of Hadrons (https://github.com/aportelli/Hadrons)
+ *
+ * Copyright (C) 2015 - 2026
+ *
+ * Author: Michael Lynch <michaellynch628@gmail.com>
+ *
+ * Hadrons is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * Hadrons is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Hadrons.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*  END LEGAL */
+#ifndef HadronsMILC_MFermion_LMAMesonFieldProp_hpp_
+#define HadronsMILC_MFermion_LMAMesonFieldProp_hpp_
+
+#include <Hadrons/Global.hpp>
+#include <Hadrons/Module.hpp>
+#include <Hadrons/ModuleFactory.hpp>
+#include <A2AMatrix.hpp>
+#include <EigenPack.hpp>
+#include <Modules/MContraction/MesonField.hpp>
+#include <GridMilc/GridMilc.h>
+
+BEGIN_HADRONS_NAMESPACE
+
+/******************************************************************************
+ *        Low mode propagators from precomputed meson fields                *
+ ******************************************************************************/
+/*  GaugeProp-style replacement of the former file-driven LMA solver
+    family: instead of registering lazy Solver closures consumed
+    one at a time through GaugeProp middlemen, this module EAGERLY produces
+    one scalar PropagatorField per (timeslice, gamma) output name during
+    its own execute(); downstream modules fetch the field objects directly
+    by name (no middleman, no solver indirection).
+
+    The file's eigenvector rows come in |e+o>/|e-o> pairs (rows 2k/2k+1 of
+    eigenpair k) -- produced identically by EigenPackFullPairs (full-volume)
+    or by MesonField's checkerboarded cbPairs path. Their sum and
+    difference reconstruct the parity-split inner products LowModeProj
+    computes live:
+
+      SUM_k(t,j)  = M[t][2k][j] + M[t][2k+1][j] ~ <e_E^k|eta_j,E>(t)
+      DIFF_k(t,j) = M[t][2k][j] - M[t][2k+1][j]
+                    ~ (i/lam_k) <Meooe(e_E^k)|eta_j,O>(t)
+
+    giving (see the 2026-09-17 design artifact, decision D8, for the full
+    derivation):
+
+      ferm_c = (norm_cb / pairScale) *
+               [ SUM_k e_k  -  i * Meooe( SUM_k (DIFF_k/lam_k) e_k ) ]
+
+    with ferm_c placed in COLOR SLOT c of the output propagator: the
+    color-diluted noise source occupies 3 adjacent table columns (one per
+    color index, TimeDilutedSpinColorDiagonal color-fast layout), the
+    module reconstructs one FermionField per column j = noiseIndex + c
+    and assembles them FermToProp-style -- the GaugeProp solveField
+    color-loop pattern applied to meson-field columns.
+
+    action      Staggered action module (Meooe parity move)
+    lowModes    MassShiftEigenPack module with the CHECKERBOARDED
+                eigenvectors/eigenvalues (row pair k <-> evec[k], eval[k])
+    gammas      "" (default) or a standard spin-taste pair list
+                "(G1 G1) (G5 G5)": one output family per gamma; empty
+                means the legacy single (G1,G1) family with bare names
+    mesonField  whitespace-separated LoadMesonField module names, one per
+                gamma (positional parallel list, gammas[i] <-> entry i);
+                each loader's published MesonFieldMILCMetadata side object
+                ("<loader>_metadata") is cross-checked against gammas[i]
+                at execute time, so a miswired gamma/file pairing fails
+                loudly instead of silently mislabeling output names
+    noiseIndex  j: BASE column of the color window (columns j..j+2)
+    tA          first timeslice to produce (inclusive)
+    tB          last timeslice to produce (inclusive, must be < nt)
+    tStep       timeslice stride (>= 1); one PropagatorField per gamma per
+                t in [tA, tB] with stride tStep, named "<name>_t<t>" for
+                a single gamma (or an empty gammas list) and
+                "<name>_t<t>_<spin>_<taste>" when the list holds more
+                than one gamma (gamma segment LAST, mirroring GaugeProp's
+                per-gamma suffix convention)
+    eigStart    first eigenpair to include (pair space)
+    nEigs       number of eigenpairs (< 1: all)
+    negFirst    ""/"false" (default): row 2k is |e+o>; "true": |e-o> comes
+                first (flips the DIFF sign)
+    pairScale   production normalization constant P (default sqrt(2); use
+                1.0 for unit-norm full-volume Lanczos files)
+    noise       optional name of the noise-vector environment object
+                (std::vector<FermionField>) used for a one-shot pairing/
+                normalization self-check at execute time (full-time-extent
+                sum; only the (G1,G1) table is checkable against the live,
+                gamma-independent reference; other gammas log a skip)
+
+    setup() only parses parameters, checks container sizes and allocates
+    and zeroes the outputs (the scheduler dry-runs it for memory profiling
+    while the loader tables are still empty 0x0 matrices); ALL table-content
+    checks (row layout, color-window bounds, metadata cross-check,
+    self-check) live at the top of execute(). The _subtract variants of
+    the former solver family are dropped (they were never end-to-end
+    validated and the producer contract has no caller-supplied source).
+ ******************************************************************************/
+BEGIN_MODULE_NAMESPACE(MFermion)
+
+class LMAMesonFieldPropMILCPar : Serializable {
+public:
+  GRID_SERIALIZABLE_CLASS_MEMBERS(LMAMesonFieldPropMILCPar,
+                                  std::string,   action,
+                                  std::string,   lowModes,
+                                  std::string,   mesonField,
+                                  std::string,   gammas,
+                                  unsigned int,  noiseIndex,
+                                  unsigned int,  tA,
+                                  unsigned int,  tB,
+                                  unsigned int,  tStep,
+                                  unsigned int,  eigStart,
+                                  int,           nEigs,
+                                  std::string,   negFirst,
+                                  std::string,   pairScale,
+                                  std::string,   noise);
+  LMAMesonFieldPropMILCPar(void)
+      : gammas(""), tStep(1), negFirst(""), pairScale("") {}
+};
+
+template <typename FImpl, typename Pack>
+class TLMAMesonFieldPropMILC : public Module<LMAMesonFieldPropMILCPar> {
+public:
+  FERM_TYPE_ALIASES(FImpl, );
+
+private:
+  // gammas "(G1 G1) (G5 G5)" parsed with the standard spin-taste pair
+  // parser (empty -> the legacy single (G1,G1) default, bare names);
+  // duplicate gamma names are fatal (output names would collide)
+  std::vector<StagGamma::SpinTastePair> gammaList(void) const;
+  // one LoadMesonField module name per gamma (positional parallel list,
+  // strToVec<std::string>); count mismatch vs the gamma list is fatal
+  // before any positional access
+  std::vector<std::string> mesonFieldList(
+      const std::vector<StagGamma::SpinTastePair> &gammas) const;
+  // the timeslices this instance materializes: t in [tA, tB] stride
+  // tStep, clamped to the lattice time extent (single source shared by
+  // getOutput()/setup()/execute() -- the name family cannot diverge
+  // between the three sites)
+  std::vector<unsigned int> sliceTimes(void) const;
+  // canonical output object name for gamma index g at timeslice t
+  std::string outputName(const unsigned int g, const unsigned int t) const;
+  // the full (gamma-major) output name family
+  std::vector<std::string> outputNames(void) const;
+
+public:
+  // constructor
+  TLMAMesonFieldPropMILC(const std::string name);
+  // destructor
+  virtual ~TLMAMesonFieldPropMILC(void){};
+  // dependency relation
+  virtual std::vector<std::string> getInput(void);
+  virtual std::vector<std::string> getOutput(void);
+  // setup
+  virtual void setup(void);
+  // execution
+  virtual void execute(void);
+};
+
+MODULE_REGISTER_TMP(StagLMAMesonFieldProp,
+                    ARG(TLMAMesonFieldPropMILC<STAGIMPL,
+                                               MassShiftEigenPack<STAGIMPL>>),
+                    MFermion);
+
+/******************************************************************************
+ *                TLMAMesonFieldPropMILC implementation                      *
+ ******************************************************************************/
+// constructor /////////////////////////////////////////////////////////////////
+template <typename FImpl, typename Pack>
+TLMAMesonFieldPropMILC<FImpl, Pack>::TLMAMesonFieldPropMILC(
+    const std::string name)
+    : Module<LMAMesonFieldPropMILCPar>(name) {}
+
+// gamma/meson-field parallel lists //////////////////////////////////////////
+template <typename FImpl, typename Pack>
+std::vector<StagGamma::SpinTastePair>
+TLMAMesonFieldPropMILC<FImpl, Pack>::gammaList(void) const {
+  std::vector<StagGamma::SpinTastePair> gammas;
+  if (par().gammas.empty()) {
+    gammas.push_back(std::make_pair(StagGamma::StagAlgebra::G1,
+                                    StagGamma::StagAlgebra::G1));
+  } else {
+    gammas = StagGamma::ParseSpinTasteString(par().gammas);
+  }
+  std::vector<std::string> names;
+  for (auto &g : gammas) {
+    std::string name = StagGamma::GetName(g);
+    for (auto &n : names) {
+      if (n == name) {
+        HADRONS_ERROR(Argument, "duplicate gamma '" + name +
+                                    "' in gammas list (output names would "
+                                    "collide)");
+      }
+    }
+    names.push_back(name);
+  }
+
+  return gammas;
+}
+
+template <typename FImpl, typename Pack>
+std::vector<std::string> TLMAMesonFieldPropMILC<FImpl, Pack>::mesonFieldList(
+    const std::vector<StagGamma::SpinTastePair> &gammas) const {
+  auto mfs = strToVec<std::string>(par().mesonField);
+  if (mfs.size() != gammas.size()) {
+    HADRONS_ERROR(Argument,
+                  "gammas list has " + std::to_string(gammas.size()) +
+                      " entries but mesonField names " +
+                      std::to_string(mfs.size()) +
+                      " module(s): one LoadMesonField module per gamma "
+                      "(positional parallel list)");
+  }
+
+  return mfs;
+}
+
+// output name family /////////////////////////////////////////////////////////
+template <typename FImpl, typename Pack>
+std::vector<unsigned int> TLMAMesonFieldPropMILC<FImpl, Pack>::sliceTimes(
+    void) const {
+  std::vector<unsigned int> ts;
+  // defensive: a zero tStep would loop forever below; setup() rejects
+  // it loudly, but getOutput() may run before setup(), so guard here
+  // too and simply enumerate nothing
+  if (par().tStep < 1) {
+    return ts;
+  }
+  const unsigned int nt = static_cast<unsigned int>(env().getDim().back());
+  // clamp to the time extent: getOutput() runs before setup() validates
+  // the range
+  const unsigned int tLast = std::min(par().tB, nt - 1);
+  for (unsigned int i = 0;; ++i) {
+    const unsigned int t = par().tA + i * par().tStep;
+    if ((t < par().tA) || (t > tLast)) {
+      break;
+    }
+    ts.push_back(t);
+  }
+
+  return ts;
+}
+
+template <typename FImpl, typename Pack>
+std::string TLMAMesonFieldPropMILC<FImpl, Pack>::outputName(
+    const unsigned int g, const unsigned int t) const {
+  auto gammas = gammaList();
+  // single gamma -> bare names (legacy grammar); multiple gammas ->
+  // trailing "_<spin>_<taste>" segment AFTER the timeslice (GaugeProp
+  // appends gamma keys last when naming per-gamma objects)
+  std::string suffix =
+      (gammas.size() > 1) ? ("_" + StagGamma::GetName(gammas[g])) : "";
+
+  return getName() + "_t" + std::to_string(t) + suffix;
+}
+
+template <typename FImpl, typename Pack>
+std::vector<std::string> TLMAMesonFieldPropMILC<FImpl, Pack>::outputNames(
+    void) const {
+  std::vector<std::string> names;
+  auto gammas = gammaList();
+  auto ts = sliceTimes();
+  for (unsigned int g = 0; g < gammas.size(); ++g) {
+    for (auto &t : ts) {
+      names.push_back(outputName(g, t));
+    }
+  }
+
+  return names;
+}
+
+// dependencies/products ///////////////////////////////////////////////////////
+template <typename FImpl, typename Pack>
+std::vector<std::string> TLMAMesonFieldPropMILC<FImpl, Pack>::getInput(void) {
+  auto mfs = mesonFieldList(gammaList());
+  std::vector<std::string> in{par().action, par().lowModes};
+  for (auto &mf : mfs) {
+    in.push_back(mf);
+    // explicit edge on the loader's metadata side object (GaugeProp
+    // guess-object pattern): naming an env object in getInput() keeps
+    // it alive until this module executes, so the execute-time
+    // envGet(<loader>_metadata) cross-check cannot hit a GC-freed object
+    in.push_back(mf + "_metadata");
+  }
+  if (!par().noise.empty()) {
+    in.push_back(par().noise);
+  }
+
+  return in;
+}
+
+template <typename FImpl, typename Pack>
+std::vector<std::string> TLMAMesonFieldPropMILC<FImpl, Pack>::getOutput(void) {
+  return outputNames();
+}
+
+// setup ///////////////////////////////////////////////////////////////////////
+template <typename FImpl, typename Pack>
+void TLMAMesonFieldPropMILC<FImpl, Pack>::setup(void) {
+  int Ls = env().getObjectLs(par().action);
+  if (Ls > 1) {
+    HADRONS_ERROR(Argument, "Ls > 1 not implemented");
+  }
+
+  // optional string parameters (missing XML nodes are tolerated for
+  // strings only -- useStencil precedent, commit 297b724)
+  if ((par().negFirst != "") && (par().negFirst != "false") &&
+      (par().negFirst != "true")) {
+    HADRONS_ERROR(Argument, "negFirst must be '', 'false' or 'true' (got '" +
+                                par().negFirst + "')");
+  }
+  if (!par().pairScale.empty()) {
+    auto scale = strToVec<RealD>(par().pairScale);
+    if (scale.size() != 1) {
+      HADRONS_ERROR(Argument, "pairScale must be a single number (got '" +
+                                  par().pairScale + "')");
+    }
+  }
+
+  // timeslice range: inclusive [tA, tB] with stride tStep >= 1 (the
+  // SeqGamma tA/tB idiom, plus the first step parameter in this
+  // codebase)
+  int nt = env().getDim().back();
+  if (par().tStep < 1) {
+    HADRONS_ERROR(Argument, "tStep must be >= 1 (got " +
+                                std::to_string(par().tStep) + ")");
+  }
+  if (par().tA > par().tB) {
+    HADRONS_ERROR(Argument, "tA (" + std::to_string(par().tA) +
+                                ") must not exceed tB (" +
+                                std::to_string(par().tB) + ")");
+  }
+  if (par().tB >= static_cast<unsigned int>(nt)) {
+    HADRONS_ERROR(Argument, "tB (" + std::to_string(par().tB) +
+                                ") out of range: the lattice has " +
+                                std::to_string(nt) + " timeslices");
+  }
+
+  auto gammas = gammaList();
+  auto mfs = mesonFieldList(gammas);
+
+  LOG(Message) << "Setting up meson-field driven low mode propagator '"
+               << getName() << "' for action '" << par().action
+               << "' using eigenvectors from '" << par().lowModes
+               << "' (noise index " << par().noiseIndex
+               << ", one propagator per timeslice per gamma in [tA="
+               << par().tA << ", tB=" << par().tB << "] with stride "
+               << par().tStep << "):" << std::endl;
+  for (unsigned int g = 0; g < gammas.size(); ++g) {
+    LOG(Message) << "  gamma '" << StagGamma::GetName(gammas[g])
+                 << "' from '" << mfs[g] << "'" << std::endl;
+  }
+
+  auto &epack = envGet(Pack, par().lowModes);
+
+  // eigenpair range: the fixed three-clause bounds check of LowModeProj
+  // (commit a64d61b)
+  unsigned int eigStart = par().eigStart;
+  int nEigs = par().nEigs;
+  if (nEigs < 1) {
+    nEigs = epack.evec.size();
+  }
+  if (eigStart > nEigs || eigStart > epack.evec.size() ||
+      nEigs - eigStart > epack.evec.size() - eigStart) {
+    HADRONS_ERROR(Argument,
+                  "Requested eigs (parameters eigStart and nEigs) out of "
+                  "bounds.");
+  }
+
+  // meson-field tables: one per gamma; container-size check only (the
+  // loader fills the nt-length vector in its own setup, so this is
+  // dry-run safe). Row/column/metadata CONTENT checks live in execute()
+  for (auto &mfName : mfs) {
+    auto &mf = envGet(std::vector<A2AMatrix<HADRONS_A2AM_IO_TYPE>>, mfName);
+    if (static_cast<int>(mf.size()) != nt) {
+      HADRONS_ERROR(Size, "meson field '" + mfName + "' has " +
+                              std::to_string(mf.size()) +
+                              " timeslices, expected " +
+                              std::to_string(nt));
+    }
+  }
+
+  // temps: the three checkerboard accumulators of the reconstruction and
+  // one full-grid assembly target. envTmp, not the former envCache: the
+  // eager module consumes them only inside its own execute()
+  envTmp(FermionField, "rbTemp", 1, envGetRbGrid(FermionField));
+  envTmp(FermionField, "rbTempNeg", 1, envGetRbGrid(FermionField));
+  envTmp(FermionField, "rbFermNeg", 1, envGetRbGrid(FermionField));
+  envTmpLat(FermionField, "sol");
+
+  // allocation-only output creation (the GaugeProp setupHelper
+  // contract): one zeroed scalar PropagatorField per output name
+  for (auto &name : outputNames()) {
+    envCreate(PropagatorField, name, 1, envGetGrid(PropagatorField));
+    envGet(PropagatorField, name) = Zero();
+  }
+}
+
+// execution ///////////////////////////////////////////////////////////////////
+template <typename FImpl, typename Pack>
+void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
+  // content checks run here, not in setup(): the scheduler's memory-
+  // profiling pass dry-runs every module's setup() BEFORE anything
+  // executes, when the loader tables are still nt empty 0x0 matrices
+  auto gammas = gammaList();
+  auto mfs = mesonFieldList(gammas);
+  auto &mat = envGet(FMat, par().action);
+  auto &epack = envGet(Pack, par().lowModes);
+  int nt = env().getDim().back();
+
+  for (unsigned int g = 0; g < gammas.size(); ++g) {
+    auto &mf =
+        envGet(std::vector<A2AMatrix<HADRONS_A2AM_IO_TYPE>>, mfs[g]);
+    if (static_cast<unsigned int>(mf[0].rows()) !=
+        2 * static_cast<unsigned int>(epack.evec.size())) {
+      HADRONS_ERROR(Size, "meson field '" + mfs[g] + "' has " +
+                              std::to_string(mf[0].rows()) +
+                              " rows, expected 2*" +
+                              std::to_string(epack.evec.size()) +
+                              " (|e+o>/|e-o> pair layout)");
+    }
+    if (par().noiseIndex + FImpl::Dimension >
+        static_cast<unsigned int>(mf[0].cols())) {
+      HADRONS_ERROR(Argument,
+                    "noiseIndex " + std::to_string(par().noiseIndex) +
+                        " + " + std::to_string(FImpl::Dimension) +
+                        " color columns exceed the " +
+                        std::to_string(mf[0].cols()) + " columns of '" +
+                        mfs[g] + "'");
+    }
+    // gamma/file pairing cross-check against the loader's published
+    // metadata: a miswired pairing would otherwise just mislabel the
+    // output names
+    auto &md = envGet(MContraction::MesonFieldMILCMetadata,
+                      mfs[g] + "_metadata");
+    if ((md.gamma_spin != gammas[g].first) ||
+        (md.gamma_taste != gammas[g].second)) {
+      // distinguish a never-filled side object (non-HDF5 build or
+      // legacy file) from a genuine gamma/file miswire
+      const std::string fileSt =
+          StagGamma::GetName(md.gamma_spin, md.gamma_taste);
+      if (fileSt.find("undef") != std::string::npos) {
+        HADRONS_ERROR(Argument,
+                      "meson field '" + mfs[g] + "' carries undefined "
+                      "spin-taste metadata (non-HDF5 build or legacy "
+                      "file): cannot cross-check gamma '" +
+                          StagGamma::GetName(gammas[g]) + "'");
+      }
+      HADRONS_ERROR(Argument,
+                    "gamma '" + StagGamma::GetName(gammas[g]) +
+                        "' is configured for meson field '" + mfs[g] +
+                        "', but the file holds spin-taste '" +
+                        StagGamma::GetName(md.gamma_spin, md.gamma_taste) +
+                        "'");
+    }
+  }
+
+  // optional pairing/normalization self-check (unchanged from the former
+  // solver family): the file pair sum of the first eigenpair, summed
+  // over ALL timeslices, equals P * <e|eta_j,E> with the live
+  // checkerboarded eigenvector; their ratio exposes the production
+  // constants and catches pairing/order/normalization mistakes. The live
+  // reference is gamma-independent, so only the (G1,G1) table is
+  // checkable; other gammas get a skip notice
+  if (!par().noise.empty()) {
+    auto &noise = envGet(std::vector<FermionField>, par().noise);
+    if (par().noiseIndex >= noise.size()) {
+      HADRONS_ERROR(Size, "noiseIndex out of range for noise object '" +
+                              par().noise + "'");
+    }
+    int gIdentity = -1;
+    for (unsigned int g = 0; g < gammas.size(); ++g) {
+      if ((gammas[g].first == StagGamma::StagAlgebra::G1) &&
+          (gammas[g].second == StagGamma::StagAlgebra::G1)) {
+        gIdentity = g;
+        break;
+      }
+    }
+    if (gIdentity < 0) {
+      LOG(Message) << "Self-check skipped: no (G1,G1) gamma in the list "
+                      "(the live reference <e|eta> is gamma-independent)"
+                   << std::endl;
+    } else {
+      auto &mf = envGet(std::vector<A2AMatrix<HADRONS_A2AM_IO_TYPE>>,
+                        mfs[gIdentity]);
+      unsigned int eigStart = par().eigStart;
+      RealD pairScale = std::sqrt(2.0);
+      if (!par().pairScale.empty()) {
+        pairScale = strToVec<RealD>(par().pairScale)[0];
+      }
+
+      FermionField rbNoise(envGetRbGrid(FermionField));
+      int cb = epack.evec[0].Checkerboard();
+
+      rbNoise = Zero();
+      rbNoise.Checkerboard() = cb;
+      pickCheckerboard(cb, rbNoise, noise[par().noiseIndex]);
+
+      ComplexD ipFull =
+          TensorRemove(innerProduct(epack.evec[eigStart], rbNoise));
+      ComplexD sumFile = 0.;
+      for (int t = 0; t < nt; ++t) {
+        sumFile += ComplexD(mf[t](2 * eigStart, par().noiseIndex)) +
+                   ComplexD(mf[t](2 * eigStart + 1, par().noiseIndex));
+      }
+      if (std::abs(ipFull) > 1.e-12) {
+        ComplexD pLive = sumFile / ipFull;
+        LOG(Message) << "Self-check (gamma '"
+                     << StagGamma::GetName(gammas[gIdentity])
+                     << "'): file-derived production constant P = " << pLive
+                     << " (configured pairScale = " << pairScale
+                     << ")" << std::endl;
+        if (std::abs(pLive - pairScale) > 0.05 * std::abs(pairScale)) {
+          LOG(Warning) << "Meson-field pair normalization mismatch: "
+                          "derived P = " << pLive << " but pairScale = "
+                       << pairScale
+                       << " -- check the |e+o>/|e-o> pair ordering and the "
+                          "production normalization"
+                       << std::endl;
+        }
+      } else {
+        LOG(Warning) << "Self-check skipped: live inner product "
+                        "<e_eigStart|eta_noiseIndex> vanishes"
+                     << std::endl;
+      }
+    }
+  }
+
+  // reconstruction: one PropagatorField per (t, gamma) output name.
+  // Color slot c is reconstructed from the color-diluted source's table
+  // column j = noiseIndex + c (adjacent columns = adjacent colors,
+  // TimeDilutedSpinColorDiagonal color-fast layout) and assembled
+  // FermToProp-style -- the GaugeProp solveField color-loop pattern
+  // applied to meson-field columns
+  unsigned int eigStart = par().eigStart;
+  int nEigs = par().nEigs;
+  if (nEigs < 1) {
+    nEigs = epack.evec.size();
+  }
+  bool negFirst = (par().negFirst == "true");
+  RealD pairScale = std::sqrt(2.0);
+  if (!par().pairScale.empty()) {
+    pairScale = strToVec<RealD>(par().pairScale)[0];
+  }
+
+  envGetTmp(FermionField, rbTemp);
+  envGetTmp(FermionField, rbTempNeg);
+  envGetTmp(FermionField, rbFermNeg);
+  envGetTmp(FermionField, sol);
+
+  int cb = epack.evec[0].Checkerboard();
+  RealD norm = 1. / ::sqrt(norm2(epack.evec[0]));
+
+  auto ts = sliceTimes();
+  for (unsigned int g = 0; g < gammas.size(); ++g) {
+    auto &mf =
+        envGet(std::vector<A2AMatrix<HADRONS_A2AM_IO_TYPE>>, mfs[g]);
+    for (auto &t : ts) {
+      const A2AMatrix<HADRONS_A2AM_IO_TYPE> &mft = mf[t];
+      auto &prop = envGet(PropagatorField, outputName(g, t));
+      // load-bearing zero-init: the color-only FermToProp below writes
+      // ONLY color slot c, so every other slot must start zeroed
+      prop = Zero();
+
+      for (unsigned int c = 0; c < FImpl::Dimension; ++c) {
+        const unsigned int j = par().noiseIndex + c;
+
+        rbTemp = Zero();
+        rbTemp.Checkerboard() = cb;
+        rbTempNeg = Zero();
+        rbTempNeg.Checkerboard() = cb;
+        rbFermNeg = Zero();
+        rbFermNeg.Checkerboard() = (cb == Even) ? Odd : Even;
+
+        // accumulate the two parity channels from the file row pairs;
+        // the subtraction channel is accumulated as DIFF/lam so that the
+        // live Meooe below completes the 1/lam_D^2 weighting of
+        // LowModeProj
+        for (int k = (eigStart + nEigs - 1); k >= int(eigStart); k--) {
+          const FermionField &e = epack.evec[k];
+          const RealD lam_D = epack.eval[k].imag();
+
+          ComplexD sum =
+              ComplexD(mft(2 * k, j)) + ComplexD(mft(2 * k + 1, j));
+          ComplexD diff =
+              ComplexD(mft(2 * k, j)) - ComplexD(mft(2 * k + 1, j));
+          if (negFirst) {
+            diff = -diff;
+          }
+
+          axpy(rbTemp, sum, e, rbTemp);
+          axpy(rbTempNeg, diff / lam_D, e, rbTempNeg);
+        }
+
+        // ferm_c = (norm/pairScale) *
+        //          [ SUM-channel - i * Meooe(DIFF/lam-channel) ]
+        mat.Meooe(rbTempNeg, rbFermNeg);
+        rbFermNeg = ComplexD(0., -1.) * rbFermNeg;
+        setCheckerboard(sol, rbTemp);
+        setCheckerboard(sol, rbFermNeg);
+        sol *= norm / pairScale;
+
+        FermToProp<FImpl>(prop, sol, c);
+      }
+
+      LOG(Message) << "Reconstructed '" << outputName(g, t)
+                   << "' from columns " << par().noiseIndex << ".."
+                   << (par().noiseIndex + FImpl::Dimension - 1) << " of '"
+                   << mfs[g] << "'" << std::endl;
+    }
+  }
+}
+
+END_MODULE_NAMESPACE
+
+END_HADRONS_NAMESPACE
+
+#endif // HadronsMILC_MFermion_LMAMesonFieldProp_hpp_
