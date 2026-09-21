@@ -631,11 +631,10 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
         autoView(n1R_v, rbTempNeg1, AcceleratorRead);
         autoView(n2W_v, rbTempNeg2, AcceleratorWrite);
         autoView(n2R_v, rbTempNeg2, AcceleratorRead);
-        for (int k = (eigStart + nEigs - 1); k >= int(eigStart); k--) {
-          const FermionField &e = epack.evec[k];
+        // per-eigenpair table coefficients (expressions identical to the
+        // former inline computation -- value- and order-identical)
+        auto coeffs = [&](const int k, ComplexD sumC[], ComplexD negC[]) {
           const RealD lam_D = epack.eval[k].imag();
-
-          ComplexD sumC[FImpl::Dimension], negC[FImpl::Dimension];
           for (unsigned int c = 0; c < FImpl::Dimension; ++c) {
             const unsigned int j = par().noiseIndex + c;
             ComplexD sum =
@@ -648,6 +647,107 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
             sumC[c] = sum;
             negC[c] = diff / lam_D;
           }
+        };
+
+        // batches of four eigenpairs per kernel launch: thread dispatch
+        // dominates these small kernels, and batching leaves the
+        // per-element accumulation order exactly as before (k strictly
+        // descending; batch statements in k order), so results stay
+        // bit-identical. The trailing nEigs % 4 eigenpairs fall through
+        // to the single-eigenpair kernel below
+        int kHi = static_cast<int>(eigStart) + nEigs - 1;
+        for (; kHi - 3 >= int(eigStart); kHi -= 4) {
+          const int kA = kHi, kB = kHi - 1, kC = kHi - 2, kD = kHi - 3;
+          const FermionField &eA = epack.evec[kA];
+          const FermionField &eB = epack.evec[kB];
+          const FermionField &eC = epack.evec[kC];
+          const FermionField &eD = epack.evec[kD];
+
+          ComplexD sumC[FImpl::Dimension], negC[FImpl::Dimension];
+          coeffs(kA, sumC, negC);
+          const ComplexD sA0 = sumC[0], sA1 = sumC[1], sA2 = sumC[2];
+          const ComplexD dA0 = negC[0], dA1 = negC[1], dA2 = negC[2];
+          coeffs(kB, sumC, negC);
+          const ComplexD sB0 = sumC[0], sB1 = sumC[1], sB2 = sumC[2];
+          const ComplexD dB0 = negC[0], dB1 = negC[1], dB2 = negC[2];
+          coeffs(kC, sumC, negC);
+          const ComplexD sC0 = sumC[0], sC1 = sumC[1], sC2 = sumC[2];
+          const ComplexD dC0 = negC[0], dC1 = negC[1], dC2 = negC[2];
+          coeffs(kD, sumC, negC);
+          const ComplexD sD0 = sumC[0], sD1 = sumC[1], sD2 = sumC[2];
+          const ComplexD dD0 = negC[0], dD1 = negC[1], dD2 = negC[2];
+
+          autoView(eAR_v, eA, AcceleratorRead);
+          autoView(eBR_v, eB, AcceleratorRead);
+          autoView(eCR_v, eC, AcceleratorRead);
+          autoView(eDR_v, eD, AcceleratorRead);
+          accelerator_for(ss, eAR_v.size(),
+                          FermionField::vector_type::Nsimd(), {
+            auto evA = coalescedRead(eAR_v[ss]);
+            auto evB = coalescedRead(eBR_v[ss]);
+            auto evC = coalescedRead(eCR_v[ss]);
+            auto evD = coalescedRead(eDR_v[ss]);
+            // statements in k order (A,B,C,D): each accumulator's update
+            // sequence per element matches the unbatched kernel exactly
+            // (the R and W views alias one buffer, so later statements
+            // read the value written by earlier ones)
+            coalescedWrite(t0W_v[ss],
+                           sA0 * evA + coalescedRead(t0R_v[ss]));
+            coalescedWrite(t0W_v[ss],
+                           sB0 * evB + coalescedRead(t0R_v[ss]));
+            coalescedWrite(t0W_v[ss],
+                           sC0 * evC + coalescedRead(t0R_v[ss]));
+            coalescedWrite(t0W_v[ss],
+                           sD0 * evD + coalescedRead(t0R_v[ss]));
+            coalescedWrite(t1W_v[ss],
+                           sA1 * evA + coalescedRead(t1R_v[ss]));
+            coalescedWrite(t1W_v[ss],
+                           sB1 * evB + coalescedRead(t1R_v[ss]));
+            coalescedWrite(t1W_v[ss],
+                           sC1 * evC + coalescedRead(t1R_v[ss]));
+            coalescedWrite(t1W_v[ss],
+                           sD1 * evD + coalescedRead(t1R_v[ss]));
+            coalescedWrite(t2W_v[ss],
+                           sA2 * evA + coalescedRead(t2R_v[ss]));
+            coalescedWrite(t2W_v[ss],
+                           sB2 * evB + coalescedRead(t2R_v[ss]));
+            coalescedWrite(t2W_v[ss],
+                           sC2 * evC + coalescedRead(t2R_v[ss]));
+            coalescedWrite(t2W_v[ss],
+                           sD2 * evD + coalescedRead(t2R_v[ss]));
+            coalescedWrite(n0W_v[ss],
+                           dA0 * evA + coalescedRead(n0R_v[ss]));
+            coalescedWrite(n0W_v[ss],
+                           dB0 * evB + coalescedRead(n0R_v[ss]));
+            coalescedWrite(n0W_v[ss],
+                           dC0 * evC + coalescedRead(n0R_v[ss]));
+            coalescedWrite(n0W_v[ss],
+                           dD0 * evD + coalescedRead(n0R_v[ss]));
+            coalescedWrite(n1W_v[ss],
+                           dA1 * evA + coalescedRead(n1R_v[ss]));
+            coalescedWrite(n1W_v[ss],
+                           dB1 * evB + coalescedRead(n1R_v[ss]));
+            coalescedWrite(n1W_v[ss],
+                           dC1 * evC + coalescedRead(n1R_v[ss]));
+            coalescedWrite(n1W_v[ss],
+                           dD1 * evD + coalescedRead(n1R_v[ss]));
+            coalescedWrite(n2W_v[ss],
+                           dA2 * evA + coalescedRead(n2R_v[ss]));
+            coalescedWrite(n2W_v[ss],
+                           dB2 * evB + coalescedRead(n2R_v[ss]));
+            coalescedWrite(n2W_v[ss],
+                           dC2 * evC + coalescedRead(n2R_v[ss]));
+            coalescedWrite(n2W_v[ss],
+                           dD2 * evD + coalescedRead(n2R_v[ss]));
+          });
+        }
+        // trailing eigenpairs (nEigs % 4): the original single-eigenpair
+        // kernel
+        for (; kHi >= int(eigStart); --kHi) {
+          const FermionField &e = epack.evec[kHi];
+
+          ComplexD sumC[FImpl::Dimension], negC[FImpl::Dimension];
+          coeffs(kHi, sumC, negC);
           const ComplexD s0 = sumC[0], s1 = sumC[1], s2 = sumC[2];
           const ComplexD d0 = negC[0], d1 = negC[1], d2 = negC[2];
 
