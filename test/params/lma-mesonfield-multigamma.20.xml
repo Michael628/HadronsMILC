@@ -1,0 +1,293 @@
+<grid>
+  <modules>
+    <!-- Gauge fields from the 4^4 test configuration set (trajectory suffix
+    supplied by trajCounter). -->
+    <module>
+      <id><name>gauge</name><type>MIO::LoadIldg</type></id>
+      <options><file>lat/lat.sample.l4444.ildg</file></options>
+    </module>
+    <module>
+      <id><name>gauge_fat</name><type>MIO::LoadIldg</type></id>
+      <options><file>lat/fatlinks.l4444.ildg</file></options>
+    </module>
+    <module>
+      <id><name>gauge_long</name><type>MIO::LoadIldg</type></id>
+      <options><file>lat/longlinks.l4444.ildg</file></options>
+    </module>
+
+    <!-- Massless action: the projector branch uses only Meooe and lambda_D,
+         both mass-independent; the mass shift enters via ModifyEigenPack. -->
+    <module>
+      <id><name>stag</name><type>MAction::ImprovedStaggeredMILC</type></id>
+      <options>
+        <Ls>1</Ls>
+        <boundary>1 1 1 1</boundary>
+        <c1>1.0</c1>
+        <c2>1.0</c2>
+        <gaugefat>gauge_fat</gaugefat>
+        <gaugelong>gauge_long</gaugelong>
+        <mass>0.0</mass>
+        <tad>1.0</tad>
+        <twist>0 0 0</twist>
+      </options>
+    </module>
+    <module>
+      <id><name>stag_op</name><type>MFermion::StagOperators</type></id>
+      <options><action>stag</action></options>
+    </module>
+
+    <!-- Checkerboarded massless eigenvectors. -->
+    <module>
+      <id><name>epack</name><type>MSolver::StagFermionIRL</type></id>
+      <options>
+        <evenEigen>true</evenEigen>
+        <lanczosParams>
+          <Cheby><Npoly>11</Npoly><alpha>0.0</alpha><beta>24.0</beta></Cheby>
+          <MaxIt>5000</MaxIt>
+          <MinRes>0</MinRes>
+          <Nk>24</Nk>
+          <Nm>32</Nm>
+          <Nstop>20</Nstop>
+          <betastp>0</betastp>
+          <resid>1e-08</resid>
+        </lanczosParams>
+        <multiFile>false</multiFile>
+        <op>stag_op_schur</op>
+        <output></output>
+        <redBlack>true</redBlack>
+      </options>
+    </module>
+
+    <!-- Mass-shifted checkerboarded pack used by BOTH solvers. -->
+    <module>
+      <id><name>eig</name><type>MUtilities::ModifyEigenPackMILC</type></id>
+      <options>
+        <eigenPack>epack</eigenPack>
+        <evenEigen>true</evenEigen>
+        <mass>0.01</mass>
+      </options>
+    </module>
+
+    <!-- Two distinct on-demand CB pair sources over the mass-shifted pack
+         (the two sides cannot share one bank). -->
+    <module>
+      <id><name>cbpairs_l</name><type>MUtilities::EigenPackCBPairs</type></id>
+      <options><action>stag</action><eigenPack>eig</eigenPack></options>
+    </module>
+    <module>
+      <id><name>cbpairs_r</name><type>MUtilities::EigenPackCBPairs</type></id>
+      <options><action>stag</action><eigenPack>eig</eigenPack></options>
+    </module>
+
+    <!-- Full-volume |e+o>/|e-o> pairs: probe basis for the offline
+         comparison contractions. -->
+    <module>
+      <id><name>eigfull</name><type>MUtilities::EigenPackFullPairs</type></id>
+      <options><eigenPack>eig</eigenPack><action>stag</action></options>
+    </module>
+
+    <!-- Time-diluted noise: nsrc=1, tStep=1; noise 0 lives on timeslice 0. -->
+    <module>
+      <id><name>noise</name><type>MNoise::StagTimeDilutedSpinColorDiagonal</type></id>
+      <options><nsrc>1</nsrc><tStep>1</tStep></options>
+    </module>
+
+    <!-- Production-layout meson-field write with TWO gammas: writes
+         work/mfout-mg.20/G1_G1_0_0_0.h5 and G5_G5_0_0_0.h5. -->
+    <module>
+      <id><name>mfwrite</name><type>MContraction::StagA2AMesonField</type></id>
+      <options>
+        <action></action>
+        <block>12</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft>
+        <cbPairsRight>cbpairs_r</cbPairsRight>
+        <left></left>
+        <lowModes>eig</lowModes>
+        <mom><elem>0 0 0</elem></mom>
+        <output>work/mfout-mg</output>
+        <right>noise_vec</right>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(G1 G1) (G5 G5)</gammas>
+          <gauge>gauge</gauge>
+        </spinTaste>
+      </options>
+    </module>
+
+    <!-- Load both files back: one loader per gamma (positional parallel
+         list consumed by lma_file below). -->
+    <module>
+      <id><name>mf_g1</name><type>MIO::LoadMesonField</type></id>
+      <options>
+        <file>work/mfout-mg.@traj@/G1_G1_0_0_0.h5</file>
+        <dataset>G1_G1_0_0_0</dataset>
+        <side></side>
+        <lowModes></lowModes>
+      </options>
+    </module>
+    <module>
+      <id><name>mf_g5</name><type>MIO::LoadMesonField</type></id>
+      <options>
+        <file>work/mfout-mg.@traj@/G5_G5_0_0_0.h5</file>
+        <dataset>G5_G5_0_0_0</dataset>
+        <side></side>
+        <lowModes></lowModes>
+      </options>
+    </module>
+
+    <!-- Reference: live LowModeProj, projector branch. -->
+    <module>
+      <id><name>lma_ref</name><type>MSolver::StagLMA</type></id>
+      <options>
+        <action>stag</action>
+        <eigStart>0</eigStart>
+        <lowModes>eig</lowModes>
+        <nEigs>-1</nEigs>
+        <projector>true</projector>
+      </options>
+    </module>
+
+    <!-- Multi-gamma file-driven solver family: with two gammas the
+         wrappers are named lma_file_G1_G1_t<t>[_subtract] and
+         lma_file_G5_G5_t<t>[_subtract]. The pairing self-check runs for
+         the (G1,G1) table only (gamma-independent live reference). -->
+    <module>
+      <id><name>lma_file</name><type>MSolver::StagLMAMesonField</type></id>
+      <options>
+        <action>stag</action>
+        <lowModes>eig</lowModes>
+        <gammas>(G1 G1) (G5 G5)</gammas>
+        <mesonField>mf_g1 mf_g5</mesonField>
+        <noiseIndex>0</noiseIndex>
+        <eigStart>0</eigStart>
+        <nEigs>-1</nEigs>
+        <negFirst></negFirst>
+        <pairScale></pairScale>
+        <noise>noise_vec</noise>
+      </options>
+    </module>
+
+    <!-- Apply each solver to the same raw noise fields (noise 0 lives on
+         timeslice 0, the only slice whose file rows are non-zero for this
+         time-diluted noise). -->
+    <module>
+      <id><name>gprop_ref</name><type>MFermion::StagGaugeProp</type></id>
+      <options>
+        <guess></guess>
+        <solver>lma_ref</solver>
+        <source>noise_vec</source>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(G1 G1)</gammas>
+          <gauge>gauge</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id><name>gprop_g1</name><type>MFermion::StagGaugeProp</type></id>
+      <options>
+        <guess></guess>
+        <solver>lma_file_G1_G1_t0</solver>
+        <source>noise_vec</source>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(G1 G1)</gammas>
+          <gauge>gauge</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id><name>gprop_g5</name><type>MFermion::StagGaugeProp</type></id>
+      <options>
+        <guess></guess>
+        <solver>lma_file_G5_G5_t0</solver>
+        <source>noise_vec</source>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(G1 G1)</gammas>
+          <gauge>gauge</gauge>
+        </spinTaste>
+      </options>
+    </module>
+
+    <!-- Probe contractions of each solver output against the full
+         eigenvector-pair basis (identity spin-taste, zero momentum);
+         compared offline: g1 must match ref, g5 must be finite. -->
+    <module>
+      <id><name>cmp_ref</name><type>MContraction::StagA2AMesonField</type></id>
+      <options>
+        <action></action>
+        <block>12</block>
+        <left>eigfull_vec</left>
+        <lowModes></lowModes>
+        <mom><elem>0 0 0</elem></mom>
+        <output>work/lma-multigamma/ref</output>
+        <right>gprop_ref</right>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(G1 G1)</gammas>
+          <gauge>gauge</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id><name>cmp_g1</name><type>MContraction::StagA2AMesonField</type></id>
+      <options>
+        <action></action>
+        <block>12</block>
+        <left>eigfull_vec</left>
+        <lowModes></lowModes>
+        <mom><elem>0 0 0</elem></mom>
+        <output>work/lma-multigamma/g1</output>
+        <right>gprop_g1</right>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(G1 G1)</gammas>
+          <gauge>gauge</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id><name>cmp_g5</name><type>MContraction::StagA2AMesonField</type></id>
+      <options>
+        <action></action>
+        <block>12</block>
+        <left>eigfull_vec</left>
+        <lowModes></lowModes>
+        <mom><elem>0 0 0</elem></mom>
+        <output>work/lma-multigamma/g5</output>
+        <right>gprop_g5</right>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(G1 G1)</gammas>
+          <gauge>gauge</gauge>
+        </spinTaste>
+      </options>
+    </module>
+  </modules>
+  <parameters>
+    <genetic>
+      <maxCstGen>100</maxCstGen>
+      <maxGen>1000</maxGen>
+      <mutationRate>0.1</mutationRate>
+      <popSize>20</popSize>
+    </genetic>
+    <graphFile></graphFile>
+    <parallelWriteMaxRetry>-1</parallelWriteMaxRetry>
+    <runId>lma-multigamma</runId>
+    <saveSchedule>false</saveSchedule>
+    <scheduleFile></scheduleFile>
+    <scheduler>
+      <!-- naive: modules run in declaration order. Required: the genetic
+           scheduler sees no dependency edge between the writer (mfwrite)
+           and the loaders (file on disk is not an environment object).
+           Declaration order runs mfwrite before mf_g1/mf_g5. -->
+      <schedulerType>naive</schedulerType>
+    </scheduler>
+    <trajCounter>
+      <end>10000</end>
+      <start>20</start>
+      <step>10000</step>
+    </trajCounter>
+  </parameters>
+</grid>
