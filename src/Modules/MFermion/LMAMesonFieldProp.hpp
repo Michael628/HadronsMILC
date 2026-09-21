@@ -390,11 +390,21 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::setup(void) {
     }
   }
 
-  // temps: the three checkerboard accumulators of the reconstruction and
-  // one full-grid assembly target. envTmp, not the former envCache: the
-  // eager module consumes them only inside its own execute()
-  envTmp(FermionField, "rbTemp", 1, envGetRbGrid(FermionField));
-  envTmp(FermionField, "rbTempNeg", 1, envGetRbGrid(FermionField));
+  // temps: the per-color-column checkerboard accumulators of the
+  // reconstruction (SUM channels rbTemp0..2, DIFF channels
+  // rbTempNeg0..2), one Meooe target and one full-grid assembly target.
+  // envTmp, not the former envCache: the eager module consumes them only
+  // inside its own execute(). The six accumulators exist so that ONE
+  // element-wise pass per eigenvector can update every color column at
+  // once (the columns differ only in their table coefficients)
+  static_assert(FImpl::Dimension == 3,
+                "color-fused reconstruction assumes three color columns");
+  envTmp(FermionField, "rbTemp0", 1, envGetRbGrid(FermionField));
+  envTmp(FermionField, "rbTemp1", 1, envGetRbGrid(FermionField));
+  envTmp(FermionField, "rbTemp2", 1, envGetRbGrid(FermionField));
+  envTmp(FermionField, "rbTempNeg0", 1, envGetRbGrid(FermionField));
+  envTmp(FermionField, "rbTempNeg1", 1, envGetRbGrid(FermionField));
+  envTmp(FermionField, "rbTempNeg2", 1, envGetRbGrid(FermionField));
   envTmp(FermionField, "rbFermNeg", 1, envGetRbGrid(FermionField));
   envTmpLat(FermionField, "sol");
 
@@ -553,10 +563,21 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
     pairScale = strToVec<RealD>(par().pairScale)[0];
   }
 
-  envGetTmp(FermionField, rbTemp);
-  envGetTmp(FermionField, rbTempNeg);
+  envGetTmp(FermionField, rbTemp0);
+  envGetTmp(FermionField, rbTemp1);
+  envGetTmp(FermionField, rbTemp2);
+  envGetTmp(FermionField, rbTempNeg0);
+  envGetTmp(FermionField, rbTempNeg1);
+  envGetTmp(FermionField, rbTempNeg2);
   envGetTmp(FermionField, rbFermNeg);
   envGetTmp(FermionField, sol);
+
+  // SUM/DIFF accumulator columns (entry c reconstructs table column
+  // noiseIndex + c); array sugar over the named env temps for the
+  // per-column post-processing loop below
+  FermionField *rbTempC[FImpl::Dimension] = {&rbTemp0, &rbTemp1, &rbTemp2};
+  FermionField *rbTempNegC[FImpl::Dimension] = {&rbTempNeg0, &rbTempNeg1,
+                                                &rbTempNeg2};
 
   int cb = epack.evec[0].Checkerboard();
   RealD norm = 1. / ::sqrt(norm2(epack.evec[0]));
@@ -572,39 +593,51 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
       // ONLY color slot c, so every other slot must start zeroed
       prop = Zero();
 
+      // zero the six per-column accumulators (SUM channels rbTempC,
+      // DIFF channels rbTempNegC): one fused pass per eigenvector below
+      // updates every color column, so all accumulators start clean
+      // before the single eigenpair loop
       for (unsigned int c = 0; c < FImpl::Dimension; ++c) {
-        const unsigned int j = par().noiseIndex + c;
+        *rbTempC[c] = Zero();
+        rbTempC[c]->Checkerboard() = cb;
+        *rbTempNegC[c] = Zero();
+        rbTempNegC[c]->Checkerboard() = cb;
+      }
 
-        rbTemp = Zero();
-        rbTemp.Checkerboard() = cb;
-        rbTempNeg = Zero();
-        rbTempNeg.Checkerboard() = cb;
-        rbFermNeg = Zero();
-        rbFermNeg.Checkerboard() = (cb == Even) ? Odd : Even;
+      // accumulate the two parity channels from the file row pairs; the
+      // subtraction channel is accumulated as DIFF/lam so that the live
+      // Meooe below completes the 1/lam_D^2 weighting of LowModeProj.
+      // ALL color columns are built from the SAME eigenvectors, so one
+      // fused element-wise pass per eigenpair updates all six
+      // accumulators: the per-element expressions replicate the former
+      // per-column axpy calls verbatim (bit-identical arithmetic) while
+      // streaming e once for all three columns -- a third of the kernel
+      // invocations and eigenvector traffic of the per-column version.
+      // The hoisted aliased Read+Write view pairs mirror Grid's own
+      // in-place axpy idiom; the extra scope closes every view before
+      // the Meooe/setCheckerboard sequence below: those open CPU-mode
+      // views, and the Grid memory manager asserts against mixing
+      // concurrent view families on one buffer
+      {
+        autoView(t0W_v, rbTemp0, AcceleratorWrite);
+        autoView(t0R_v, rbTemp0, AcceleratorRead);
+        autoView(t1W_v, rbTemp1, AcceleratorWrite);
+        autoView(t1R_v, rbTemp1, AcceleratorRead);
+        autoView(t2W_v, rbTemp2, AcceleratorWrite);
+        autoView(t2R_v, rbTemp2, AcceleratorRead);
+        autoView(n0W_v, rbTempNeg0, AcceleratorWrite);
+        autoView(n0R_v, rbTempNeg0, AcceleratorRead);
+        autoView(n1W_v, rbTempNeg1, AcceleratorWrite);
+        autoView(n1R_v, rbTempNeg1, AcceleratorRead);
+        autoView(n2W_v, rbTempNeg2, AcceleratorWrite);
+        autoView(n2R_v, rbTempNeg2, AcceleratorRead);
+        for (int k = (eigStart + nEigs - 1); k >= int(eigStart); k--) {
+          const FermionField &e = epack.evec[k];
+          const RealD lam_D = epack.eval[k].imag();
 
-        // accumulate the two parity channels from the file row pairs;
-        // the subtraction channel is accumulated as DIFF/lam so that the
-        // live Meooe below completes the 1/lam_D^2 weighting of
-        // LowModeProj. Both channels are built from the SAME eigenvector,
-        // so one fused element-wise pass updates both accumulators: the
-        // per-element expressions replicate the two former axpy calls
-        // verbatim (bit-identical arithmetic) while streaming e once
-        // instead of twice -- half the kernel invocations and half the
-        // eigenvector traffic. The hoisted aliased Read+Write view pairs
-        // mirror Grid's own in-place axpy idiom (axpy(ret,a,x,ret) opens
-        // separate views on the aliased lattice). The extra scope closes
-        // every view before the Meooe/setCheckerboard sequence below:
-        // those open CPU-mode views, and the Grid memory manager asserts
-        // against mixing concurrent view families on one buffer
-        {
-          autoView(tW_v, rbTemp, AcceleratorWrite);
-          autoView(tR_v, rbTemp, AcceleratorRead);
-          autoView(tnW_v, rbTempNeg, AcceleratorWrite);
-          autoView(tnR_v, rbTempNeg, AcceleratorRead);
-          for (int k = (eigStart + nEigs - 1); k >= int(eigStart); k--) {
-            const FermionField &e = epack.evec[k];
-            const RealD lam_D = epack.eval[k].imag();
-
+          ComplexD sumC[FImpl::Dimension], negC[FImpl::Dimension];
+          for (unsigned int c = 0; c < FImpl::Dimension; ++c) {
+            const unsigned int j = par().noiseIndex + c;
             ComplexD sum =
                 ComplexD(mft(2 * k, j)) + ComplexD(mft(2 * k + 1, j));
             ComplexD diff =
@@ -612,24 +645,36 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
             if (negFirst) {
               diff = -diff;
             }
-            const ComplexD negC = diff / lam_D;
-
-            autoView(eR_v, e, AcceleratorRead);
-            accelerator_for(ss, eR_v.size(),
-                            FermionField::vector_type::Nsimd(), {
-              auto ev = coalescedRead(eR_v[ss]);
-              coalescedWrite(tW_v[ss], sum * ev + coalescedRead(tR_v[ss]));
-              coalescedWrite(tnW_v[ss],
-                             negC * ev + coalescedRead(tnR_v[ss]));
-            });
+            sumC[c] = sum;
+            negC[c] = diff / lam_D;
           }
-        }
+          const ComplexD s0 = sumC[0], s1 = sumC[1], s2 = sumC[2];
+          const ComplexD d0 = negC[0], d1 = negC[1], d2 = negC[2];
 
-        // ferm_c = (norm/pairScale) *
-        //          [ SUM-channel - i * Meooe(DIFF/lam-channel) ]
-        mat.Meooe(rbTempNeg, rbFermNeg);
+          autoView(eR_v, e, AcceleratorRead);
+          accelerator_for(ss, eR_v.size(),
+                          FermionField::vector_type::Nsimd(), {
+            auto ev = coalescedRead(eR_v[ss]);
+            coalescedWrite(t0W_v[ss], s0 * ev + coalescedRead(t0R_v[ss]));
+            coalescedWrite(t1W_v[ss], s1 * ev + coalescedRead(t1R_v[ss]));
+            coalescedWrite(t2W_v[ss], s2 * ev + coalescedRead(t2R_v[ss]));
+            coalescedWrite(n0W_v[ss], d0 * ev + coalescedRead(n0R_v[ss]));
+            coalescedWrite(n1W_v[ss], d1 * ev + coalescedRead(n1R_v[ss]));
+            coalescedWrite(n2W_v[ss], d2 * ev + coalescedRead(n2R_v[ss]));
+          });
+        }
+      }
+
+      // ferm_c = (norm/pairScale) *
+      //          [ SUM-channel - i * Meooe(DIFF/lam-channel) ]
+      // for each color column c, from the c-th accumulators above
+      for (unsigned int c = 0; c < FImpl::Dimension; ++c) {
+        rbFermNeg = Zero();
+        rbFermNeg.Checkerboard() = (cb == Even) ? Odd : Even;
+
+        mat.Meooe(*rbTempNegC[c], rbFermNeg);
         rbFermNeg = ComplexD(0., -1.) * rbFermNeg;
-        setCheckerboard(sol, rbTemp);
+        setCheckerboard(sol, *rbTempC[c]);
         setCheckerboard(sol, rbFermNeg);
         sol *= norm / pairScale;
 
