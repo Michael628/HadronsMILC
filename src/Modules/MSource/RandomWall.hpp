@@ -142,10 +142,36 @@ void TRandomWallMILC<FImpl>::setup(void)
     envTmp(Lattice<iScalar<vInteger>>, "t", 1, envGetGrid(PropagatorField));
     envTmpLat(FermionField,"ferm");
 
+    // Scalar collapse: with a single output vector (nSrc == 1 and a
+    // single time slice, nt/min(tStep,nt) == 1) publish the module name
+    // as a SCALAR field instead of a length-1 std::vector — GaugeProp
+    // outputs and guesses mirror the source container type, so a
+    // vector-of-1 wall would force vector-typed guesses downstream
+    // while scalar producers (StagLMAMesonFieldProp) offer scalar
+    // guesses only. Both paths kept (a3f6e74 precedent); _shift stays a
+    // std::vector<Integer> (Meson.hpp envGets it unconditionally).
+    if (par().tStep < 1) {
+        HADRONS_ERROR(Logic, "Parameter tStep must be >= 1 (got " +
+                            std::to_string(par().tStep) + ")");
+    }
+    const int nt       = static_cast<int>(env().getDim().back());
+    const int tStep    = par().tStep;
+    const int nSources = par().nSrc;
+    const int nSlices  = nt/std::min(tStep,nt);
+    const bool scalar  = (nSources*nSlices == 1);
+
     if (par().colorDiag) {
-        envCreate(std::vector<PropagatorField>, getName(), 1, 0, envGetGrid(PropagatorField));
+        if (scalar) {
+            envCreate(PropagatorField, getName(), 1, envGetGrid(PropagatorField));
+        } else {
+            envCreate(std::vector<PropagatorField>, getName(), 1, 0, envGetGrid(PropagatorField));
+        }
     } else {
-        envCreate(std::vector<FermionField>, getName(), 1, 0, envGetGrid(FermionField));
+        if (scalar) {
+            envCreate(FermionField, getName(), 1, envGetGrid(FermionField));
+        } else {
+            envCreate(std::vector<FermionField>, getName(), 1, 0, envGetGrid(FermionField));
+        }
     }
 
     envCreate(std::vector<Integer>, getName()+"_shift", 1, 0, 0);
@@ -224,6 +250,15 @@ void TRandomWallMILC<FImpl>::execute(void)
 
 
     if (colorDiag) {
+        if (nVecs == 1) {
+            // scalar collapse (see setup): single source, single slice.
+            // j == 0 in either reuset0 mode — both compute
+            // getNoiseProp(0, t0) — so the branch is unconditional.
+            auto &noisevec = envGet(PropagatorField,getName());
+            noisevec = getNoiseProp(0, t0);
+            time_shift[0] = t0;
+            return;
+        }
         auto &noisevec = envGet(std::vector<PropagatorField>,getName());
         noisevec.resize(nVecs,envGetGrid(PropagatorField));
 
@@ -244,6 +279,19 @@ void TRandomWallMILC<FImpl>::execute(void)
             }
         }
     } else {
+        if (nVecs == 1) {
+            // scalar collapse (see setup): single source, single slice;
+            // color-summed exactly as the vector path's element 0
+            auto &noisevec = envGet(FermionField,getName());
+            noisevec = Zero();
+            PropagatorField &srcProp = getNoiseProp(0, t0);
+            for (int k=0;k<FImpl::Dimension;k++) {
+                setFerm(ferm,srcProp,k);
+                noisevec += ferm;
+            }
+            time_shift[0] = t0;
+            return;
+        }
         auto &noisevec = envGet(std::vector<FermionField>,getName());
         noisevec.resize(nVecs,envGetGrid(FermionField));
 
