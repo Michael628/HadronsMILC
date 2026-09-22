@@ -580,7 +580,9 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
         sumFile += ComplexD(mf[t](2 * eigStart, par().noiseIndex)) +
                    ComplexD(mf[t](2 * eigStart + 1, par().noiseIndex));
       }
-      if (std::abs(ipFull) > 1.e-12) {
+      // |ip| through .real()/.imag(): std::abs has no overload for the
+      // ComplexD (thrust::complex) of GPU builds
+      if (std::hypot(ipFull.real(), ipFull.imag()) > 1.e-12) {
         ComplexD pLive = sumFile / ipFull;
         LOG(Message) << "Self-check (gamma '" << gammas[gIdentity].first
                      << "', file key '"
@@ -588,7 +590,10 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
                      << "'): file-derived production constant P = " << pLive
                      << " (configured pairScale = " << pairScale
                      << ")" << std::endl;
-        if (std::abs(pLive - pairScale) > 0.05 * std::abs(pairScale)) {
+        // modulus via .real()/.imag(): std::abs has no ComplexD overload
+        // on GPU builds (see EigenPackCheck)
+        const ComplexD dP = pLive - static_cast<RealD>(pairScale);
+        if (std::hypot(dP.real(), dP.imag()) > 0.05 * std::abs(pairScale)) {
           LOG(Warning) << "Meson-field pair normalization mismatch: "
                           "derived P = " << pLive << " but pairScale = "
                        << pairScale
