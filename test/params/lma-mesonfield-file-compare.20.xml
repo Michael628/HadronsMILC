@@ -155,14 +155,20 @@
          noise lives on timeslice 0 only, so the range is tA=0, tB=0; its
          three color components are the table columns 0..2 (noiseIndex is
          the window base). The pairing self-check runs against noise_vec;
-         the loader's published metadata is cross-checked at execute
-         time. -->
+         the loader's published metadata is cross-checked against the
+         applyG5-conjugated gamma value at execute time (applyG5=false
+         here: labels == file keys, names unchanged from the interim
+         form). -->
     <module>
       <id><name>lma_file</name><type>MFermion::StagLMAMesonFieldProp</type></id>
       <options>
         <action>stag</action>
         <lowModes>eig</lowModes>
-        <gammas></gammas>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas></gammas>
+          <gauge></gauge>
+        </spinTaste>
         <mesonField>mf</mesonField>
         <noiseIndex>0</noiseIndex>
         <tA>0</tA>

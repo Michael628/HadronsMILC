@@ -150,17 +150,23 @@
     <!-- Eager multi-gamma file-driven propagator producer (replaces the
          former MSolver solver family and its per-gamma GaugeProp
          middlemen): with two gammas the outputs are named
-         lma_file_t<t>_G1_G1 and lma_file_t<t>_G5_G5. The time-diluted
-         noise lives on timeslice 0 only, so the range is tA=0, tB=0. The
-         pairing self-check runs for the (G1,G1) table only
-         (gamma-independent live reference); both loaders' metadata is
-         cross-checked against the gammas list at execute time. -->
+         lma_file_t<t>_G1_G1 and lma_file_t<t>_G5_G5 -- labels from the
+         RAW spinTaste.gammas list, GaugeProp's guess grammar. The
+         time-diluted noise lives on timeslice 0 only, so the range is
+         tA=0, tB=0. The pairing self-check runs for the (G1,G1)-VALUE
+         table only (gamma-independent live reference); both loaders'
+         metadata is cross-checked against the applyG5-conjugated values
+         at execute time. -->
     <module>
       <id><name>lma_file</name><type>MFermion::StagLMAMesonFieldProp</type></id>
       <options>
         <action>stag</action>
         <lowModes>eig</lowModes>
-        <gammas>(G1 G1) (G5 G5)</gammas>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(G1 G1) (G5 G5)</gammas>
+          <gauge></gauge>
+        </spinTaste>
         <mesonField>mf_g1 mf_g5</mesonField>
         <noiseIndex>0</noiseIndex>
         <tA>0</tA>
@@ -250,6 +256,66 @@
         <mom><elem>0 0 0</elem></mom>
         <output>work/lma-multigamma/g5</output>
         <right>prop2f_g5</right>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(G1 G1)</gammas>
+          <gauge>gauge</gauge>
+        </spinTaste>
+      </options>
+    </module>
+
+    <!-- applyG5 conjugate-pairing family: with applyG5=true the raw
+         "(G1 G1) (G5 G5)" list conjugates to (G5,G5),(G1,G1), so the
+         file pairing is deliberately SWAPPED (mf_g5 mf_g1) while the
+         output labels stay on the raw list: lma_file_conj_t0_G1_G1
+         reconstructs from the G5_G5 file and lma_file_conj_t0_G5_G5
+         from the G1_G1 file. The metadata cross-check passes only when
+         it compares the CONJUGATED value (the pre-revision code
+         hard-errors on this pairing); the G5_G5-labeled output is
+         bit-identical to lma_file_t0_G1_G1 (same file, same
+         reconstruction algebra) and is compared offline against cmp_g1
+         via cmp_conj below. The noise self-check finds the identity
+         VALUE (G1,G1) at index 1 -> runs on mf_g1, the identity-content
+         file, exactly as it should. -->
+    <module>
+      <id><name>lma_file_conj</name><type>MFermion::StagLMAMesonFieldProp</type></id>
+      <options>
+        <action>stag</action>
+        <lowModes>eig</lowModes>
+        <spinTaste>
+          <applyG5>true</applyG5>
+          <gammas>(G1 G1) (G5 G5)</gammas>
+          <gauge></gauge>
+        </spinTaste>
+        <mesonField>mf_g5 mf_g1</mesonField>
+        <noiseIndex>0</noiseIndex>
+        <tA>0</tA>
+        <tB>0</tB>
+        <tStep>1</tStep>
+        <eigStart>0</eigStart>
+        <nEigs>-1</nEigs>
+        <negFirst></negFirst>
+        <pairScale></pairScale>
+        <noise>noise_vec</noise>
+      </options>
+    </module>
+    <module>
+      <id><name>prop2f_conj</name><type>MUtilities::PropToFermions</type></id>
+      <options><prop>lma_file_conj_t0_G5_G5</prop></options>
+    </module>
+    <!-- cmp_conj must equal cmp_g1 offline (both contract the
+         reconstruction of the G1_G1 file): content invariance of the
+         applyG5 label/key split. -->
+    <module>
+      <id><name>cmp_conj</name><type>MContraction::StagA2AMesonField</type></id>
+      <options>
+        <action></action>
+        <block>12</block>
+        <left>eigfull_vec</left>
+        <lowModes></lowModes>
+        <mom><elem>0 0 0</elem></mom>
+        <output>work/lma-multigamma/conj</output>
+        <right>prop2f_conj</right>
         <spinTaste>
           <applyG5>false</applyG5>
           <gammas>(G1 G1)</gammas>

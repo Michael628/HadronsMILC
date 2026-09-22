@@ -69,15 +69,34 @@ BEGIN_HADRONS_NAMESPACE
     action      Staggered action module (Meooe parity move)
     lowModes    MassShiftEigenPack module with the CHECKERBOARDED
                 eigenvectors/eigenvalues (row pair k <-> evec[k], eval[k])
-    gammas      "" (default) or a standard spin-taste pair list
+    spinTaste   SpinTasteParams (the standard gammas/gauge/applyG5 struct
+                shared with GaugeProp, Meson and MesonField). gammas ""
+                (default) or a standard spin-taste pair list
                 "(G1 G1) (G5 G5)": one output family per gamma; empty
-                means the legacy single (G1,G1) family with bare names
+                means the legacy single (G1,G1) family with bare names.
+                Parsed TWICE the GaugeProp/Meson way (GaugeProp.hpp
+                parseGammas): the RAW pairs are the output LABELS
+                (GaugeProp's per-gamma guess grammar -- a StagGaugeProp
+                with the same gammas and guess "<name>_t<t>" derives
+                exactly these suffixes from its own parameters); the
+                applyG5-conjugated pairs are the GAMMA KEYS that must
+                match each loaded file's metadata (the producing
+                StagA2AMesonField writes gamma_spin/gamma_taste under
+                its own conjugated gammas, MesonField.hpp:532). With
+                applyG5=true the file pairing permutes while the labels
+                stay on the raw list. gauge must be empty: this module
+                applies no spin-taste operator, so a gauge field would
+                be unused
     mesonField  whitespace-separated LoadMesonField module names, one per
                 gamma (positional parallel list, gammas[i] <-> entry i);
                 each loader's published MesonFieldMILCMetadata side object
-                ("<loader>_metadata") is cross-checked against gammas[i]
-                at execute time, so a miswired gamma/file pairing fails
-                loudly instead of silently mislabeling output names
+                ("<loader>_metadata") is cross-checked against the
+                applyG5-conjugated VALUE of gammas[i] at execute time
+                (mesonField[i] must load the file produced under the
+                conjugated i-th gamma -- with applyG5=true the file
+                pairing permutes while the labels stay on the raw list),
+                so a miswired gamma/file pairing fails loudly instead of
+                silently mislabeling output names
     noiseIndex  j: BASE column of the color window (columns j..j+2)
     tA          first timeslice to produce (inclusive)
     tB          last timeslice to produce (inclusive, must be < nt)
@@ -86,7 +105,9 @@ BEGIN_HADRONS_NAMESPACE
                 a single gamma (or an empty gammas list) and
                 "<name>_t<t>_<spin>_<taste>" when the list holds more
                 than one gamma (gamma segment LAST, mirroring GaugeProp's
-                per-gamma suffix convention)
+                per-gamma suffix convention; built from the RAW gamma
+                label, independent of applyG5, so GaugeProp guess
+                lookups match)
     eigStart    first eigenpair to include (pair space)
     nEigs       number of eigenpairs (< 1: all)
     negFirst    ""/"false" (default): row 2k is |e+o>; "true": |e-o> comes
@@ -115,7 +136,7 @@ public:
                                   std::string,   action,
                                   std::string,   lowModes,
                                   std::string,   mesonField,
-                                  std::string,   gammas,
+                                  SpinTasteParams, spinTaste,
                                   unsigned int,  noiseIndex,
                                   unsigned int,  tA,
                                   unsigned int,  tB,
@@ -126,7 +147,7 @@ public:
                                   std::string,   pairScale,
                                   std::string,   noise);
   LMAMesonFieldPropMILCPar(void)
-      : gammas(""), tStep(1), negFirst(""), pairScale("") {}
+      : tStep(1), negFirst(""), pairScale("") {}
 };
 
 template <typename FImpl, typename Pack>
@@ -135,15 +156,23 @@ public:
   FERM_TYPE_ALIASES(FImpl, );
 
 private:
-  // gammas "(G1 G1) (G5 G5)" parsed with the standard spin-taste pair
-  // parser (empty -> the legacy single (G1,G1) default, bare names);
-  // duplicate gamma names are fatal (output names would collide)
-  std::vector<StagGamma::SpinTastePair> gammaList(void) const;
+  // spinTaste.gammas parsed TWICE, the GaugeProp/Meson way
+  // (GaugeProp.hpp parseGammas, Meson.hpp _mapSinkGammas): the RAW
+  // parse gives the LABELS (output-name suffixes; GaugeProp guess
+  // objects are looked up by exactly these names), the applyG5-
+  // conjugated parse gives the VALUES (the gamma keys that must match
+  // the loaded file's metadata). Empty gammas -> the legacy single
+  // (G1,G1) default, bare names. Order preserved: mesonField is a
+  // positional parallel list over the raw order; duplicate LABELS are
+  // fatal (output names would collide)
+  std::vector<std::pair<std::string, StagGamma::SpinTastePair>>
+  parseGammas(void) const;
   // one LoadMesonField module name per gamma (positional parallel list,
   // strToVec<std::string>); count mismatch vs the gamma list is fatal
   // before any positional access
   std::vector<std::string> mesonFieldList(
-      const std::vector<StagGamma::SpinTastePair> &gammas) const;
+      const std::vector<std::pair<std::string,
+                                  StagGamma::SpinTastePair>> &gammas) const;
   // the timeslices this instance materializes: t in [tA, tB] stride
   // tStep, clamped to the lattice time extent (single source shared by
   // getOutput()/setup()/execute() -- the name family cannot diverge
@@ -184,26 +213,31 @@ TLMAMesonFieldPropMILC<FImpl, Pack>::TLMAMesonFieldPropMILC(
 
 // gamma/meson-field parallel lists //////////////////////////////////////////
 template <typename FImpl, typename Pack>
-std::vector<StagGamma::SpinTastePair>
-TLMAMesonFieldPropMILC<FImpl, Pack>::gammaList(void) const {
-  std::vector<StagGamma::SpinTastePair> gammas;
-  if (par().gammas.empty()) {
-    gammas.push_back(std::make_pair(StagGamma::StagAlgebra::G1,
-                                    StagGamma::StagAlgebra::G1));
+std::vector<std::pair<std::string, StagGamma::SpinTastePair>>
+TLMAMesonFieldPropMILC<FImpl, Pack>::parseGammas(void) const {
+  std::vector<StagGamma::SpinTastePair> keys, vals;
+  if (par().spinTaste.gammas.empty()) {
+    keys.push_back(std::make_pair(StagGamma::StagAlgebra::G1,
+                                  StagGamma::StagAlgebra::G1));
+    vals = keys;
   } else {
-    gammas = StagGamma::ParseSpinTasteString(par().gammas);
+    vals = StagGamma::ParseSpinTasteString(par().spinTaste.gammas,
+                                           par().spinTaste.applyG5);
+    keys = StagGamma::ParseSpinTasteString(par().spinTaste.gammas);
   }
+  std::vector<std::pair<std::string, StagGamma::SpinTastePair>> gammas;
   std::vector<std::string> names;
-  for (auto &g : gammas) {
-    std::string name = StagGamma::GetName(g);
+  for (unsigned int i = 0; i < keys.size(); ++i) {
+    const std::string label = StagGamma::GetName(keys[i]);
     for (auto &n : names) {
-      if (n == name) {
-        HADRONS_ERROR(Argument, "duplicate gamma '" + name +
-                                    "' in gammas list (output names would "
-                                    "collide)");
+      if (n == label) {
+        HADRONS_ERROR(Argument, "duplicate gamma '" + label +
+                                    "' in spinTaste.gammas (output names "
+                                    "would collide)");
       }
     }
-    names.push_back(name);
+    names.push_back(label);
+    gammas.push_back(std::make_pair(label, vals[i]));
   }
 
   return gammas;
@@ -211,7 +245,8 @@ TLMAMesonFieldPropMILC<FImpl, Pack>::gammaList(void) const {
 
 template <typename FImpl, typename Pack>
 std::vector<std::string> TLMAMesonFieldPropMILC<FImpl, Pack>::mesonFieldList(
-    const std::vector<StagGamma::SpinTastePair> &gammas) const {
+    const std::vector<std::pair<std::string, StagGamma::SpinTastePair>>
+        &gammas) const {
   auto mfs = strToVec<std::string>(par().mesonField);
   if (mfs.size() != gammas.size()) {
     HADRONS_ERROR(Argument,
@@ -254,12 +289,14 @@ std::vector<unsigned int> TLMAMesonFieldPropMILC<FImpl, Pack>::sliceTimes(
 template <typename FImpl, typename Pack>
 std::string TLMAMesonFieldPropMILC<FImpl, Pack>::outputName(
     const unsigned int g, const unsigned int t) const {
-  auto gammas = gammaList();
-  // single gamma -> bare names (legacy grammar); multiple gammas ->
+  auto gammas = parseGammas();
+  // suffix from the RAW gamma LABEL (GaugeProp's parseGammas key
+  // grammar): a StagGaugeProp with the same spinTaste.gammas and guess
+  // "<name>_t<t>" derives exactly this name from its own parameters.
+  // Single gamma -> bare names (legacy grammar); multiple gammas ->
   // trailing "_<spin>_<taste>" segment AFTER the timeslice (GaugeProp
   // appends gamma keys last when naming per-gamma objects)
-  std::string suffix =
-      (gammas.size() > 1) ? ("_" + StagGamma::GetName(gammas[g])) : "";
+  std::string suffix = (gammas.size() > 1) ? ("_" + gammas[g].first) : "";
 
   return getName() + "_t" + std::to_string(t) + suffix;
 }
@@ -268,7 +305,7 @@ template <typename FImpl, typename Pack>
 std::vector<std::string> TLMAMesonFieldPropMILC<FImpl, Pack>::outputNames(
     void) const {
   std::vector<std::string> names;
-  auto gammas = gammaList();
+  auto gammas = parseGammas();
   auto ts = sliceTimes();
   for (unsigned int g = 0; g < gammas.size(); ++g) {
     for (auto &t : ts) {
@@ -282,7 +319,7 @@ std::vector<std::string> TLMAMesonFieldPropMILC<FImpl, Pack>::outputNames(
 // dependencies/products ///////////////////////////////////////////////////////
 template <typename FImpl, typename Pack>
 std::vector<std::string> TLMAMesonFieldPropMILC<FImpl, Pack>::getInput(void) {
-  auto mfs = mesonFieldList(gammaList());
+  auto mfs = mesonFieldList(parseGammas());
   std::vector<std::string> in{par().action, par().lowModes};
   for (auto &mf : mfs) {
     in.push_back(mf);
@@ -310,6 +347,15 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::setup(void) {
   int Ls = env().getObjectLs(par().action);
   if (Ls > 1) {
     HADRONS_ERROR(Argument, "Ls > 1 not implemented");
+  }
+
+  // this module applies no spin-taste operator (the gammas only pair
+  // files with output labels), so a gauge field would be unused
+  if (!par().spinTaste.gauge.empty()) {
+    HADRONS_ERROR(Argument,
+                  "spinTaste.gauge must be empty (this module applies no "
+                  "spin-taste operator; gauge '" + par().spinTaste.gauge +
+                  "' would be unused)");
   }
 
   // optional string parameters (missing XML nodes are tolerated for
@@ -346,19 +392,21 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::setup(void) {
                                 std::to_string(nt) + " timeslices");
   }
 
-  auto gammas = gammaList();
+  auto gammas = parseGammas();
   auto mfs = mesonFieldList(gammas);
 
   LOG(Message) << "Setting up meson-field driven low mode propagator '"
                << getName() << "' for action '" << par().action
                << "' using eigenvectors from '" << par().lowModes
-               << "' (noise index " << par().noiseIndex
+               << "' (noise index " << par().noiseIndex << ", applyG5 "
+               << (par().spinTaste.applyG5 ? "true" : "false")
                << ", one propagator per timeslice per gamma in [tA="
                << par().tA << ", tB=" << par().tB << "] with stride "
                << par().tStep << "):" << std::endl;
   for (unsigned int g = 0; g < gammas.size(); ++g) {
-    LOG(Message) << "  gamma '" << StagGamma::GetName(gammas[g])
-                 << "' from '" << mfs[g] << "'" << std::endl;
+    LOG(Message) << "  gamma '" << gammas[g].first << "' (file key '"
+                 << StagGamma::GetName(gammas[g].second) << "') from '"
+                 << mfs[g] << "'" << std::endl;
   }
 
   auto &epack = envGet(Pack, par().lowModes);
@@ -422,7 +470,7 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
   // content checks run here, not in setup(): the scheduler's memory-
   // profiling pass dry-runs every module's setup() BEFORE anything
   // executes, when the loader tables are still nt empty 0x0 matrices
-  auto gammas = gammaList();
+  auto gammas = parseGammas();
   auto mfs = mesonFieldList(gammas);
   auto &mat = envGet(FMat, par().action);
   auto &epack = envGet(Pack, par().lowModes);
@@ -449,12 +497,15 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
                         mfs[g] + "'");
     }
     // gamma/file pairing cross-check against the loader's published
-    // metadata: a miswired pairing would otherwise just mislabel the
-    // output names
+    // metadata, on the applyG5-conjugated VALUE (the producing
+    // StagA2AMesonField writes gamma_spin/gamma_taste under its own
+    // conjugated gammas, MesonField.hpp:532): the raw label never
+    // appears in the file. A miswired pairing would otherwise just
+    // mislabel the output names
     auto &md = envGet(MContraction::MesonFieldMILCMetadata,
                       mfs[g] + "_metadata");
-    if ((md.gamma_spin != gammas[g].first) ||
-        (md.gamma_taste != gammas[g].second)) {
+    if ((md.gamma_spin != gammas[g].second.first) ||
+        (md.gamma_taste != gammas[g].second.second)) {
       // distinguish a never-filled side object (non-HDF5 build or
       // legacy file) from a genuine gamma/file miswire
       const std::string fileSt =
@@ -464,13 +515,15 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
                       "meson field '" + mfs[g] + "' carries undefined "
                       "spin-taste metadata (non-HDF5 build or legacy "
                       "file): cannot cross-check gamma '" +
-                          StagGamma::GetName(gammas[g]) + "'");
+                          gammas[g].first + "'");
       }
       HADRONS_ERROR(Argument,
-                    "gamma '" + StagGamma::GetName(gammas[g]) +
-                        "' is configured for meson field '" + mfs[g] +
-                        "', but the file holds spin-taste '" +
-                        StagGamma::GetName(md.gamma_spin, md.gamma_taste) +
+                    "gamma '" + gammas[g].first + "' (file key '" +
+                        StagGamma::GetName(gammas[g].second) +
+                        "' under applyG5 " +
+                        (par().spinTaste.applyG5 ? "true" : "false") +
+                        ") is configured for meson field '" + mfs[g] +
+                        "', but the file holds spin-taste '" + fileSt +
                         "'");
     }
   }
@@ -479,9 +532,12 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
   // solver family): the file pair sum of the first eigenpair, summed
   // over ALL timeslices, equals P * <e|eta_j,E> with the live
   // checkerboarded eigenvector; their ratio exposes the production
-  // constants and catches pairing/order/normalization mistakes. The live
-  // reference is gamma-independent, so only the (G1,G1) table is
-  // checkable; other gammas get a skip notice
+  // constants and catches pairing/order/normalization mistakes. The
+  // live reference is gamma-independent, so the checkable table is the
+  // one whose file CONTENT is the identity pairing: scan the
+  // applyG5-conjugated VALUES (with applyG5=true the identity table is
+  // reached through its conjugated file key); other gammas get a skip
+  // notice
   if (!par().noise.empty()) {
     auto &noise = envGet(std::vector<FermionField>, par().noise);
     if (par().noiseIndex >= noise.size()) {
@@ -490,15 +546,16 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
     }
     int gIdentity = -1;
     for (unsigned int g = 0; g < gammas.size(); ++g) {
-      if ((gammas[g].first == StagGamma::StagAlgebra::G1) &&
-          (gammas[g].second == StagGamma::StagAlgebra::G1)) {
+      if ((gammas[g].second.first == StagGamma::StagAlgebra::G1) &&
+          (gammas[g].second.second == StagGamma::StagAlgebra::G1)) {
         gIdentity = g;
         break;
       }
     }
     if (gIdentity < 0) {
-      LOG(Message) << "Self-check skipped: no (G1,G1) gamma in the list "
-                      "(the live reference <e|eta> is gamma-independent)"
+      LOG(Message) << "Self-check skipped: no (G1,G1) gamma VALUE in "
+                      "the list (the live reference <e|eta> is "
+                      "gamma-independent)"
                    << std::endl;
     } else {
       auto &mf = envGet(std::vector<A2AMatrix<HADRONS_A2AM_IO_TYPE>>,
@@ -525,8 +582,9 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
       }
       if (std::abs(ipFull) > 1.e-12) {
         ComplexD pLive = sumFile / ipFull;
-        LOG(Message) << "Self-check (gamma '"
-                     << StagGamma::GetName(gammas[gIdentity])
+        LOG(Message) << "Self-check (gamma '" << gammas[gIdentity].first
+                     << "', file key '"
+                     << StagGamma::GetName(gammas[gIdentity].second)
                      << "'): file-derived production constant P = " << pLive
                      << " (configured pairScale = " << pairScale
                      << ")" << std::endl;
