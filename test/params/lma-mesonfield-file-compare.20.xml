@@ -70,7 +70,7 @@
 
     <!-- Two distinct on-demand CB pair sources over the mass-shifted pack:
          mfwrite's low-mode rows come from these (odd partner = Meooe(e_E)/
-         (i*lam) filled on demand -- no full-grid pair fields ever
+         (i*lam) filled on demand - no full-grid pair fields ever
          materialize). Two instances are mandatory: the framework holds the
          right-side bank across the left-side block loop, so the sides
          cannot share one bank. -->
@@ -86,19 +86,28 @@
     <!-- Full-volume |e+o>/|e-o> pairs built from the checkerboarded pack.
          Probe basis only (cmp_ref/cmp_file contract solver outputs against
          eigfull_vec, a parity-complete basis); the production file below is
-         written from the CB pair sources instead -- the two layouts produce
+         written from the CB pair sources instead - the two layouts produce
          numerically identical rows (writer CB 1/sqrt(2) norm reduction). -->
     <module>
       <id><name>eigfull</name><type>MUtilities::EigenPackFullPairs</type></id>
       <options><eigenPack>eig</eigenPack><action>stag</action></options>
     </module>
 
-    <!-- Time-diluted noise: nsrc=1, tStep=1; noise 0 lives on timeslice 0
-         (time_shift[0] = 0); the module produces nsc*nt fields, only
-         column 0 is compared (the file solver is source-independent). -->
+    <!-- Time-diluted noise, production noise-index layout: nsrc=2,
+         tStep=nt=4 - noise_vec holds exactly nsrc*3 = 6 entries, both
+         noises on timeslice 0 (every block maps to t=0 when tStep=nt).
+         The meson field's 6 columns are the two noise windows of 3
+         colors each (covering StagLMAMesonFieldProp's noiseIndex=0,
+         nNoise=2 windows: (noiseIndex+nNoise)*3 = 6); gprop_ref solves
+         all 6 fields, giving the per-noise reference columns for the
+         offline comparison. The noise VALUES differ from an nsrc=1 run
+         by design (generateNoise draws 3 fields per source, so nsrc=2
+         doubles the bernoulli draw count and shifts the RNG stream) -
+         both sides of this comparison consume the same noise_vec, so
+         the comparison is unaffected. -->
     <module>
       <id><name>noise</name><type>MNoise::StagTimeDilutedSpinColorDiagonal</type></id>
-      <options><nsrc>1</nsrc><tStep>1</tStep></options>
+      <options><nsrc>2</nsrc><tStep>4</tStep></options>
     </module>
 
     <!-- Production-layout meson-field write: left empty (eigenvector rows =
@@ -149,12 +158,18 @@
     </module>
 
     <!-- Eager file-driven propagator producer (replaces the former
-         MSolver solver family and its GaugeProp middleman): one scalar
-         PropagatorField per timeslice in [tA, tB] stride tStep; single
-         (empty) gammas list -> bare name lma_file_t<t>. The time-diluted
-         noise lives on timeslice 0 only, so the range is tA=0, tB=0; its
-         three color components are the table columns 0..2 (noiseIndex is
-         the window base). The pairing self-check runs against noise_vec;
+         MSolver solver family and its GaugeProp middleman): one
+         PropagatorField per noise per timeslice in [tA, tB] stride
+         tStep (nNoise=1: scalar; nNoise>1: a length-nNoise vector);
+         single (empty) gammas list -> bare name lma_file_t<t>. The
+         noises live on timeslice 0 only, so the range is tA=0, tB=0;
+         noiseIndex selects the first noise window (unit = noises);
+         window n reads columns (noiseIndex+n)*3..(noiseIndex+n)*3+2.
+         nNoise=2 reconstructs ONE propagator per noise: the output
+         lma_file_t0 is a length-2 std::vector<PropagatorField>
+         (scalar collapse applies only at nNoise=1), flattened
+         noise-major by prop2f_file below. The pairing self-check runs
+         once per noise window against noise_vec;
          the loader's published metadata is cross-checked against the
          applyG5-conjugated gamma value at execute time (applyG5=false
          here: labels == file keys, names unchanged from the interim
@@ -171,6 +186,7 @@
         </spinTaste>
         <mesonField>mf</mesonField>
         <noiseIndex>0</noiseIndex>
+        <nNoise>2</nNoise>
         <tA>0</tA>
         <tB>0</tB>
         <tStep>1</tStep>
@@ -203,10 +219,11 @@
 
     <!-- Extract the t=0 propagator's 3 color columns as a FermionField
          vector for the probe contraction (StagA2AMesonField takes
-         vector<FermionField> only); entry c = table column noiseIndex + c,
-         comparable to the reference probe's noise columns 0..2 (gprop_ref
-         applies the live solver to every noise field; noise 0-2 are the
-         three colors at t=0). -->
+         vector<FermionField> only); entries are noise-major: entry n*3+c
+         = table column (noiseIndex+n)*3 + c, comparable one-to-one to
+         the reference probe's 6 noise columns (gprop_ref applies the
+         live solver to every noise field; columns 0-2/3-5 are the three
+         colors of noises 0/1 at t=0). -->
     <module>
       <id><name>prop2f_file</name><type>MUtilities::PropToFermions</type></id>
       <options><prop>lma_file_t0</prop></options>
@@ -215,8 +232,9 @@
     <!-- Probe contractions of both sides against the full eigenvector-pair
          basis (identity spin-taste, zero momentum); row pairs expose even
          AND odd content of the outputs; compared offline with h5py:
-         file-side columns 0..2 are the three colors, compared against
-         reference columns 0..2. -->
+         file-side columns are the 6 per-noise color columns (noise-major
+         windows 0..2 = noise 0's colors, 3..5 = noise 1's), compared
+         one-to-one against the reference's 6 noise columns. -->
     <module>
       <id><name>cmp_ref</name><type>MContraction::StagA2AMesonField</type></id>
       <options>

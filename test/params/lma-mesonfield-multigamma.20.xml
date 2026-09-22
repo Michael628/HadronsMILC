@@ -86,10 +86,17 @@
       <options><eigenPack>eig</eigenPack><action>stag</action></options>
     </module>
 
-    <!-- Time-diluted noise: nsrc=1, tStep=1; noise 0 lives on timeslice 0. -->
+    <!-- Time-diluted noise, production noise-index layout: nsrc=1,
+         tStep=nt=4 - noise_vec holds exactly nsrc*3 = 3 entries, noise
+         0 on timeslice 0; the tables have 3 columns (covering the
+         noiseIndex=0, nNoise=1 windows: (noiseIndex+nNoise)*3 = 3).
+         The noise-0 values are identical to the former tStep=1 layout
+         (generateNoise draws 3 fields per source regardless of tStep,
+         block 0 selected both ways), so the nNoise=1 reconstructions
+         are the bit-compat regression. -->
     <module>
       <id><name>noise</name><type>MNoise::StagTimeDilutedSpinColorDiagonal</type></id>
-      <options><nsrc>1</nsrc><tStep>1</tStep></options>
+      <options><nsrc>1</nsrc><tStep>4</tStep></options>
     </module>
 
     <!-- Production-layout meson-field write with TWO gammas: writes
@@ -150,13 +157,14 @@
     <!-- Eager multi-gamma file-driven propagator producer (replaces the
          former MSolver solver family and its per-gamma GaugeProp
          middlemen): with two gammas the outputs are named
-         lma_file_t<t>_G1_G1 and lma_file_t<t>_G5_G5 -- labels from the
+         lma_file_t<t>_G1_G1 and lma_file_t<t>_G5_G5 - labels from the
          RAW spinTaste.gammas list, GaugeProp's guess grammar. The
          time-diluted noise lives on timeslice 0 only, so the range is
          tA=0, tB=0. The pairing self-check runs for the (G1,G1)-VALUE
          table only (gamma-independent live reference); both loaders'
          metadata is cross-checked against the applyG5-conjugated values
-         at execute time. -->
+         at execute time. nNoise=1 keeps scalar outputs (bit-compat
+         with the previous schedule generation). -->
     <module>
       <id><name>lma_file</name><type>MFermion::StagLMAMesonFieldProp</type></id>
       <options>
@@ -169,6 +177,7 @@
         </spinTaste>
         <mesonField>mf_g1 mf_g5</mesonField>
         <noiseIndex>0</noiseIndex>
+        <nNoise>1</nNoise>
         <tA>0</tA>
         <tB>0</tB>
         <tStep>1</tStep>
@@ -289,6 +298,7 @@
         </spinTaste>
         <mesonField>mf_g5 mf_g1</mesonField>
         <noiseIndex>0</noiseIndex>
+        <nNoise>1</nNoise>
         <tA>0</tA>
         <tB>0</tB>
         <tStep>1</tStep>
