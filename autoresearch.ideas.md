@@ -12,11 +12,14 @@
 ## Verified-but-discarded (run #9)
 - **rbFermNeg zero-init before Meooe**: Meooe DOES fully overwrite its output (ImprovedStaggeredFermion::Meooe → DhopOE/EO → DhopImproved opens out AcceleratorWrite, DhopSiteGeneric coalescedWrites every site; first stencil leg assigns, never reads out) — proven by source AND by bit-identity with stale buffer content. But removing it moved the metric −0.2% (noise floor ~1 ms): discarded. Reapply the one-line removal only if a production-lattice profile shows the per-column tail dominating.
 
-## Open ideas (bench8-8: 8^4 free field, nEigs=60, 16 outputs — module ~231 ms, spread ±1.5%)
-- **(g,t)-pair eigenpass fusion: MEASURED LOSS (run #19), closed on this build**: halving evec reads costs 2× accumulator R/W per kernel (12 buffers/job-pair); pair wins only at B_pair ≥ 2×B_single (batch-16+) which spills registers. CORRECTED TRAFFIC MODEL: the currency is accumulator passes per eigenpair (channels × 2 / batch size); evec reads are the CHEAP side. Any future fusion-across-outputs idea must beat this arithmetic first.
-- **Batching ladder is DONE at 8 (per-kernel)**: batch-16 regressed on the 4^4 CPU build (register spill, e9b3fea); pair-fusion confirmed the spill wall from the other side (run #19).
-- **Eigenpass is at its practical floor on CPU-scalar**: accumulator traffic needs fewer channels (structurally fixed at 6) or register-blocked larger batches (spill-blocked). Revisit the whole ladder on GPU/CUDA where the register file and bandwidth economics differ — the bit-identity witness protocol transfers as-is.
-- **Remaining per-output kernels (12 @60 eigs)**: 8 eigenpass + 3 Meooe + 1 assembly. Meooe is API-blocked (single-field stencil); assembly is single-pass.
+## Frontier status (run #20): CPU-scalar CLOSED, arc verified
+- **Cumulative arc intact**: 18.91 → 7.58 ms on the 4^4 family (−60%); 231 ms quiet-window at 8^4. All gates green on HEAD (schedules exit 0, value-compare PASS 6.3e-08, witnesses sha256-identical).
+- **Why closed**: eigenpass is FLOP-bound on scalar builds (18 irreducible cmul-adds per eigenpair per site — six independent linear combinations of the same color vector); batching spill-capped at 8 (e9b3fea); pair fusion counterproductive (#19 traffic model); Meooe API-blocked; assembly single-pass; zero-inits gone.
+- **Box drift warning**: absolute timings drift ±15% across sessions (quiet-window vs loaded); single-arm baselines are load-conditioned snapshots — interleaved A/B is the only valid absolute-comparison protocol.
+
+## Open ideas (next frontier: GPU/CUDA or real-SIMD builds)
+- Re-profile the whole batching ladder there — register file and bandwidth economics differ from scalar CPU (batch-16 and pair fusion both failed HERE on spill, not on principle; the corrected traffic model in run #19 predicts the crossover arithmetic).
+- The bit-identity witness protocol (sha256 of the 6 witness datasets) and both benchmarks (bench8, bench8-8 under gitignored test/work/) transfer as-is.
 - **MILC tensor nesting lesson**: FermionField = iScalar<iScalar<iVector<Complex,3>>>, PropagatorField = iScalar<iScalar<iMatrix<Complex,3>>> — component access in accelerator code is v()()(a) / pmat()()(a,c) (double iScalar unwrap). Lattice::vector_type is the RAW SIMD type, NOT the site object — for a fresh site object use auto x = coalescedRead(view[ss]) as the value-type carrier. Dependent-type declarations in template bodies need typename.
 - **MILC tensor nesting lesson**: FermionField = iScalar<iScalar<iVector<Complex,3>>>, PropagatorField = iScalar<iScalar<iMatrix<Complex,3>>> — component access in accelerator code is v()()(a) / pmat()()(a,c) (double iScalar unwrap). Cost me one build cycle.
 - **Grid view-family exclusivity (lesson for custom kernels)**: a buffer's Accelerator-mode views must ALL close before any CPU-mode view (setCheckerboard, reductions, transfers) opens on it — `MemoryManagerCache.cc` asserts. Scope hoisted views tightly.
