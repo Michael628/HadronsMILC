@@ -466,7 +466,9 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::setup(void) {
 
   // temps: the per-color-column checkerboard accumulators of the
   // reconstruction (SUM channels rbTemp0..2, DIFF channels
-  // rbTempNeg0..2), one Meooe target and one full-grid assembly target.
+  // rbTempNeg0..2) and one Meooe target (the former full-grid sol
+  // assembly target is gone: the per-column pass writes the output
+  // propagator directly).
   // envTmp, not the former envCache: the eager module consumes them only
   // inside its own execute(). The six accumulators exist so that ONE
   // element-wise pass per eigenvector can update every color column at
@@ -480,7 +482,6 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::setup(void) {
   envTmp(FermionField, "rbTempNeg1", 1, envGetRbGrid(FermionField));
   envTmp(FermionField, "rbTempNeg2", 1, envGetRbGrid(FermionField));
   envTmp(FermionField, "rbFermNeg", 1, envGetRbGrid(FermionField));
-  envTmpLat(FermionField, "sol");
 
   // allocation-only output creation (the GaugeProp setupHelper
   // contract): one zeroed propagator per output name -- a scalar
@@ -699,7 +700,6 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
   envGetTmp(FermionField, rbTempNeg1);
   envGetTmp(FermionField, rbTempNeg2);
   envGetTmp(FermionField, rbFermNeg);
-  envGetTmp(FermionField, sol);
 
   // SUM/DIFF accumulator columns (entry c reconstructs table column
   // nBase + c of the current noise window); array sugar over the named
@@ -823,6 +823,187 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
           // to the single-eigenpair kernel below
           bool firstUnit = true;
           int kHi = static_cast<int>(eigStart) + nEigs - 1;
+          // batches of EIGHT eigenpairs per kernel launch: doubles the
+          // batch-of-four scheme below. Every kernel re-reads and
+          // re-writes all six accumulators, so accumulator traffic per
+          // output scales inversely with batch size -- the covered
+          // eigenpairs pay half the accumulator traffic of pairs of
+          // four-batches, and thread dispatch amortizes twice as far.
+          // Statement order per accumulator stays strictly
+          // k-descending, so arithmetic is bit-identical to running
+          // the same eigenpairs through batch-of-four kernels. A
+          // remaining nEigs % 8 in [4,8) still batches four in the
+          // loop below, then the singles finish
+          for (; kHi - 7 >= int(eigStart); kHi -= 8) {
+            const int kA = kHi,     kB = kHi - 1, kC = kHi - 2, kD = kHi - 3,
+                      kE = kHi - 4, kF = kHi - 5, kG = kHi - 6, kH = kHi - 7;
+            const FermionField &eA = epack.evec[kA];
+            const FermionField &eB = epack.evec[kB];
+            const FermionField &eC = epack.evec[kC];
+            const FermionField &eD = epack.evec[kD];
+            const FermionField &eE = epack.evec[kE];
+            const FermionField &eF = epack.evec[kF];
+            const FermionField &eG = epack.evec[kG];
+            const FermionField &eH = epack.evec[kH];
+
+            ComplexD sumC[FImpl::Dimension], negC[FImpl::Dimension];
+            coeffs(kA, sumC, negC);
+            const ComplexD sA0 = sumC[0], sA1 = sumC[1], sA2 = sumC[2];
+            const ComplexD dA0 = negC[0], dA1 = negC[1], dA2 = negC[2];
+            coeffs(kB, sumC, negC);
+            const ComplexD sB0 = sumC[0], sB1 = sumC[1], sB2 = sumC[2];
+            const ComplexD dB0 = negC[0], dB1 = negC[1], dB2 = negC[2];
+            coeffs(kC, sumC, negC);
+            const ComplexD sC0 = sumC[0], sC1 = sumC[1], sC2 = sumC[2];
+            const ComplexD dC0 = negC[0], dC1 = negC[1], dC2 = negC[2];
+            coeffs(kD, sumC, negC);
+            const ComplexD sD0 = sumC[0], sD1 = sumC[1], sD2 = sumC[2];
+            const ComplexD dD0 = negC[0], dD1 = negC[1], dD2 = negC[2];
+            coeffs(kE, sumC, negC);
+            const ComplexD sE0 = sumC[0], sE1 = sumC[1], sE2 = sumC[2];
+            const ComplexD dE0 = negC[0], dE1 = negC[1], dE2 = negC[2];
+            coeffs(kF, sumC, negC);
+            const ComplexD sF0 = sumC[0], sF1 = sumC[1], sF2 = sumC[2];
+            const ComplexD dF0 = negC[0], dF1 = negC[1], dF2 = negC[2];
+            coeffs(kG, sumC, negC);
+            const ComplexD sG0 = sumC[0], sG1 = sumC[1], sG2 = sumC[2];
+            const ComplexD dG0 = negC[0], dG1 = negC[1], dG2 = negC[2];
+            coeffs(kH, sumC, negC);
+            const ComplexD sH0 = sumC[0], sH1 = sumC[1], sH2 = sumC[2];
+            const ComplexD dH0 = negC[0], dH1 = negC[1], dH2 = negC[2];
+
+            const bool first = firstUnit;
+            firstUnit = false;
+            autoView(eAR_v, eA, AcceleratorRead);
+            autoView(eBR_v, eB, AcceleratorRead);
+            autoView(eCR_v, eC, AcceleratorRead);
+            autoView(eDR_v, eD, AcceleratorRead);
+            autoView(eER_v, eE, AcceleratorRead);
+            autoView(eFR_v, eF, AcceleratorRead);
+            autoView(eGR_v, eG, AcceleratorRead);
+            autoView(eHR_v, eH, AcceleratorRead);
+            accelerator_for(ss, eAR_v.size(),
+                            FermionField::vector_type::Nsimd(), {
+              auto evA = coalescedRead(eAR_v[ss]);
+              auto evB = coalescedRead(eBR_v[ss]);
+              auto evC = coalescedRead(eCR_v[ss]);
+              auto evD = coalescedRead(eDR_v[ss]);
+              auto evE = coalescedRead(eER_v[ss]);
+              auto evF = coalescedRead(eFR_v[ss]);
+              auto evG = coalescedRead(eGR_v[ss]);
+              auto evH = coalescedRead(eHR_v[ss]);
+              // per accumulator the statements run k-descending (the A
+              // group is hoisted into the write-or-accumulate branch);
+              // accumulators are independent buffers, so the grouping
+              // is sequence-preserving. first: the A statements OPEN
+              // the accumulation (WRITE, not add-to-zero)
+              if (first) {
+                coalescedWrite(t0W_v[ss], sA0 * evA);
+                coalescedWrite(t1W_v[ss], sA1 * evA);
+                coalescedWrite(t2W_v[ss], sA2 * evA);
+                coalescedWrite(n0W_v[ss], dA0 * evA);
+                coalescedWrite(n1W_v[ss], dA1 * evA);
+                coalescedWrite(n2W_v[ss], dA2 * evA);
+              } else {
+                coalescedWrite(t0W_v[ss],
+                               sA0 * evA + coalescedRead(t0R_v[ss]));
+                coalescedWrite(t1W_v[ss],
+                               sA1 * evA + coalescedRead(t1R_v[ss]));
+                coalescedWrite(t2W_v[ss],
+                               sA2 * evA + coalescedRead(t2R_v[ss]));
+                coalescedWrite(n0W_v[ss],
+                               dA0 * evA + coalescedRead(n0R_v[ss]));
+                coalescedWrite(n1W_v[ss],
+                               dA1 * evA + coalescedRead(n1R_v[ss]));
+                coalescedWrite(n2W_v[ss],
+                               dA2 * evA + coalescedRead(n2R_v[ss]));
+              }
+              coalescedWrite(t0W_v[ss],
+                             sB0 * evB + coalescedRead(t0R_v[ss]));
+              coalescedWrite(t0W_v[ss],
+                             sC0 * evC + coalescedRead(t0R_v[ss]));
+              coalescedWrite(t0W_v[ss],
+                             sD0 * evD + coalescedRead(t0R_v[ss]));
+              coalescedWrite(t0W_v[ss],
+                             sE0 * evE + coalescedRead(t0R_v[ss]));
+              coalescedWrite(t0W_v[ss],
+                             sF0 * evF + coalescedRead(t0R_v[ss]));
+              coalescedWrite(t0W_v[ss],
+                             sG0 * evG + coalescedRead(t0R_v[ss]));
+              coalescedWrite(t0W_v[ss],
+                             sH0 * evH + coalescedRead(t0R_v[ss]));
+              coalescedWrite(t1W_v[ss],
+                             sB1 * evB + coalescedRead(t1R_v[ss]));
+              coalescedWrite(t1W_v[ss],
+                             sC1 * evC + coalescedRead(t1R_v[ss]));
+              coalescedWrite(t1W_v[ss],
+                             sD1 * evD + coalescedRead(t1R_v[ss]));
+              coalescedWrite(t1W_v[ss],
+                             sE1 * evE + coalescedRead(t1R_v[ss]));
+              coalescedWrite(t1W_v[ss],
+                             sF1 * evF + coalescedRead(t1R_v[ss]));
+              coalescedWrite(t1W_v[ss],
+                             sG1 * evG + coalescedRead(t1R_v[ss]));
+              coalescedWrite(t1W_v[ss],
+                             sH1 * evH + coalescedRead(t1R_v[ss]));
+              coalescedWrite(t2W_v[ss],
+                             sB2 * evB + coalescedRead(t2R_v[ss]));
+              coalescedWrite(t2W_v[ss],
+                             sC2 * evC + coalescedRead(t2R_v[ss]));
+              coalescedWrite(t2W_v[ss],
+                             sD2 * evD + coalescedRead(t2R_v[ss]));
+              coalescedWrite(t2W_v[ss],
+                             sE2 * evE + coalescedRead(t2R_v[ss]));
+              coalescedWrite(t2W_v[ss],
+                             sF2 * evF + coalescedRead(t2R_v[ss]));
+              coalescedWrite(t2W_v[ss],
+                             sG2 * evG + coalescedRead(t2R_v[ss]));
+              coalescedWrite(t2W_v[ss],
+                             sH2 * evH + coalescedRead(t2R_v[ss]));
+              coalescedWrite(n0W_v[ss],
+                             dB0 * evB + coalescedRead(n0R_v[ss]));
+              coalescedWrite(n0W_v[ss],
+                             dC0 * evC + coalescedRead(n0R_v[ss]));
+              coalescedWrite(n0W_v[ss],
+                             dD0 * evD + coalescedRead(n0R_v[ss]));
+              coalescedWrite(n0W_v[ss],
+                             dE0 * evE + coalescedRead(n0R_v[ss]));
+              coalescedWrite(n0W_v[ss],
+                             dF0 * evF + coalescedRead(n0R_v[ss]));
+              coalescedWrite(n0W_v[ss],
+                             dG0 * evG + coalescedRead(n0R_v[ss]));
+              coalescedWrite(n0W_v[ss],
+                             dH0 * evH + coalescedRead(n0R_v[ss]));
+              coalescedWrite(n1W_v[ss],
+                             dB1 * evB + coalescedRead(n1R_v[ss]));
+              coalescedWrite(n1W_v[ss],
+                             dC1 * evC + coalescedRead(n1R_v[ss]));
+              coalescedWrite(n1W_v[ss],
+                             dD1 * evD + coalescedRead(n1R_v[ss]));
+              coalescedWrite(n1W_v[ss],
+                             dE1 * evE + coalescedRead(n1R_v[ss]));
+              coalescedWrite(n1W_v[ss],
+                             dF1 * evF + coalescedRead(n1R_v[ss]));
+              coalescedWrite(n1W_v[ss],
+                             dG1 * evG + coalescedRead(n1R_v[ss]));
+              coalescedWrite(n1W_v[ss],
+                             dH1 * evH + coalescedRead(n1R_v[ss]));
+              coalescedWrite(n2W_v[ss],
+                             dB2 * evB + coalescedRead(n2R_v[ss]));
+              coalescedWrite(n2W_v[ss],
+                             dC2 * evC + coalescedRead(n2R_v[ss]));
+              coalescedWrite(n2W_v[ss],
+                             dD2 * evD + coalescedRead(n2R_v[ss]));
+              coalescedWrite(n2W_v[ss],
+                             dE2 * evE + coalescedRead(n2R_v[ss]));
+              coalescedWrite(n2W_v[ss],
+                             dF2 * evF + coalescedRead(n2R_v[ss]));
+              coalescedWrite(n2W_v[ss],
+                             dG2 * evG + coalescedRead(n2R_v[ss]));
+              coalescedWrite(n2W_v[ss],
+                             dH2 * evH + coalescedRead(n2R_v[ss]));
+            });
+          }
           for (; kHi - 3 >= int(eigStart); kHi -= 4) {
             const int kA = kHi, kB = kHi - 1, kC = kHi - 2, kD = kHi - 3;
             const FermionField &eA = epack.evec[kA];
@@ -973,25 +1154,31 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
 
           mat.Meooe(*rbTempNegC[c], rbFermNeg);
 
-          // fused per-column assembly: ONE pass over the full-grid sol
-          // replaces the former FOUR element-wise passes (the -i axpy
-          // on rbFermNeg, the two setCheckerboard copies, and the sol
-          // scale). Per element the op sequence is IDENTICAL to the
-          // unfused sequence -- cb-parity sites: sum * scale; other
-          // -parity sites: ((0,-1) * meooe) * scale -- with the same
-          // scalar types and operand order the lattice-level ops
-          // lowered to (Lattice *= lowers to (*this)*r, Lattice_base.h;
-          // the complex scalar product lowers to the same tensor
+          // fused per-column assembly INTO the output propagator: ONE
+          // full-grid pass replaces the former six element-wise passes
+          // (the -i axpy on rbFermNeg, two setCheckerboard copies, the
+          // sol scale, the sol write, and FermToProp's column copy).
+          // Per site the op sequence is IDENTICAL to the unfused
+          // sequence -- cb-parity sites: sum * scale; other-parity
+          // sites: ((0,-1) * meooe) * scale -- then the fermion's
+          // color components land in propagator column c exactly as
+          // FermToProp's pokeColour loop placed them (a pure copy,
+          // QCD.h), preserving the other columns via read-modify-write
+          // (they hold zeros or previously written columns). Same
+          // scalar types and operand order as the lattice-level ops
+          // (Lattice *= lowers to (*this)*r, Lattice_base.h; the
+          // complex scalar product lowers to the same tensor
           // operator* the eigenpass coefficients use), so results are
           // bit-identical. The full-grid -> rb-grid site mapping
           // replicates Grid's acceleratorSetCheckerboard
           // (Lattice_transfer.h): coordinate from _rdimensions, parity
           // from _checker_dim_mask, rb index from _ostride with the
           // checker dim halved. Kernel launches per color column drop
-          // from five to two (assembly + FermToProp; Meooe unchanged)
+          // to two (assembly-into-prop + Meooe); the sol temporary is
+          // gone entirely
           {
             const GridBase *halfGrid = rbFermNeg.Grid();
-            const Coordinate rdimFull = sol.Grid()->_rdimensions;
+            const Coordinate rdimFull = prop.Grid()->_rdimensions;
             const Coordinate rdimHalf = halfGrid->_rdimensions;
             const Coordinate cbMask = halfGrid->_checker_dim_mask;
             const Coordinate ostride = halfGrid->_ostride;
@@ -999,14 +1186,16 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
             const RealD scale = norm / pairScale;
             const ComplexD negI(0., -1.);
             const int cbSum = cb;
+            const int col = c;
 
-            autoView(solW, sol, AcceleratorWrite);
+            autoView(propW, prop, AcceleratorWrite);
+            autoView(propR, prop, AcceleratorRead);
             // named reference first: autoView(n, *ptr[c], m) expands to
             // *ptr[c].View(m) -- '.' binds tighter than '*' (ledger)
-            FermionField &sumC = *rbTempC[c];
-            autoView(sumR, sumC, AcceleratorRead);
+            FermionField &sumF = *rbTempC[c];
+            autoView(sumR, sumF, AcceleratorRead);
             autoView(negR, rbFermNeg, AcceleratorRead);
-            accelerator_for(ss, sol.Grid()->oSites(),
+            accelerator_for(ss, prop.Grid()->oSites(),
                             FermionField::vector_type::Nsimd(), {
               Coordinate coor;
               int linear = 0;
@@ -1024,17 +1213,23 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
                   ssh += ostride[d] * (coor[d] % rdimHalf[d]);
                 }
               }
+              // read-modify-write of the whole site matrix: only column
+              // col changes; rows are the fermion color components
+              auto pmat = coalescedRead(propR[ss]);
               if ((linear & 0x1) == cbSum) {
-                coalescedWrite(solW[ss],
-                               coalescedRead(sumR[ssh]) * scale);
+                auto v = coalescedRead(sumR[ssh]) * scale;
+                pmat()()(0, col) = v()()(0);
+                pmat()()(1, col) = v()()(1);
+                pmat()()(2, col) = v()()(2);
               } else {
-                coalescedWrite(solW[ss],
-                               (negI * coalescedRead(negR[ssh])) * scale);
+                auto w = (negI * coalescedRead(negR[ssh])) * scale;
+                pmat()()(0, col) = w()()(0);
+                pmat()()(1, col) = w()()(1);
+                pmat()()(2, col) = w()()(2);
               }
+              coalescedWrite(propW[ss], pmat);
             });
           }
-
-          FermToProp<FImpl>(prop, sol, c);
         }
 
       }
