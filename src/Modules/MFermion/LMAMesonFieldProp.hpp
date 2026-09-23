@@ -466,9 +466,9 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::setup(void) {
 
   // temps: the per-color-column checkerboard accumulators of the
   // reconstruction (SUM channels rbTemp0..2, DIFF channels
-  // rbTempNeg0..2) and one Meooe target (the former full-grid sol
-  // assembly target is gone: the per-column pass writes the output
-  // propagator directly).
+  // rbTempNeg0..2) and three Meooe targets rbFermNeg0..2 (one per
+  // color column: the three applications run before the single
+  // assembly pass, which writes the output propagator directly).
   // envTmp, not the former envCache: the eager module consumes them only
   // inside its own execute(). The six accumulators exist so that ONE
   // element-wise pass per eigenvector can update every color column at
@@ -481,7 +481,9 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::setup(void) {
   envTmp(FermionField, "rbTempNeg0", 1, envGetRbGrid(FermionField));
   envTmp(FermionField, "rbTempNeg1", 1, envGetRbGrid(FermionField));
   envTmp(FermionField, "rbTempNeg2", 1, envGetRbGrid(FermionField));
-  envTmp(FermionField, "rbFermNeg", 1, envGetRbGrid(FermionField));
+  envTmp(FermionField, "rbFermNeg0", 1, envGetRbGrid(FermionField));
+  envTmp(FermionField, "rbFermNeg1", 1, envGetRbGrid(FermionField));
+  envTmp(FermionField, "rbFermNeg2", 1, envGetRbGrid(FermionField));
 
   // allocation-only output creation (the GaugeProp setupHelper
   // contract): one zeroed propagator per output name -- a scalar
@@ -699,7 +701,9 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
   envGetTmp(FermionField, rbTempNeg0);
   envGetTmp(FermionField, rbTempNeg1);
   envGetTmp(FermionField, rbTempNeg2);
-  envGetTmp(FermionField, rbFermNeg);
+  envGetTmp(FermionField, rbFermNeg0);
+  envGetTmp(FermionField, rbFermNeg1);
+  envGetTmp(FermionField, rbFermNeg2);
 
   // SUM/DIFF accumulator columns (entry c reconstructs table column
   // nBase + c of the current noise window); array sugar over the named
@@ -707,6 +711,10 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
   FermionField *rbTempC[FImpl::Dimension] = {&rbTemp0, &rbTemp1, &rbTemp2};
   FermionField *rbTempNegC[FImpl::Dimension] = {&rbTempNeg0, &rbTempNeg1,
                                                 &rbTempNeg2};
+  // one Meooe target per color column (the three applications must
+  // coexist: the single assembly kernel below reads all three)
+  FermionField *rbFermNegC[FImpl::Dimension] = {&rbFermNeg0, &rbFermNeg1,
+                                                &rbFermNeg2};
 
   int cb = epack.evec[0].Checkerboard();
   RealD norm = 1. / ::sqrt(norm2(epack.evec[0]));
@@ -739,10 +747,9 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
             (par().nNoise == 1) ? *propScalar : (*propVec)[n];
         const unsigned int nBase =
             (par().noiseIndex + n) * FImpl::Dimension;
-        // load-bearing zero-init: the color-only FermToProp below
-        // writes ONLY color slot c, so every other slot must start
-        // zeroed
-        prop = Zero();
+        // no zero-init of prop: the single assembly pass below writes
+        // EVERY element of every site matrix (all rows, all three
+        // color columns) from freshly computed values
 
         // set the six per-column accumulator checkerboard flags (SUM
         // channels rbTempC, DIFF channels rbTempNegC). The accumulators
@@ -1143,93 +1150,120 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
 
         // ferm_c = (norm/pairScale) *
         //          [ SUM-channel - i * Meooe(DIFF/lam-channel) ]
-        // for each color column c, from the c-th accumulators above
+        // per color column c, from the c-th accumulators above: the
+        // three Meooe applications run FIRST (one per column, into
+        // three dedicated buffers), then ONE full-grid assembly
+        // kernel writes ALL THREE columns of every site matrix --
+        // launches drop to four per output (3 Meooe + 1 assembly) and
+        // the propagator is stored once instead of three times
         for (unsigned int c = 0; c < FImpl::Dimension; ++c) {
-          // no zero-init of rbFermNeg: Meooe fully overwrites its output
-          // (DhopImproved opens out AcceleratorWrite and coalescedWrites
-          // every site, never reading it; proven bit-identical against
-          // stale buffer content in a prior experiment). Only the
-          // checkerboard flag is metadata-set
-          rbFermNeg.Checkerboard() = (cb == Even) ? Odd : Even;
+          // no zero-init: Meooe fully overwrites its output
+          // (DhopImproved opens out AcceleratorWrite and
+          // coalescedWrites every site, never reading it; proven
+          // bit-identical against stale buffer content in a prior
+          // experiment). Only the checkerboard flag is metadata-set
+          rbFermNegC[c]->Checkerboard() = (cb == Even) ? Odd : Even;
 
-          mat.Meooe(*rbTempNegC[c], rbFermNeg);
+          mat.Meooe(*rbTempNegC[c], *rbFermNegC[c]);
+        }
 
-          // fused per-column assembly INTO the output propagator: ONE
-          // full-grid pass replaces the former six element-wise passes
-          // (the -i axpy on rbFermNeg, two setCheckerboard copies, the
-          // sol scale, the sol write, and FermToProp's column copy).
-          // Per site the op sequence is IDENTICAL to the unfused
-          // sequence -- cb-parity sites: sum * scale; other-parity
-          // sites: ((0,-1) * meooe) * scale -- then the fermion's
-          // color components land in propagator column c exactly as
-          // FermToProp's pokeColour loop placed them (a pure copy,
-          // QCD.h), preserving the other columns via read-modify-write
-          // (they hold zeros or previously written columns). Same
-          // scalar types and operand order as the lattice-level ops
-          // (Lattice *= lowers to (*this)*r, Lattice_base.h; the
-          // complex scalar product lowers to the same tensor
-          // operator* the eigenpass coefficients use), so results are
-          // bit-identical. The full-grid -> rb-grid site mapping
-          // replicates Grid's acceleratorSetCheckerboard
-          // (Lattice_transfer.h): coordinate from _rdimensions, parity
-          // from _checker_dim_mask, rb index from _ostride with the
-          // checker dim halved. Kernel launches per color column drop
-          // to two (assembly-into-prop + Meooe); the sol temporary is
-          // gone entirely
-          {
-            const GridBase *halfGrid = rbFermNeg.Grid();
-            const Coordinate rdimFull = prop.Grid()->_rdimensions;
-            const Coordinate rdimHalf = halfGrid->_rdimensions;
-            const Coordinate cbMask = halfGrid->_checker_dim_mask;
-            const Coordinate ostride = halfGrid->_ostride;
-            const int ndim = halfGrid->_ndimension;
-            const RealD scale = norm / pairScale;
-            const ComplexD negI(0., -1.);
-            const int cbSum = cb;
-            const int col = c;
+        // single assembly pass over the full-grid output propagator.
+        // Per site, per column, the op sequence is IDENTICAL to the
+        // former per-column kernel -- cb-parity sites: sum * scale;
+        // other-parity sites: ((0,-1) * meooe) * scale -- with the
+        // same scalar types and operand order the lattice-level ops
+        // lowered to (Lattice *= lowers to (*this)*r, Lattice_base.h;
+        // the complex scalar product lowers to the same tensor
+        // operator* the eigenpass coefficients use). Columns are
+        // distinct matrix elements, so interleaving the three
+        // columns' statements is sequence-preserving. Every element
+        // of every site matrix is written (all rows, all columns):
+        // no zero-init and no read-modify-write -- a fresh site
+        // object is filled and stored. The full-grid -> rb-grid site
+        // mapping replicates Grid's acceleratorSetCheckerboard
+        // (Lattice_transfer.h): coordinate from _rdimensions, parity
+        // from _checker_dim_mask, rb index from _ostride with the
+        // checker dim halved
+        {
+          const GridBase *halfGrid = rbFermNegC[0]->Grid();
+          const Coordinate rdimFull = prop.Grid()->_rdimensions;
+          const Coordinate rdimHalf = halfGrid->_rdimensions;
+          const Coordinate cbMask = halfGrid->_checker_dim_mask;
+          const Coordinate ostride = halfGrid->_ostride;
+          const int ndim = halfGrid->_ndimension;
+          const RealD scale = norm / pairScale;
+          const ComplexD negI(0., -1.);
+          const int cbSum = cb;
 
-            autoView(propW, prop, AcceleratorWrite);
-            autoView(propR, prop, AcceleratorRead);
-            // named reference first: autoView(n, *ptr[c], m) expands to
-            // *ptr[c].View(m) -- '.' binds tighter than '*' (ledger)
-            FermionField &sumF = *rbTempC[c];
-            autoView(sumR, sumF, AcceleratorRead);
-            autoView(negR, rbFermNeg, AcceleratorRead);
-            accelerator_for(ss, prop.Grid()->oSites(),
-                            FermionField::vector_type::Nsimd(), {
-              Coordinate coor;
-              int linear = 0;
-              Lexicographic::CoorFromIndex(coor, ss, rdimFull);
-              for (int d = 0; d < ndim; ++d) {
-                if (cbMask[d]) {
-                  linear += coor[d];
-                }
+          autoView(propW, prop, AcceleratorWrite);
+          autoView(propR, prop, AcceleratorRead);
+          // named references first: autoView(n, *ptr[c], m) expands to
+          // *ptr[c].View(m) -- '.' binds tighter than '*' (ledger)
+          FermionField &sumF0 = *rbTempC[0];
+          FermionField &sumF1 = *rbTempC[1];
+          FermionField &sumF2 = *rbTempC[2];
+          FermionField &negF0 = *rbFermNegC[0];
+          FermionField &negF1 = *rbFermNegC[1];
+          FermionField &negF2 = *rbFermNegC[2];
+          autoView(sumR0, sumF0, AcceleratorRead);
+          autoView(sumR1, sumF1, AcceleratorRead);
+          autoView(sumR2, sumF2, AcceleratorRead);
+          autoView(negR0, negF0, AcceleratorRead);
+          autoView(negR1, negF1, AcceleratorRead);
+          autoView(negR2, negF2, AcceleratorRead);
+          accelerator_for(ss, prop.Grid()->oSites(),
+                          FermionField::vector_type::Nsimd(), {
+            Coordinate coor;
+            int linear = 0;
+            Lexicographic::CoorFromIndex(coor, ss, rdimFull);
+            for (int d = 0; d < ndim; ++d) {
+              if (cbMask[d]) {
+                linear += coor[d];
               }
-              int ssh = 0;
-              for (int d = 0; d < ndim; ++d) {
-                if (d == 0) {
-                  ssh += ostride[d] * ((coor[d] / 2) % rdimHalf[d]);
-                } else {
-                  ssh += ostride[d] * (coor[d] % rdimHalf[d]);
-                }
-              }
-              // read-modify-write of the whole site matrix: only column
-              // col changes; rows are the fermion color components
-              auto pmat = coalescedRead(propR[ss]);
-              if ((linear & 0x1) == cbSum) {
-                auto v = coalescedRead(sumR[ssh]) * scale;
-                pmat()()(0, col) = v()()(0);
-                pmat()()(1, col) = v()()(1);
-                pmat()()(2, col) = v()()(2);
+            }
+            int ssh = 0;
+            for (int d = 0; d < ndim; ++d) {
+              if (d == 0) {
+                ssh += ostride[d] * ((coor[d] / 2) % rdimHalf[d]);
               } else {
-                auto w = (negI * coalescedRead(negR[ssh])) * scale;
-                pmat()()(0, col) = w()()(0);
-                pmat()()(1, col) = w()()(1);
-                pmat()()(2, col) = w()()(2);
+                ssh += ostride[d] * (coor[d] % rdimHalf[d]);
               }
-              coalescedWrite(propW[ss], pmat);
-            });
-          }
+            }
+            // site-matrix carrier: read the object for its VALUE TYPE
+            // only (Lattice::vector_type names the raw SIMD type, not
+            // the site object, so coalescedRead is the portable
+            // spelling); every element is overwritten below, so no
+            // zero-init of prop is needed
+            auto pmat = coalescedRead(propR[ss]);
+            if ((linear & 0x1) == cbSum) {
+              auto v0 = coalescedRead(sumR0[ssh]) * scale;
+              auto v1 = coalescedRead(sumR1[ssh]) * scale;
+              auto v2 = coalescedRead(sumR2[ssh]) * scale;
+              pmat()()(0, 0) = v0()()(0);
+              pmat()()(1, 0) = v0()()(1);
+              pmat()()(2, 0) = v0()()(2);
+              pmat()()(0, 1) = v1()()(0);
+              pmat()()(1, 1) = v1()()(1);
+              pmat()()(2, 1) = v1()()(2);
+              pmat()()(0, 2) = v2()()(0);
+              pmat()()(1, 2) = v2()()(1);
+              pmat()()(2, 2) = v2()()(2);
+            } else {
+              auto w0 = (negI * coalescedRead(negR0[ssh])) * scale;
+              auto w1 = (negI * coalescedRead(negR1[ssh])) * scale;
+              auto w2 = (negI * coalescedRead(negR2[ssh])) * scale;
+              pmat()()(0, 0) = w0()()(0);
+              pmat()()(1, 0) = w0()()(1);
+              pmat()()(2, 0) = w0()()(2);
+              pmat()()(0, 1) = w1()()(0);
+              pmat()()(1, 1) = w1()()(1);
+              pmat()()(2, 1) = w1()()(2);
+              pmat()()(0, 2) = w2()()(0);
+              pmat()()(1, 2) = w2()()(1);
+              pmat()()(2, 2) = w2()()(2);
+            }
+            coalescedWrite(propW[ss], pmat);
+          });
         }
 
       }
