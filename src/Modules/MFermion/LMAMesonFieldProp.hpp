@@ -924,10 +924,67 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
           rbFermNeg.Checkerboard() = (cb == Even) ? Odd : Even;
 
           mat.Meooe(*rbTempNegC[c], rbFermNeg);
-          rbFermNeg = ComplexD(0., -1.) * rbFermNeg;
-          setCheckerboard(sol, *rbTempC[c]);
-          setCheckerboard(sol, rbFermNeg);
-          sol *= norm / pairScale;
+
+          // fused per-column assembly: ONE pass over the full-grid sol
+          // replaces the former FOUR element-wise passes (the -i axpy
+          // on rbFermNeg, the two setCheckerboard copies, and the sol
+          // scale). Per element the op sequence is IDENTICAL to the
+          // unfused sequence -- cb-parity sites: sum * scale; other
+          // -parity sites: ((0,-1) * meooe) * scale -- with the same
+          // scalar types and operand order the lattice-level ops
+          // lowered to (Lattice *= lowers to (*this)*r, Lattice_base.h;
+          // the complex scalar product lowers to the same tensor
+          // operator* the eigenpass coefficients use), so results are
+          // bit-identical. The full-grid -> rb-grid site mapping
+          // replicates Grid's acceleratorSetCheckerboard
+          // (Lattice_transfer.h): coordinate from _rdimensions, parity
+          // from _checker_dim_mask, rb index from _ostride with the
+          // checker dim halved. Kernel launches per color column drop
+          // from five to two (assembly + FermToProp; Meooe unchanged)
+          {
+            const GridBase *halfGrid = rbFermNeg.Grid();
+            const Coordinate rdimFull = sol.Grid()->_rdimensions;
+            const Coordinate rdimHalf = halfGrid->_rdimensions;
+            const Coordinate cbMask = halfGrid->_checker_dim_mask;
+            const Coordinate ostride = halfGrid->_ostride;
+            const int ndim = halfGrid->_ndimension;
+            const RealD scale = norm / pairScale;
+            const ComplexD negI(0., -1.);
+            const int cbSum = cb;
+
+            autoView(solW, sol, AcceleratorWrite);
+            // named reference first: autoView(n, *ptr[c], m) expands to
+            // *ptr[c].View(m) -- '.' binds tighter than '*' (ledger)
+            FermionField &sumC = *rbTempC[c];
+            autoView(sumR, sumC, AcceleratorRead);
+            autoView(negR, rbFermNeg, AcceleratorRead);
+            accelerator_for(ss, sol.Grid()->oSites(),
+                            FermionField::vector_type::Nsimd(), {
+              Coordinate coor;
+              int linear = 0;
+              Lexicographic::CoorFromIndex(coor, ss, rdimFull);
+              for (int d = 0; d < ndim; ++d) {
+                if (cbMask[d]) {
+                  linear += coor[d];
+                }
+              }
+              int ssh = 0;
+              for (int d = 0; d < ndim; ++d) {
+                if (d == 0) {
+                  ssh += ostride[d] * ((coor[d] / 2) % rdimHalf[d]);
+                } else {
+                  ssh += ostride[d] * (coor[d] % rdimHalf[d]);
+                }
+              }
+              if ((linear & 0x1) == cbSum) {
+                coalescedWrite(solW[ss],
+                               coalescedRead(sumR[ssh]) * scale);
+              } else {
+                coalescedWrite(solW[ss],
+                               (negI * coalescedRead(negR[ssh])) * scale);
+              }
+            });
+          }
 
           FermToProp<FImpl>(prop, sol, c);
         }
