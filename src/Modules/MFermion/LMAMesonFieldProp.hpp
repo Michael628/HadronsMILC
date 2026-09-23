@@ -744,14 +744,25 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
         // zeroed
         prop = Zero();
 
-        // zero the six per-column accumulators (SUM channels rbTempC,
-        // DIFF channels rbTempNegC): one fused pass per eigenvector below
-        // updates every color column, so all accumulators start clean
-        // before the single eigenpair loop
+        // set the six per-column accumulator checkerboard flags (SUM
+        // channels rbTempC, DIFF channels rbTempNegC). The accumulators
+        // are NOT zero-initialized when at least one eigenpair follows:
+        // the eigenpass opens with a WRITE of the first eigenpair's
+        // contribution (firstUnit below), deleting six zero kernels per
+        // output. Arithmetic matches the former add-to-zero sequence
+        // except that x + 0.0 becomes x, which differs only in the SIGN
+        // of exact-zero components (IEEE: -0.0 + 0.0 = +0.0); every
+        // nonzero value is bit-equal. Degenerate empty eigenpair range
+        // (eigStart == nEigs): no kernel runs, so the accumulators keep
+        // their explicit zero-init -- the tail would otherwise read
+        // garbage
+        const bool emptyEigenpass = (static_cast<int>(eigStart) >= nEigs);
         for (unsigned int c = 0; c < FImpl::Dimension; ++c) {
-          *rbTempC[c] = Zero();
+          if (emptyEigenpass) {
+            *rbTempC[c] = Zero();
+            *rbTempNegC[c] = Zero();
+          }
           rbTempC[c]->Checkerboard() = cb;
-          *rbTempNegC[c] = Zero();
           rbTempNegC[c]->Checkerboard() = cb;
         }
 
@@ -804,8 +815,13 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
           // dominates these small kernels, and batching leaves the
           // per-element accumulation order exactly as before (k strictly
           // descending; batch statements in k order), so results stay
-          // bit-identical. The trailing nEigs % 4 eigenpairs fall through
+          // bit-identical. The FIRST kernel (batch or single) WRITES the
+          // highest-k contribution instead of accumulating onto zero
+          // (the accumulators are deliberately not zero-initialized):
+          // value-identical except for the sign of exact-zero
+          // components. The trailing nEigs % 4 eigenpairs fall through
           // to the single-eigenpair kernel below
+          bool firstUnit = true;
           int kHi = static_cast<int>(eigStart) + nEigs - 1;
           for (; kHi - 3 >= int(eigStart); kHi -= 4) {
             const int kA = kHi, kB = kHi - 1, kC = kHi - 2, kD = kHi - 3;
@@ -828,6 +844,8 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
             const ComplexD sD0 = sumC[0], sD1 = sumC[1], sD2 = sumC[2];
             const ComplexD dD0 = negC[0], dD1 = negC[1], dD2 = negC[2];
 
+            const bool first = firstUnit;
+            firstUnit = false;
             autoView(eAR_v, eA, AcceleratorRead);
             autoView(eBR_v, eB, AcceleratorRead);
             autoView(eCR_v, eC, AcceleratorRead);
@@ -838,12 +856,36 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
               auto evB = coalescedRead(eBR_v[ss]);
               auto evC = coalescedRead(eCR_v[ss]);
               auto evD = coalescedRead(eDR_v[ss]);
-              // statements in k order (A,B,C,D): each accumulator's update
-              // sequence per element matches the unbatched kernel exactly
-              // (the R and W views alias one buffer, so later statements
-              // read the value written by earlier ones)
-              coalescedWrite(t0W_v[ss],
-                             sA0 * evA + coalescedRead(t0R_v[ss]));
+              // statements in k order (A,B,C,D): each accumulator's
+              // update sequence per element matches the unbatched kernel
+              // exactly (the R and W views alias one buffer, so later
+              // statements read the value written by earlier ones).
+              // Reordering the six A statements into one block is
+              // sequence-preserving: every accumulator is an independent
+              // buffer, and each keeps its own A-then-B/C/D order.
+              // first: the A statements OPEN the accumulation (WRITE,
+              // not add-to-zero -- see firstUnit)
+              if (first) {
+                coalescedWrite(t0W_v[ss], sA0 * evA);
+                coalescedWrite(t1W_v[ss], sA1 * evA);
+                coalescedWrite(t2W_v[ss], sA2 * evA);
+                coalescedWrite(n0W_v[ss], dA0 * evA);
+                coalescedWrite(n1W_v[ss], dA1 * evA);
+                coalescedWrite(n2W_v[ss], dA2 * evA);
+              } else {
+                coalescedWrite(t0W_v[ss],
+                               sA0 * evA + coalescedRead(t0R_v[ss]));
+                coalescedWrite(t1W_v[ss],
+                               sA1 * evA + coalescedRead(t1R_v[ss]));
+                coalescedWrite(t2W_v[ss],
+                               sA2 * evA + coalescedRead(t2R_v[ss]));
+                coalescedWrite(n0W_v[ss],
+                               dA0 * evA + coalescedRead(n0R_v[ss]));
+                coalescedWrite(n1W_v[ss],
+                               dA1 * evA + coalescedRead(n1R_v[ss]));
+                coalescedWrite(n2W_v[ss],
+                               dA2 * evA + coalescedRead(n2R_v[ss]));
+              }
               coalescedWrite(t0W_v[ss],
                              sB0 * evB + coalescedRead(t0R_v[ss]));
               coalescedWrite(t0W_v[ss],
@@ -851,15 +893,11 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
               coalescedWrite(t0W_v[ss],
                              sD0 * evD + coalescedRead(t0R_v[ss]));
               coalescedWrite(t1W_v[ss],
-                             sA1 * evA + coalescedRead(t1R_v[ss]));
-              coalescedWrite(t1W_v[ss],
                              sB1 * evB + coalescedRead(t1R_v[ss]));
               coalescedWrite(t1W_v[ss],
                              sC1 * evC + coalescedRead(t1R_v[ss]));
               coalescedWrite(t1W_v[ss],
                              sD1 * evD + coalescedRead(t1R_v[ss]));
-              coalescedWrite(t2W_v[ss],
-                             sA2 * evA + coalescedRead(t2R_v[ss]));
               coalescedWrite(t2W_v[ss],
                              sB2 * evB + coalescedRead(t2R_v[ss]));
               coalescedWrite(t2W_v[ss],
@@ -867,23 +905,17 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
               coalescedWrite(t2W_v[ss],
                              sD2 * evD + coalescedRead(t2R_v[ss]));
               coalescedWrite(n0W_v[ss],
-                             dA0 * evA + coalescedRead(n0R_v[ss]));
-              coalescedWrite(n0W_v[ss],
                              dB0 * evB + coalescedRead(n0R_v[ss]));
               coalescedWrite(n0W_v[ss],
                              dC0 * evC + coalescedRead(n0R_v[ss]));
               coalescedWrite(n0W_v[ss],
                              dD0 * evD + coalescedRead(n0R_v[ss]));
               coalescedWrite(n1W_v[ss],
-                             dA1 * evA + coalescedRead(n1R_v[ss]));
-              coalescedWrite(n1W_v[ss],
                              dB1 * evB + coalescedRead(n1R_v[ss]));
               coalescedWrite(n1W_v[ss],
                              dC1 * evC + coalescedRead(n1R_v[ss]));
               coalescedWrite(n1W_v[ss],
                              dD1 * evD + coalescedRead(n1R_v[ss]));
-              coalescedWrite(n2W_v[ss],
-                             dA2 * evA + coalescedRead(n2R_v[ss]));
               coalescedWrite(n2W_v[ss],
                              dB2 * evB + coalescedRead(n2R_v[ss]));
               coalescedWrite(n2W_v[ss],
@@ -893,7 +925,8 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
             });
           }
           // trailing eigenpairs (nEigs % 4): the original single-eigenpair
-          // kernel
+          // kernel; its first launch WRITES when no batch preceded it
+          // (nEigs < 4)
           for (; kHi >= int(eigStart); --kHi) {
             const FermionField &e = epack.evec[kHi];
 
@@ -902,16 +935,27 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
             const ComplexD s0 = sumC[0], s1 = sumC[1], s2 = sumC[2];
             const ComplexD d0 = negC[0], d1 = negC[1], d2 = negC[2];
 
+            const bool first = firstUnit;
+            firstUnit = false;
             autoView(eR_v, e, AcceleratorRead);
             accelerator_for(ss, eR_v.size(),
                             FermionField::vector_type::Nsimd(), {
               auto ev = coalescedRead(eR_v[ss]);
-              coalescedWrite(t0W_v[ss], s0 * ev + coalescedRead(t0R_v[ss]));
-              coalescedWrite(t1W_v[ss], s1 * ev + coalescedRead(t1R_v[ss]));
-              coalescedWrite(t2W_v[ss], s2 * ev + coalescedRead(t2R_v[ss]));
-              coalescedWrite(n0W_v[ss], d0 * ev + coalescedRead(n0R_v[ss]));
-              coalescedWrite(n1W_v[ss], d1 * ev + coalescedRead(n1R_v[ss]));
-              coalescedWrite(n2W_v[ss], d2 * ev + coalescedRead(n2R_v[ss]));
+              if (first) {
+                coalescedWrite(t0W_v[ss], s0 * ev);
+                coalescedWrite(t1W_v[ss], s1 * ev);
+                coalescedWrite(t2W_v[ss], s2 * ev);
+                coalescedWrite(n0W_v[ss], d0 * ev);
+                coalescedWrite(n1W_v[ss], d1 * ev);
+                coalescedWrite(n2W_v[ss], d2 * ev);
+              } else {
+                coalescedWrite(t0W_v[ss], s0 * ev + coalescedRead(t0R_v[ss]));
+                coalescedWrite(t1W_v[ss], s1 * ev + coalescedRead(t1R_v[ss]));
+                coalescedWrite(t2W_v[ss], s2 * ev + coalescedRead(t2R_v[ss]));
+                coalescedWrite(n0W_v[ss], d0 * ev + coalescedRead(n0R_v[ss]));
+                coalescedWrite(n1W_v[ss], d1 * ev + coalescedRead(n1R_v[ss]));
+                coalescedWrite(n2W_v[ss], d2 * ev + coalescedRead(n2R_v[ss]));
+              }
             });
           }
         }
@@ -920,7 +964,11 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
         //          [ SUM-channel - i * Meooe(DIFF/lam-channel) ]
         // for each color column c, from the c-th accumulators above
         for (unsigned int c = 0; c < FImpl::Dimension; ++c) {
-          rbFermNeg = Zero();
+          // no zero-init of rbFermNeg: Meooe fully overwrites its output
+          // (DhopImproved opens out AcceleratorWrite and coalescedWrites
+          // every site, never reading it; proven bit-identical against
+          // stale buffer content in a prior experiment). Only the
+          // checkerboard flag is metadata-set
           rbFermNeg.Checkerboard() = (cb == Even) ? Odd : Even;
 
           mat.Meooe(*rbTempNegC[c], rbFermNeg);
