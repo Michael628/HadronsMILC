@@ -118,7 +118,15 @@ template <typename FImpl> void TGaugePropMILC<FImpl>::parseGammas(void) {
       if (gamma_vals.size() == 1) {
         _mapGammas.insert({"", gamma_vals[i]});
       } else {
-        _mapGammas.insert({StagGamma::GetName(gamma_keys[i]), gamma_vals[i]});
+        // multi-gamma keys carry a LEADING underscore so every name
+        // composed from them joins the base with a separator: outputs
+        // getName()+"_<gamma>", guess objects par().guess+"_<gamma>",
+        // and Meson's multi-gamma source lookups source+"_<gamma>" --
+        // the grammar of LMAMesonFieldProp's "<name>_t<t>_<gamma>"
+        // output family (bare keys glued the gamma segment onto the
+        // preceding timeslice segment: ..._t0GX_GX vs ..._t0_GX_GX)
+        _mapGammas.insert(
+            {"_" + StagGamma::GetName(gamma_keys[i]), gamma_vals[i]});
       }
     }
   }

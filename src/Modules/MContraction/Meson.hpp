@@ -158,10 +158,13 @@ std::vector<std::string> TMesonMILC<FImpl>::getInput(void) {
   }
 
   // Only add suffix to object name if there are multiple gammas
+  // (underscore-separated, in lockstep with GaugeProp's multi-gamma
+  // output family "<name>_<gamma>" -- keep this composition and the
+  // executeHelper one below identical to GaugeProp::parseGammas keys)
   if (_sourceGammas.size() > 1) {
     for (auto iter = _sourceGammas.begin(); iter != _sourceGammas.end();
          ++iter) {
-      in.push_back(par().source + *iter);
+      in.push_back(par().source + "_" + *iter);
     }
   } else {
     in.push_back(par().source);
@@ -315,8 +318,10 @@ void TMesonMILC<FImpl>::executeHelper(std::vector<Result> &results,
 
     if (!par().sourceGammas.empty()) {
       // Only add suffix to object name if there are multiple gammas
+      // (underscore separator -- same composition as getInput,
+      // matching GaugeProp's multi-gamma output names)
       if (_sourceGammas.size() > 1) {
-        srcName += _sourceGammas[i];
+        srcName += "_" + _sourceGammas[i];
       }
       results[i].sourceGamma = _sourceGammas[i];
       LOG(Message) << "Using source gamma: '" << results[i].sourceGamma << "'."
