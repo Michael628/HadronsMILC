@@ -206,6 +206,52 @@
       </options>
     </module>
 
+    <!-- Guess-capable solver for the regression module below: the live
+         StagLMA projector (lma_ref) registers only the two-argument
+         Solver interface (no gfn_), so a guessed solve would abort with
+         std::bad_function_call; plain CG accepts the guess field as its
+         starting vector (CG.hpp makeGuessSolver). -->
+    <module>
+      <id><name>cg</name><type>MSolver::StagCGMILC</type></id>
+      <options>
+        <action>stag</action>
+        <guesser></guesser>
+        <maxIteration>10000</maxIteration>
+        <residual>1e-08</residual>
+      </options>
+    </module>
+
+    <!-- Regression: multi-gamma GaugeProp consuming LMAMesonFieldProp
+         outputs as per-gamma guesses: the production AMA wiring whose
+         graph build failed before the gamma-key grammar alignment
+         (guess expansion produced lma_file_t0G1_G1 while the producer
+         emits lma_file_t0_G1_G1). guess is a PREFIX: GaugeProp appends
+         its own per-gamma keys (_G1_G1/_G5_G5), resolving to
+         lma_file_t0_G1_G1 / lma_file_t0_G5_G5. The source is the
+         scalar PropagatorField lma_file_t0_G1_G1 (the guess type must
+         match the source type); the CG solver above completes each
+         normal-equations solve from its guess (the G5 solve's
+         guess/source pairing is deliberately mismatched: one
+         (G1,G1)-rotated source serves both gammas; wiring-only
+         regression, per D4). Success = the module
+         graph builds and this module executes: no ObjectDefinition
+         throw; outputs gprop_guess_G1_G1 / gprop_guess_G5_G5 are left
+         unconsumed (unreferenced modules still execute under the
+         naive scheduler). -->
+    <module>
+      <id><name>gprop_guess</name><type>MFermion::StagGaugeProp</type></id>
+      <options>
+        <guess>lma_file_t0</guess>
+        <solver>cg</solver>
+        <source>lma_file_t0_G1_G1</source>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(G1 G1) (G5 G5)</gammas>
+          <gauge>gauge</gauge>
+        </spinTaste>
+      </options>
+    </module>
+
     <!-- Extract each gamma's t=0 propagator color columns for the probe
          contractions (same color-window comparability as the
          file-compare schedule). -->
