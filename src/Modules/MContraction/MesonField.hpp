@@ -214,19 +214,61 @@ private:
 
   // Pack n CB pairs into cached full-grid objects: E copy on even
   // sites, O copy on odd (the setCheckerboard convention the worker's CB
-  // modes expect; Test_a2a_stencil.cc packing precedent).
+  // modes expect; Test_a2a_stencil.cc packing precedent). ONE fused
+  // accelerator pass per pair replaces the former Zero + two
+  // setCheckerboard passes (three kernels): every site is written (both
+  // parities covered), so no zero-init is needed, and the copies are
+  // value-identical to the unfused sequence. The full-grid -> rb-grid
+  // site mapping replicates Grid's acceleratorSetCheckerboard
+  // (Lattice_transfer.h): coordinate from _rdimensions, parity from
+  // _checker_dim_mask, rb index from _ostride with the checker dim
+  // halved. Public because nvcc forbids extended __host__ __device__
+  // lambdas (accelerator_for) inside private/protected member functions.
+public:
   void growPack(std::vector<FermionField> &pack, const int n,
                 const FermionField *even, const FermionField *odd) {
     if ((int)pack.size() < n) {
       pack.resize(n, _stencilWorker->_grid);
     }
     for (int k = 0; k < n; ++k) {
-      pack[k] = Zero();
-      setCheckerboard(pack[k], even[k]);
-      setCheckerboard(pack[k], odd[k]);
+      autoView(packW, pack[k], AcceleratorWrite);
+      autoView(evenR, even[k], AcceleratorRead);
+      autoView(oddR, odd[k], AcceleratorRead);
+      const GridBase *rbGrid = even[k].Grid();
+      const Coordinate rdimFull = pack[k].Grid()->_rdimensions;
+      const Coordinate rdimHalf = rbGrid->_rdimensions;
+      const Coordinate cbMask = rbGrid->_checker_dim_mask;
+      const Coordinate ostride = rbGrid->_ostride;
+      const int ndim = rbGrid->_ndimension;
+      const int cbEven = even[k].Checkerboard();
+      accelerator_for(ss, pack[k].Grid()->oSites(),
+                      FermionField::vector_type::Nsimd(), {
+        Coordinate coor;
+        int linear = 0;
+        Lexicographic::CoorFromIndex(coor, ss, rdimFull);
+        for (int d = 0; d < ndim; ++d) {
+          if (cbMask[d]) {
+            linear += coor[d];
+          }
+        }
+        int ssh = 0;
+        for (int d = 0; d < ndim; ++d) {
+          if (d == 0) {
+            ssh += ostride[d] * ((coor[d] / 2) % rdimHalf[d]);
+          } else {
+            ssh += ostride[d] * (coor[d] % rdimHalf[d]);
+          }
+        }
+        if ((linear & 0x1) == cbEven) {
+          coalescedWrite(packW[ss], coalescedRead(evenR[ssh]));
+        } else {
+          coalescedWrite(packW[ss], coalescedRead(oddR[ssh]));
+        }
+      });
     }
   }
 
+private:
   // Convert the raw (2*sizeL, sizeR) parity partials M0/M1 into the legacy
   // interleaved slot layout -- the exact algebraic image of the legacy
   // simdSumHalf/simdSumMixed tables, validated value-for-value against the
