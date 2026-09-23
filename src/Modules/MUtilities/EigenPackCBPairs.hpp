@@ -100,7 +100,11 @@ public:
       // BEFORE the call, and re-labeled after the expression-template
       // multiply (ET assignments do not propagate the checkerboard
       // attribute -- EigenPackFullPairs' documented lesson).
-      *temp_ = Zero();
+      // no zero-init of temp_: Meooe fully overwrites its output
+      // (DhopImproved opens out AcceleratorWrite and coalescedWrites
+      // every site, never reading it; proven bit-identical against
+      // stale buffer content in a prior experiment). Only the
+      // checkerboard flag is metadata-set
       temp_->Checkerboard() = cbNeg;
       action_.Meooe(e, *temp_);
       *temp_ = (1.0 / eval_D) * *temp_;
