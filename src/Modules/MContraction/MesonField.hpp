@@ -60,21 +60,28 @@ public:
                                   lowModes, std::string, left, std::string,
                                   cbPairsLeft, std::string, cbPairsRight,
                                   std::string, right, std::string, output,
-                                  SpinTasteParams, spinTaste,
+                                  std::string, gammas,
                                   std::vector<std::string>, mom);
   MesonFieldMILCPar() {}
 };
+// gammas: name of an MFermion::SpinTaste module publishing
+//         std::vector<StagGamma> (gauge bound by the module for every
+//         displacing operator)
 
 class MesonFieldMILCMetadata : Serializable {
 public:
   GRID_SERIALIZABLE_CLASS_MEMBERS(MesonFieldMILCMetadata, std::vector<RealF>,
                                   momentum, StagGamma::StagAlgebra, gamma_spin,
-                                  StagGamma::StagAlgebra, gamma_taste);
+                                  StagGamma::StagAlgebra, gamma_taste,
+                                  std::string, version);
 
   MesonFieldMILCMetadata()
       : momentum{}, gamma_spin(StagGamma::StagAlgebra::undef),
-        gamma_taste(StagGamma::StagAlgebra::undef) {}
+        gamma_taste(StagGamma::StagAlgebra::undef), version("1") {}
 };
+// version: sign-convention schema marker. "1" = eps-fold-correct StagGamma
+// objects (this migration). Absent in pre-migration files: loaders treat
+// missing as unversioned (warn, D8).
 
 template <typename T, typename FImpl>
 class MesonFieldKernelMILC
@@ -118,15 +125,13 @@ public:
   virtual double globalSumTime() { return _stencilWorker->_t_gsum; }
   void setWorkerStencil(GridCartesian *grid,
                         const std::vector<ComplexField> &mom,
-                        const std::vector<StagGamma::SpinTastePair> &gammas,
+                        const std::vector<StagGamma> &gammas,
                         int orthogDir, LatticeGaugeField *U) {
     _stencilWorker = std::make_unique<A2AWorkerSpinTasteStencil<FImpl>>(
         grid, mom, gammas, U, orthogDir);
     _sigma.clear();
-    StagGamma spinTaste;
-    for (auto &g : gammas) {
-      spinTaste.setSpinTaste(g);
-      int pc = StagGamma::popcountShift(spinTaste._spin, spinTaste._taste);
+    for (const auto &g : gammas) {
+      int pc = StagGamma::popcountShift(g._spin, g._taste);
       _sigma.push_back((pc & 1) ? -1.0 : 1.0);
     }
   }
@@ -337,7 +342,6 @@ public:
 
 private:
   std::string _momphName;
-  std::vector<StagGamma::SpinTastePair> _gammas;
   std::vector<std::vector<Real>> _mom;
 };
 
@@ -370,9 +374,11 @@ std::vector<std::string> TMesonFieldMILC<FImpl, Pack>::getInput(void) {
     in.push_back(par().lowModes);
   }
 
-  if (!par().spinTaste.gauge.empty()) {
-    in.push_back(par().spinTaste.gauge);
+  if (par().gammas.empty()) {
+    HADRONS_ERROR(Argument,
+                  "MesonField requires the 'gammas' SpinTaste module name");
   }
+  in.push_back(par().gammas);
 
   return in;
 }
@@ -387,13 +393,23 @@ std::vector<std::string> TMesonFieldMILC<FImpl, Pack>::getOutput(void) {
 // setup ///////////////////////////////////////////////////////////////////////
 template <typename FImpl, typename Pack>
 void TMesonFieldMILC<FImpl, Pack>::setup(void) {
-  _gammas = StagGamma::ParseSpinTasteString(par().spinTaste.gammas,
-                                            par().spinTaste.applyG5);
+  if (par().gammas.empty()) {
+    HADRONS_ERROR(Argument,
+                  "MesonField requires the 'gammas' SpinTaste module name");
+  }
+  const auto &gammas = envGet(std::vector<StagGamma>, par().gammas);
 
-  if (_gammas.empty()) {
+  if (gammas.empty()) {
     LOG(Warning) << "MesonField: empty spin-taste gamma list; no meson "
                     "fields will be computed"
                  << std::endl;
+  }
+  for (const auto &g : gammas) {
+    if ((StagGamma::popcountShift(g._spin, g._taste) > 0) && (g.U == nullptr)) {
+      HADRONS_ERROR(Argument,
+                    "gammas module '" + par().gammas + "' carries no gauge "
+                    "but gamma '" + g.getLabelName() + "' is displacing");
+    }
   }
 
   _mom.clear();
@@ -449,9 +465,6 @@ void TMesonFieldMILC<FImpl, Pack>::setup(void) {
                             "supported; got " +
                                 std::to_string(_mom.size()));
   }
-  if (par().spinTaste.gauge.empty()) {
-    HADRONS_ERROR(Argument, "MesonField requires 'spinTaste.gauge'");
-  }
 
   envCache(std::vector<ComplexField>, _momphName, 1, nmom,
            envGetGrid(ComplexField));
@@ -459,7 +472,7 @@ void TMesonFieldMILC<FImpl, Pack>::setup(void) {
   envTmpLat(ComplexField, "coor");
 
   envTmp(Computation, "computationStencil", 1, envGetGrid(FermionField),
-         env().getNd() - 1, _mom.size(), _gammas.size(), par().block, this);
+         env().getNd() - 1, _mom.size(), gammas.size(), par().block, this);
 
   envTmp(std::vector<FermionField>, "dummy", 1, 0, envGetGrid(FermionField));
 }
@@ -518,10 +531,13 @@ void TMesonFieldMILC<FImpl, Pack>::execute(void) {
     LOG(Message) << "  " << p << std::endl;
   }
 
-  LOG(Message) << "Spin bilinears:" << std::endl;
+  const auto &gammas = envGet(std::vector<StagGamma>, par().gammas);
 
-  for (auto &g : _gammas) {
-    LOG(Message) << "  " << StagGamma::GetName(g) << std::endl;
+  LOG(Message) << "Spin bilinears:" << std::endl;
+  for (const auto &g : gammas) {
+    LOG(Message) << "  " << g.getLabelName()
+                 << " (physics pair '" << StagGamma::GetName(g._spin, g._taste)
+                 << "')" << std::endl;
   }
 
   LOG(Message) << "Meson field size: " << nt << "*" << N_i << "*" << N_j
@@ -546,10 +562,11 @@ void TMesonFieldMILC<FImpl, Pack>::execute(void) {
   }
   stopTimer("Momentum phases");
 
-  auto gammaIOnameFn = [this](const unsigned int m, const unsigned int g) {
+  auto gammaIOnameFn = [this, &gammas](const unsigned int m,
+                                       const unsigned int g) {
     std::stringstream ss;
 
-    ss << StagGamma::GetName(_gammas[g]) << "_";
+    ss << StagGamma::GetName(gammas[g]._spin, gammas[g]._taste) << "_";
 
     for (unsigned int mu = 0; mu < _mom[m].size(); ++mu) {
       ss << _mom[m][mu] << ((mu == _mom[m].size() - 1) ? "" : "_");
@@ -564,15 +581,17 @@ void TMesonFieldMILC<FImpl, Pack>::execute(void) {
            gammaIOnameFn(m, g) + ".h5";
   };
 
-  auto gammaMetadataFn = [this](const unsigned int m, const unsigned int g) {
+  auto gammaMetadataFn = [this, &gammas](const unsigned int m,
+                                         const unsigned int g) {
     MesonFieldMILCMetadata md;
 
     for (auto pmu : _mom[m]) {
       md.momentum.push_back(pmu);
     }
 
-    md.gamma_spin = _gammas[g].first;
-    md.gamma_taste = _gammas[g].second;
+    md.gamma_spin = gammas[g]._spin;
+    md.gamma_taste = gammas[g]._taste;
+    md.version = "1";
 
     return md;
   };
@@ -582,8 +601,8 @@ void TMesonFieldMILC<FImpl, Pack>::execute(void) {
   Kernel kernel(envGetGrid(FermionField));
 
   GaugeField *U = nullptr;
-  if (!par().spinTaste.gauge.empty()) {
-    U = env().template getObject<GaugeField>(par().spinTaste.gauge);
+  if (!gammas.empty()) {
+    U = gammas[0].U; // bound by the gammas module (public member)
   }
 
   int orthogDir = env().getNd() - 1;
@@ -591,13 +610,13 @@ void TMesonFieldMILC<FImpl, Pack>::execute(void) {
   // One stencil worker serves every gamma: the task handles mixed
   // popcounts natively (per-gamma endpoint tables), amortizing the
   // gauge-chain setup across the whole run.
-  if (_gammas.size() > 0) {
+  if (gammas.size() > 0) {
     GridCartesian *grid =
         dynamic_cast<GridCartesian *>(envGetGrid(FermionField));
     if (grid == nullptr) {
       HADRONS_ERROR(Implementation, "MesonField requires a Cartesian grid");
     }
-    kernel.setWorkerStencil(grid, ph, _gammas, orthogDir, U);
+    kernel.setWorkerStencil(grid, ph, gammas, orthogDir, U);
     if (hasLowModes) {
       auto &lowModes = envGet(Pack, par().lowModes);
       if (isCheckerBoarded) {

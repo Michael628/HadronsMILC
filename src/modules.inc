@@ -32,6 +32,7 @@ modules_cpp =\
   Modules/MUtilities/EigenPackCheck.cpp \
   Modules/MUtilities/EigenPackExtractEvals.cpp \
   Modules/MUtilities/EigenPackFullPairs.cpp \
+  Modules/MUtilities/GammaMapElement.cpp \
   Modules/MUtilities/ModifyEigenPack.cpp \
   Modules/MUtilities/PropToFermions.cpp
 
@@ -69,6 +70,7 @@ modules_hpp =\
   Modules/MUtilities/EigenPackCheck.hpp \
   Modules/MUtilities/EigenPackExtractEvals.hpp \
   Modules/MUtilities/EigenPackFullPairs.hpp \
+  Modules/MUtilities/GammaMapElement.hpp \
   Modules/MUtilities/ModifyEigenPack.hpp \
   Modules/MUtilities/PropToFermions.hpp
 

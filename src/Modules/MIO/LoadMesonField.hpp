@@ -70,6 +70,16 @@ BEGIN_HADRONS_NAMESPACE
     against gamma_spin/gamma_taste so a miswired gamma/file pairing fails
     loudly instead of silently producing mislabeled output names.
 
+    Version policy: files written after the eps-fold (applyG5 = eps
+    circle Gamma) migration carry a 'version' member in their metadata
+    ("1"). The loader reads 'version' TOLERANTLY: pre-migration files
+    lack the attribute and load with version cleared. Unversioned files
+    whose spin-taste is displacing (popcount(spin^taste) >= 1) draw a
+    WARNING: their Y/T one-link operators carry the old sign convention;
+    local-gamma files are sign-immune and get a note only. A version
+    newer than this build knows ("1") is an error. Never rejects on the
+    stale-sign condition itself.
+
     The loader refuses files that are not at zero momentum: momenta put
     site-dependent phases on the stored elements that downstream consumers
     (the StagLMAMesonFieldProp producer) cannot reconstruct from. Any
@@ -189,7 +199,24 @@ void TLoadMesonField<FImpl, Pack>::execute(void) {
     // pass
     try
     {
-      read(reader, par().dataset, md);
+      // tolerant version read: pre-migration files lack the 'version'
+      // attribute, and a plain generated struct read would throw
+      // H5::AttributeIException on the missing member. Read the members
+      // individually (exactly the calls the generated read makes) and
+      // read 'version' only when the attribute exists
+      push(reader, par().dataset);
+      read(reader, "momentum", md.momentum);
+      read(reader, "gamma_spin", md.gamma_spin);
+      read(reader, "gamma_taste", md.gamma_taste);
+      if (reader.getGroup().attrExists("version"))
+      {
+        read(reader, "version", md.version);
+      }
+      else
+      {
+        md.version = "";  // unversioned (pre-migration) file
+      }
+      pop(reader);
     }
     catch (const std::exception &e)
     {
@@ -216,8 +243,42 @@ void TLoadMesonField<FImpl, Pack>::execute(void) {
                     "metadata (gamma_spin/gamma_taste missing or unreadable "
                     "in MesonFieldMILCMetadata)");
     }
+    // version policy (D8): never reject on the stale-sign condition.
+    // "1" = eps-fold-correct schema. Unversioned (pre-migration) files
+    // whose gamma is displacing carry the OLD sign convention for Y/T
+    // one-link operators -- warn. Local gammas are sign-immune -- note.
+    if (md.version.empty())
+    {
+      if (StagGamma::popcountShift(md.gamma_spin, md.gamma_taste) >= 1)
+      {
+        LOG(Warning) << "meson field '" << fileName
+                     << "' is unversioned (pre-eps-fold schema) and its "
+                        "spin-taste '"
+                     << StagGamma::GetName(md.gamma_spin, md.gamma_taste)
+                     << "' is displacing: values were produced under the "
+                        "old sign convention -- Y/T one-link operators "
+                        "flip under the eps-circle-Gamma fix (applyG5). "
+                        "Regenerate or reweight with care" << std::endl;
+      }
+      else
+      {
+        LOG(Message) << "meson field '" << fileName
+                     << "' is unversioned (pre-eps-fold schema) but its "
+                        "spin-taste is local: values are sign-immune"
+                     << std::endl;
+      }
+    }
+    else if (md.version != "1")
+    {
+      HADRONS_ERROR(Argument, "meson field '" + fileName +
+                                  "' carries unknown metadata version '" +
+                                  md.version +
+                                  "' (this build knows version \"1\")");
+    }
     LOG(Message) << "Meson-field spin-taste: '"
                  << StagGamma::GetName(md.gamma_spin, md.gamma_taste)
+                 << "', version '"
+                 << (md.version.empty() ? "unversioned" : md.version)
                  << "', zero momentum" << std::endl;
 
     // publish the validated metadata: setup() created the side object

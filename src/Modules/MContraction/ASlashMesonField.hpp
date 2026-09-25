@@ -50,12 +50,16 @@ public:
   GRID_SERIALIZABLE_CLASS_MEMBERS(ASlashMesonFieldMILCPar, int, block,
                                   std::string, lowModes, std::string, left,
                                   std::string, action, std::string, right,
-                                  std::string, output, SpinTasteParams,
-                                  spinTaste, std::string, EmFunc, int,
+                                  std::string, output, std::string, gammas,
+                                  std::string, EmFunc, int,
                                   nEmFields, std::string, EmSeedString,
                                   std::vector<std::string>, mom);
   ASlashMesonFieldMILCPar() : nEmFields(0) {}
 };
+// gammas: name of an MFermion::SpinTaste module publishing exactly Nd
+//         (4) std::vector<StagGamma> entries -- the directional Amu phase
+//         loop folds entry k's spin-taste phase onto the k-th photon
+//         component via applyCoeffsAndPhase
 
 class ASlashMesonFieldMILCMetadata : Serializable {
 public:
@@ -151,7 +155,6 @@ public:
   virtual void execute(void);
 
 private:
-  bool _hasPhase{false};
   bool _hasAmu{false};
   std::string _momphName, _EmName;
   std::vector<std::vector<Real>> _mom;
@@ -191,6 +194,12 @@ std::vector<std::string> TASlashMesonFieldMILC<FImpl, Pack>::getInput(void) {
     in.push_back(par().EmFunc);
   }
 
+  if (par().gammas.empty()) {
+    HADRONS_ERROR(Argument, "ASlashMesonField requires the 'gammas' "
+                            "SpinTaste module name");
+  }
+  in.push_back(par().gammas);
+
   return in;
 }
 
@@ -204,6 +213,11 @@ std::vector<std::string> TASlashMesonFieldMILC<FImpl, Pack>::getOutput(void) {
 // setup ///////////////////////////////////////////////////////////////////////
 template <typename FImpl, typename Pack>
 void TASlashMesonFieldMILC<FImpl, Pack>::setup(void) {
+  if (par().gammas.empty()) {
+    HADRONS_ERROR(Argument, "ASlashMesonField requires the 'gammas' "
+                            "SpinTaste module name");
+  }
+
   _mom.clear();
 
   for (auto &pstr : par().mom) {
@@ -323,8 +337,6 @@ void TASlashMesonFieldMILC<FImpl, Pack>::execute(void) {
   stopTimer("Momentum phases");
 
   if (!_hasAmu && !par().EmFunc.empty()) {
-    StagGamma gamma;
-
     envGetTmp(EmField, AField);
     envGetTmp(ComplexField, coor);
 
@@ -337,11 +349,12 @@ void TASlashMesonFieldMILC<FImpl, Pack>::execute(void) {
     if (!par().EmSeedString.empty())
       rng.SeedUniqueString(par().EmSeedString);
 
-    auto gamma_vals = StagGamma::ParseSpinTasteString(par().spinTaste.gammas,
-                                                      par().spinTaste.applyG5);
-    if (gamma_vals.size() != env().getNd()) {
-      HADRONS_ERROR(Argument,
-                    "spinTaste parameter must provide 4 gammas for J.A")
+    const auto &gammas = envGet(std::vector<StagGamma>, par().gammas);
+    if (gammas.size() != env().getNd()) {
+      HADRONS_ERROR(Argument, "gammas module '" + par().gammas +
+                  "' must publish exactly " + std::to_string(env().getNd()) +
+                  " gammas for J.A (got " + std::to_string(gammas.size()) +
+                  ")");
     }
 
     for (unsigned int j = 0; j < par().nEmFields; ++j) {
@@ -349,9 +362,8 @@ void TASlashMesonFieldMILC<FImpl, Pack>::execute(void) {
       Amu[j] = Zero();
       photon.StochasticField(AField, rng, w);
       for (unsigned int k = 0; k < env().getNd(); ++k) {
-        gamma.setSpinTaste(gamma_vals[k]);
         coor = PeekIndex<LorentzIndex>(AField, k);
-        gamma.applyCoeffsAndPhase(coor, coor);
+        gammas[k].applyCoeffsAndPhase(coor, coor);
         Amu[j] += coor;
       }
     }

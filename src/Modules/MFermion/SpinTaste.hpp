@@ -36,7 +36,41 @@
 #include <Hadrons/ModuleFactory.hpp>
 #include <GridMilc/GridMilc.h>
 
+#include <map>
+#include <string>
+#include <vector>
+
 BEGIN_HADRONS_NAMESPACE
+
+/******************************************************************************
+ *                     TGammaMap: label-keyed per-gamma maps                   *
+ ******************************************************************************/
+// Cross-module gamma association: the key is each gamma's RAW label
+// (StagGamma::getLabelName -- naming follows the label, physics follows
+// the object), the value the per-gamma product (propagator fields,
+// per-timeslice maps, ...). Entries are constructed from the gammas
+// module's vector INSIDE the envCreate window: the environment's memory
+// profiler sizes objects by the allocation delta around construction
+// (Hadrons/Environment.hpp createObject), so post-hoc fills would be
+// invisible to the scheduler's peak-memory objective. Duplicate labels
+// dedupe by first occurrence (map::emplace no-op on existing keys),
+// matching the first-wins semantics of the former std::map::insert keys.
+template <typename T>
+class TGammaMap : public std::map<std::string, T> {
+public:
+  TGammaMap(void) = default;
+
+  // One entry per gamma label; every value copy-constructed from the
+  // same ctor arguments (a GridBase* for lattices, a size and a
+  // GridBase* for per-source vectors).
+  template <typename... Args>
+  TGammaMap(const std::vector<StagGamma> &gammas, Args &&...args)
+      : std::map<std::string, T>() {
+    for (auto &g : gammas) {
+      this->emplace(g.getLabelName(), args...);
+    }
+  }
+};
 
 /******************************************************************************
  *                                 SpinTasteMILC *
@@ -63,10 +97,6 @@ protected:
   virtual void setup(void);
   // execution
   virtual void execute(void);
-
-private:
-  bool hasPhase_{false};
-  std::string phName_;
 };
 
 MODULE_REGISTER_TMP(SpinTaste, TSpinTasteMILC<STAGIMPL>, MFermion);
@@ -111,19 +141,30 @@ DependencyMap TSpinTasteMILC<FImpl>::getObjectDependencies(void) {
 
 // setup ///////////////////////////////////////////////////////////////////////
 template <typename FImpl> void TSpinTasteMILC<FImpl>::setup(void) {
-  auto gammaList = strToVec<StagGamma::SpinTastePair>(par().gammas);
-  envCreate(std::vector<StagGamma>, getName(), 1, gammaList.size(),
-            StagGamma());
-
-  auto &spinTaste = envGet(std::vector<StagGamma>, getName());
-
-  for (int i = 0; i < gammaList.size(); i++) {
-    spinTaste[i].setSpinTaste(gammaList[i]);
-    if (!par().gauge.empty()) {
-      auto &gauge = envGet(LatticeGaugeField, par().gauge);
-      spinTaste[i].setGaugeField(gauge);
-    }
+  // The ONLY place spin-taste operators are built: MakeSpinTasteOps parses,
+  // constructs, binds the gauge and applies the eps fold per object, in
+  // string order (sequential strToVec -- directional lists keep index
+  // semantics). applyG5=true yields immutable eps-folded objects: consumers
+  // must bind them through const& (setSpin/setTaste/setSpinTaste re-derive
+  // _negated from the stored P pair and silently destroy the fold).
+  LatticeGaugeField *U = nullptr;
+  if (!par().gauge.empty()) {
+    U = &envGet(LatticeGaugeField, par().gauge);
   }
+  auto ops = StagGamma::MakeSpinTasteOps(par().gammas, par().applyG5, U);
+
+  if (ops.empty()) {
+    LOG(Warning) << "SpinTaste module '" << getName()
+                 << "': empty gamma list; publishing an empty vector"
+                 << std::endl;
+  } else {
+    LOG(Message) << "Publishing " << ops.size()
+                 << " spin-taste operator(s) (applyG5 "
+                 << (par().applyG5 ? "true" : "false") << ", gauge '"
+                 << par().gauge << "')" << std::endl;
+  }
+
+  envCreate(std::vector<StagGamma>, getName(), 1, ops);
 }
 
 // execution ///////////////////////////////////////////////////////////////////

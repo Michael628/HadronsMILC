@@ -35,6 +35,8 @@
 #include <Hadrons/ModuleFactory.hpp>
 #include <GridMilc/GridMilc.h>
 
+#include <Modules/MFermion/SpinTaste.hpp> // TGammaMap + gammas module
+
 BEGIN_HADRONS_NAMESPACE
 
 /******************************************************************************
@@ -45,11 +47,16 @@ BEGIN_MODULE_NAMESPACE(MContraction)
 class MesonMILCPar : Serializable {
 public:
   GRID_SERIALIZABLE_CLASS_MEMBERS(MesonMILCPar, std::string, source,
-                                  std::string, sink, std::string, sourceGammas,
-                                  SpinTasteParams, sinkSpinTaste, std::string,
-                                  sinkFunc, std::string, sourceShift,
-                                  std::string, output);
+                                  std::string, sink, std::string, gammas,
+                                  std::string, sinkFunc, std::string,
+                                  sourceShift, std::string, output);
 };
+// source:  name of a TGammaMap object (GaugeProp's output; value type must
+//          match the sink structure) -- per-gamma source propagators are
+//          looked up by the sink gamma's label
+// gammas:  name of an MFermion::SpinTaste module publishing
+//          std::vector<StagGamma>; sink operators applied as objects.
+//          "" = no contraction (empty results)
 
 template <typename FImpl> class TMesonMILC : public Module<MesonMILCPar> {
 public:
@@ -80,11 +87,11 @@ protected:
   template <typename TField>
   EnableIf<is_lattice<TField>, void>
   contract(Result &result, const TField &source, const TField &sink,
-           StagGamma &gamma);
+           const StagGamma &gamma);
   template <typename TField>
   EnableIf<is_lattice<TField>, void>
   contract(Result &result, const std::vector<TField> &source,
-           const std::vector<TField> &sink, StagGamma &gamma);
+           const std::vector<TField> &sink, const StagGamma &gamma);
   template <typename TField>
   void executeHelper(std::vector<Result> &results, const TField &sink);
 
@@ -103,11 +110,7 @@ protected:
   virtual void execute(void);
 
 private:
-  void parseGammas(void);
-
   std::string _sinkSuffix = "";
-  std::vector<std::string> _sourceGammas;
-  std::vector<std::pair<std::string, StagGamma::SpinTastePair>> _mapSinkGammas;
   Integer _Nt;
 };
 
@@ -121,64 +124,18 @@ template <typename FImpl>
 TMesonMILC<FImpl>::TMesonMILC(const std::string name)
     : Module<MesonMILCPar>(name) {}
 
-template <typename FImpl> void TMesonMILC<FImpl>::parseGammas(void) {
-
-  _sourceGammas.clear();
-  _mapSinkGammas.clear();
-
-  if (!par().sourceGammas.empty()) {
-    for (auto gamma : strToVec<StagGamma::SpinTastePair>(par().sourceGammas)) {
-      _sourceGammas.push_back(StagGamma::GetName(gamma));
-    }
-  }
-  if (!par().sinkSpinTaste.gammas.empty()) {
-    auto gamma_vals = StagGamma::ParseSpinTasteString(
-        par().sinkSpinTaste.gammas, par().sinkSpinTaste.applyG5);
-    auto gamma_keys =
-        StagGamma::ParseSpinTasteString(par().sinkSpinTaste.gammas);
-    for (int i = 0; i < gamma_vals.size(); ++i) {
-      _mapSinkGammas.push_back(
-          {StagGamma::GetName(gamma_keys[i]), gamma_vals[i]});
-    }
-  }
-}
-
 // dependencies/products ///////////////////////////////////////////////////////
 template <typename FImpl>
 std::vector<std::string> TMesonMILC<FImpl>::getInput(void) {
-  parseGammas();
-  std::vector<std::string> in = {par().sinkFunc};
+  std::vector<std::string> in = {par().sinkFunc, par().source, par().sink};
 
   if (!par().sourceShift.empty()) {
     in.push_back(par().sourceShift);
   }
 
-  if (!par().sinkSpinTaste.gauge.empty()) {
-    in.push_back(par().sinkSpinTaste.gauge);
+  if (!par().gammas.empty()) {
+    in.push_back(par().gammas);
   }
-
-  // Only add suffix to object name if there are multiple gammas
-  // (underscore-separated, in lockstep with GaugeProp's multi-gamma
-  // output family "<name>_<gamma>" -- keep this composition and the
-  // executeHelper one below identical to GaugeProp::parseGammas keys)
-  if (_sourceGammas.size() > 1) {
-    for (auto iter = _sourceGammas.begin(); iter != _sourceGammas.end();
-         ++iter) {
-      in.push_back(par().source + "_" + *iter);
-    }
-  } else {
-    in.push_back(par().source);
-  }
-
-  // std::string identityName =
-  // StagGamma::GetName(StagGamma::StagAlgebra::G5,StagGamma::StagAlgebra::G5);
-
-  // if (env().hasObject(par().sink + identityName)) {
-  // _sinkSuffix = identityName;
-  // in.push_back(par().sink+identityName);
-  // } else {
-  in.push_back(par().sink);
-  // }
 
   return in;
 }
@@ -192,17 +149,10 @@ std::vector<std::string> TMesonMILC<FImpl>::getOutput(void) {
 
 // setup ///////////////////////////////////////////////////////////////////////
 template <typename FImpl> void TMesonMILC<FImpl>::setup(void) {
-
   envTmpLat(PropagatorField, "prop");
 
   _Nt = env().getDim(Tp);
 
-  if (_sourceGammas.size() > 0 &&
-      _sourceGammas.size() != _mapSinkGammas.size()) {
-    HADRONS_ERROR(Argument,
-                  "Parameter 'sourceGammas' must be empty or have the same "
-                  "number of operators as 'sinkSpinTaste.gammas'.");
-  }
   if (envHasType(PropagatorField, par().sink + _sinkSuffix) ||
       envHasType(std::vector<PropagatorField>, par().sink + _sinkSuffix)) {
     envTmpLat(PropagatorField, "field");
@@ -221,7 +171,7 @@ template <typename FImpl>
 template <typename TField>
 EnableIf<is_lattice<TField>, void>
 TMesonMILC<FImpl>::contract(Result &result, const TField &source,
-                            const TField &sink, StagGamma &gamma) {
+                            const TField &sink, const StagGamma &gamma) {
 
   int offset;
   std::vector<TComplex> buf;
@@ -256,7 +206,7 @@ template <typename FImpl>
 template <typename TField>
 EnableIf<is_lattice<TField>, void>
 TMesonMILC<FImpl>::contract(Result &result, const std::vector<TField> &source,
-                            const std::vector<TField> &sink, StagGamma &gamma) {
+                            const std::vector<TField> &sink, const StagGamma &gamma) {
 
   int offset;
   std::vector<TComplex> buf;
@@ -298,41 +248,28 @@ template <typename FImpl>
 template <typename TField>
 void TMesonMILC<FImpl>::executeHelper(std::vector<Result> &results,
                                       const TField &sink) {
-
-  std::string srcName;
-  StagGamma spinTaste;
-
-  if (!par().sinkSpinTaste.gauge.empty()) {
-    auto &U = envGet(GaugeField, par().sinkSpinTaste.gauge);
-    spinTaste.setGaugeField(U);
-  }
+  const auto &gammas = envGet(std::vector<StagGamma>, par().gammas);
+  const auto &srcMap = envGet(TGammaMap<TField>, par().source);
 
   int i = 0;
-  for (auto iter = _mapSinkGammas.begin(); iter != _mapSinkGammas.end();
-       ++iter) {
-    spinTaste.setSpinTaste(iter->second);
+  for (const auto &gamma : gammas) {
+    const std::string label = gamma.getLabelName();
+    LOG(Message) << "Contracting with gamma: " << label << std::endl;
 
-    LOG(Message) << "Contracting with gamma: " << iter->first << std::endl;
-
-    srcName = par().source;
-
-    if (!par().sourceGammas.empty()) {
-      // Only add suffix to object name if there are multiple gammas
-      // (underscore separator -- same composition as getInput,
-      // matching GaugeProp's multi-gamma output names)
-      if (_sourceGammas.size() > 1) {
-        srcName += "_" + _sourceGammas[i];
-      }
-      results[i].sourceGamma = _sourceGammas[i];
-      LOG(Message) << "Using source gamma: '" << results[i].sourceGamma << "'."
-                   << std::endl;
-    } else {
-      results[i].sourceGamma = "N/A";
+    auto srcIt = srcMap.find(label);
+    if (srcIt == srcMap.end()) {
+      HADRONS_ERROR(Argument,
+                    "source map '" + par().source + "' has no entry for "
+                    "gamma '" + label + "' -- the sink gammas module '" +
+                    par().gammas + "' and the source map's gamma list "
+                    "disagree");
     }
+    const TField &source = srcIt->second;
 
-    auto &source = envGet(TField, srcName);
+    results[i].sourceGamma = label;
+    LOG(Message) << "Using source gamma: '" << label << "'." << std::endl;
 
-    contract(results[i], source, sink, spinTaste);
+    contract(results[i], source, sink, gamma);
 
     for (int j = 0; j < results[i].srcCorrs.size(); j++) {
       for (int t = 0; t < _Nt; t++) {
@@ -345,45 +282,48 @@ void TMesonMILC<FImpl>::executeHelper(std::vector<Result> &results,
 }
 
 template <typename FImpl> void TMesonMILC<FImpl>::execute(void) {
-
   LOG(Message) << "Computing meson contractions '" << getName() << "' using"
-               << " quarks '" << par().source << "' and '" << par().sink << "'"
-               << std::endl;
+               << " quarks '" << par().source << "' and '" << par().sink
+               << "'" << std::endl;
 
   std::vector<Result> results;
 
-  results.resize(_mapSinkGammas.size());
+  if (!par().gammas.empty()) {
+    const auto &gammas = envGet(std::vector<StagGamma>, par().gammas);
 
-  int i = 0;
-  for (auto iter = _mapSinkGammas.begin(); iter != _mapSinkGammas.end();
-       ++iter) {
-    results[i].sinkGamma = iter->first;
-    results[i].srcCorrs.resize(1, std::vector<Complex>(_Nt, 0.0));
-    results[i].corr.resize(_Nt, 0.0);
-    results[i].scaling = 1.0;
-    if (!par().sourceShift.empty()) {
-      results[i].timeShifts = envGet(std::vector<Integer>, par().sourceShift);
+    results.resize(gammas.size());
+
+    int i = 0;
+    for (const auto &gamma : gammas) {
+      results[i].sinkGamma = gamma.getLabelName();
+      results[i].srcCorrs.resize(1, std::vector<Complex>(_Nt, 0.0));
+      results[i].corr.resize(_Nt, 0.0);
+      results[i].scaling = 1.0;
+      if (!par().sourceShift.empty()) {
+        results[i].timeShifts =
+            envGet(std::vector<Integer>, par().sourceShift);
+      }
+
+      i++;
     }
 
-    i++;
-  }
-
-  if (envHasType(PropagatorField, par().sink + _sinkSuffix)) {
-    auto &sink = envGet(PropagatorField, par().sink + _sinkSuffix);
-    executeHelper(results, sink);
-
-  } else if (envHasType(std::vector<PropagatorField>,
-                        par().sink + _sinkSuffix)) {
-    auto &sink = envGet(std::vector<PropagatorField>, par().sink + _sinkSuffix);
-    executeHelper(results, sink);
-
-  } else if (envHasType(FermionField, par().sink + _sinkSuffix)) {
-    auto &sink = envGet(FermionField, par().sink + _sinkSuffix);
-    executeHelper(results, sink);
-
-  } else if (envHasType(std::vector<FermionField>, par().sink + _sinkSuffix)) {
-    auto &sink = envGet(std::vector<FermionField>, par().sink + _sinkSuffix);
-    executeHelper(results, sink);
+    if (envHasType(PropagatorField, par().sink + _sinkSuffix)) {
+      auto &sink = envGet(PropagatorField, par().sink + _sinkSuffix);
+      executeHelper(results, sink);
+    } else if (envHasType(std::vector<PropagatorField>,
+                          par().sink + _sinkSuffix)) {
+      auto &sink =
+          envGet(std::vector<PropagatorField>, par().sink + _sinkSuffix);
+      executeHelper(results, sink);
+    } else if (envHasType(FermionField, par().sink + _sinkSuffix)) {
+      auto &sink = envGet(FermionField, par().sink + _sinkSuffix);
+      executeHelper(results, sink);
+    } else if (envHasType(std::vector<FermionField>,
+                          par().sink + _sinkSuffix)) {
+      auto &sink =
+          envGet(std::vector<FermionField>, par().sink + _sinkSuffix);
+      executeHelper(results, sink);
+    }
   }
 
   saveResult(par().output, "meson", results);

@@ -66,9 +66,12 @@ public:
                                     std::string,    q,
                                     unsigned int,   tA,
                                     unsigned int,   tB,
-                                    SpinTasteParams, spinTaste,
+                                    std::string,    gammas,
                                     std::string,    mom);
 };
+// gammas: name of an MFermion::SpinTaste module publishing
+//         std::vector<StagGamma>; the FIRST gamma is applied (order
+//         follows the module's gammas string)
 
 template <typename FImpl>
 class TSeqGammaMILC: public Module<SeqGammaMILCPar>
@@ -108,10 +111,13 @@ template <typename FImpl>
 std::vector<std::string> TSeqGammaMILC<FImpl>::getInput(void)
 {
     std::vector<std::string> in = {par().q};
-    
-    if (!par().spinTaste.gauge.empty()) {
-        in.push_back(par().spinTaste.gauge);
+
+    if (par().gammas.empty())
+    {
+        HADRONS_ERROR(Argument, "SeqGamma requires the 'gammas' "
+                      "SpinTaste module name");
     }
+    in.push_back(par().gammas);
 
     return in;
 }
@@ -128,6 +134,12 @@ std::vector<std::string> TSeqGammaMILC<FImpl>::getOutput(void)
 template <typename FImpl>
 void TSeqGammaMILC<FImpl>::setup(void)
 {
+    if (par().gammas.empty())
+    {
+        HADRONS_ERROR(Argument, "SeqGamma requires the 'gammas' "
+                      "SpinTaste module name");
+    }
+
     envTmpLat(PropagatorField, "field");
 
     if (envHasType(PropagatorField, par().q))
@@ -175,40 +187,36 @@ void TSeqGammaMILC<FImpl>::makeSource(PropagatorField &src,
     ph = exp((Real)(2*M_PI)*i*ph);
     LatticeCoordinate(t, Tp);
     
-    StagGamma gamma;
-    if (!par().spinTaste.gauge.empty()) {
-        auto& Umu = envGet(GaugeField,par().spinTaste.gauge);
-        gamma.setGaugeField(Umu);
-    }
-    src = Zero();
-    auto gamma_vals = StagGamma::ParseSpinTasteString(par().spinTaste.gammas,par().spinTaste.applyG5);
-
     envGetTmp(PropagatorField,field);
     field = Zero();
 
-    gamma.setSpinTaste(gamma_vals[0]);
-    gamma(field,q);
+    const auto &gammas = envGet(std::vector<StagGamma>, par().gammas);
+    if (gammas.empty())
+    {
+        HADRONS_ERROR(Argument, "gammas module '" + par().gammas +
+                      "' published an empty gamma list");
+    }
 
-    src = where((t >= par().tA) and (t <= par().tB), 
+    gammas[0](field, q);
+
+    src = where((t >= par().tA) and (t <= par().tB),
                           ph*field, 0.*field);
 }
 
 template <typename FImpl>
 void TSeqGammaMILC<FImpl>::execute(void)
 {
-    LOG(Warning) << "Applying spinTaste gammas in (x,y,z,t) order." << std::endl;
-
     if (par().tA == par().tB)
     {
         LOG(Message) << "Generating Gamma sequential source(s) at t= " << par().tA 
-		             << " using the spin-taste '" << par().spinTaste.gammas
+		             << " using gammas module '" << par().gammas
                      << "'" << std::endl; 
     }
     else
     {
         LOG(Message) << "Generating Gamma sequential source(s) for "
                      << par().tA << " <= t <= " << par().tB 
-                     << " using the spin-taste '" << par().spinTaste.gammas
+                     << " using gammas module '" << par().gammas
                      << "'" << std::endl;
     }
     

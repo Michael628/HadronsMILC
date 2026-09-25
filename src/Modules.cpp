@@ -31,5 +31,6 @@
 #include "Modules/MUtilities/EigenPackCheck.cpp"
 #include "Modules/MUtilities/EigenPackExtractEvals.cpp"
 #include "Modules/MUtilities/EigenPackFullPairs.cpp"
+#include "Modules/MUtilities/GammaMapElement.cpp"
 #include "Modules/MUtilities/ModifyEigenPack.cpp"
 #include "Modules/MUtilities/PropToFermions.cpp"
