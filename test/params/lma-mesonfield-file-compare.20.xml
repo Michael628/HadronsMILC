@@ -110,6 +110,18 @@
       <options><nsrc>2</nsrc><tStep>4</tStep></options>
     </module>
 
+    <!-- ONE SpinTaste module for the identity operator shared by every
+         consumer below (mfwrite, lma_file, cmp_ref, cmp_file all use the
+         same (G1,G1), applyG5=false operator); declared before all four. -->
+    <module>
+      <id><name>gammas_g1</name><type>MFermion::SpinTaste</type></id>
+      <options>
+        <gammas>(G1 G1)</gammas>
+        <applyG5>false</applyG5>
+        <gauge>gauge</gauge>
+      </options>
+    </module>
+
     <!-- Production-layout meson-field write: left empty (eigenvector rows =
          the CB pair rows of 'eig', reconstructed to the legacy interleaved
          2k/2k+1 = M0+/-M1 layout by the writer), right = noise, identity
@@ -126,11 +138,7 @@
         <mom><elem>0 0 0</elem></mom>
         <output>work/mfout</output>
         <right>noise_vec</right>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(G1 G1)</gammas>
-          <gauge>gauge</gauge>
-        </spinTaste>
+        <gammas>gammas_g1</gammas>
       </options>
     </module>
 
@@ -158,32 +166,26 @@
     </module>
 
     <!-- Eager file-driven propagator producer (replaces the former
-         MSolver solver family and its GaugeProp middleman): one
-         PropagatorField per noise per timeslice in [tA, tB] stride
-         tStep (nNoise=1: scalar; nNoise>1: a length-nNoise vector);
-         single (empty) gammas list -> bare name lma_file_t<t>. The
-         noises live on timeslice 0 only, so the range is tA=0, tB=0;
+         MSolver solver family and its GaugeProp middleman): ONE
+         per-timeslice TGammaMap "lma_file_t<t>" in [tA, tB] stride tStep,
+         keyed by gammas_g1's single label G1_G1 (nNoise=1: a scalar
+         PropagatorField entry; nNoise>1: a length-nNoise vector entry).
+         The noises live on timeslice 0 only, so the range is tA=0, tB=0;
          noiseIndex selects the first noise window (unit = noises);
          window n reads columns (noiseIndex+n)*3..(noiseIndex+n)*3+2.
-         nNoise=2 reconstructs ONE propagator per noise: the output
-         lma_file_t0 is a length-2 std::vector<PropagatorField>
-         (scalar collapse applies only at nNoise=1), flattened
-         noise-major by prop2f_file below. The pairing self-check runs
-         once per noise window against noise_vec;
-         the loader's published metadata is cross-checked against the
-         applyG5-conjugated gamma value at execute time (applyG5=false
-         here: labels == file keys, names unchanged from the interim
-         form). -->
+         nNoise=2 reconstructs ONE propagator per noise: lma_file_t0's
+         G1_G1 entry is a length-2 std::vector<PropagatorField>, flattened
+         noise-major by the GammaMapElement/PropToFermions bridge below.
+         The pairing self-check runs once per noise window against
+         noise_vec; the loader's published metadata is cross-checked
+         against the physics pair (_spin/_taste) of gammas_g1's object at
+         execute time (applyG5=false here: label == file key). -->
     <module>
       <id><name>lma_file</name><type>MFermion::StagLMAMesonFieldProp</type></id>
       <options>
         <action>stag</action>
         <lowModes>eig</lowModes>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas></gammas>
-          <gauge></gauge>
-        </spinTaste>
+        <gammas>gammas_g1</gammas>
         <mesonField>mf</mesonField>
         <noiseIndex>0</noiseIndex>
         <nNoise>2</nNoise>
@@ -199,34 +201,35 @@
     </module>
 
     <!-- Apply the live reference solver to the same raw noise fields:
-         GaugeProp with identity spin-taste and no guess is a plain
-         per-field solver application, out[i] = solver(noise_vec[i]).
-         Single (G1 G1) gamma -> bare module name as the output object
-         (vector<FermionField>). -->
+         GaugeProp with identity spin-taste (D5 empty-gammas legacy path)
+         and no guess is a plain per-field solver application,
+         out[i] = solver(noise_vec[i]). Empty gammas -> bare module name
+         as the output object (vector<FermionField>). -->
     <module>
       <id><name>gprop_ref</name><type>MFermion::StagGaugeProp</type></id>
       <options>
         <guess></guess>
         <solver>lma_ref</solver>
         <source>noise_vec</source>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(G1 G1)</gammas>
-          <gauge>gauge</gauge>
-        </spinTaste>
+        <gammas></gammas>
       </options>
     </module>
 
-    <!-- Extract the t=0 propagator's 3 color columns as a FermionField
-         vector for the probe contraction (StagA2AMesonField takes
+    <!-- Bridge lma_file_t0's G1_G1 entry onto a bare environment object
+         (D6), then extract its 3 color columns as a FermionField vector
+         for the probe contraction (StagA2AMesonField takes
          vector<FermionField> only); entries are noise-major: entry n*3+c
          = table column (noiseIndex+n)*3 + c, comparable one-to-one to
          the reference probe's 6 noise columns (gprop_ref applies the
          live solver to every noise field; columns 0-2/3-5 are the three
          colors of noises 0/1 at t=0). -->
     <module>
+      <id><name>lma_fc_g1_t0</name><type>MUtilities::GammaMapElement</type></id>
+      <options><map>lma_file_t0</map><label>G1_G1</label></options>
+    </module>
+    <module>
       <id><name>prop2f_file</name><type>MUtilities::PropToFermions</type></id>
-      <options><prop>lma_file_t0</prop></options>
+      <options><prop>lma_fc_g1_t0</prop></options>
     </module>
 
     <!-- Probe contractions of both sides against the full eigenvector-pair
@@ -245,11 +248,7 @@
         <mom><elem>0 0 0</elem></mom>
         <output>work/lma-file-compare/ref</output>
         <right>gprop_ref</right>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(G1 G1)</gammas>
-          <gauge>gauge</gauge>
-        </spinTaste>
+        <gammas>gammas_g1</gammas>
       </options>
     </module>
     <module>
@@ -262,11 +261,7 @@
         <mom><elem>0 0 0</elem></mom>
         <output>work/lma-file-compare/file</output>
         <right>prop2f_file</right>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(G1 G1)</gammas>
-          <gauge>gauge</gauge>
-        </spinTaste>
+        <gammas>gammas_g1</gammas>
       </options>
     </module>
   </modules>

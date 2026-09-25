@@ -96,6 +96,17 @@
     -->
     <module>
       <id>
+        <name>gammas_local_16</name>
+        <type>MFermion::SpinTaste</type>
+      </id>
+      <options>
+        <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5)</gammas>
+        <applyG5>false</applyG5>
+        <gauge></gauge>
+      </options>
+    </module>
+    <module>
+      <id>
         <name>mf_td_cg_local_16</name>
         <type>MContraction::StagA2AMesonField</type>
       </id>
@@ -109,12 +120,7 @@
         </mom>
         <output>work/a2a-mesonfields-32/td_cg</output>
         <right>td_sc_a2a_v</right>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT)
-            (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5)</gammas>
-          <gauge></gauge>
-        </spinTaste>
+        <gammas>gammas_local_16</gammas>
       </options>
     </module>
     <!--
@@ -123,6 +129,17 @@
       each one-link module to <= 8 gammas.  Four chunks of four are used here
       to leave margin and make failures easier to localize.
     -->
+    <module>
+      <id>
+        <name>gammas_onelink_00_03</name>
+        <type>MFermion::SpinTaste</type>
+      </id>
+      <options>
+        <gammas>(G1 GX) (GZ GZX) (GY GXY) (GYZ G5T)</gammas>
+        <applyG5>false</applyG5>
+        <gauge>gauge</gauge>
+      </options>
+    </module>
     <module>
       <id>
         <name>mf_td_cg_onelink_00_03</name>
@@ -138,11 +155,18 @@
         </mom>
         <output>work/a2a-mesonfields-32/td_cg</output>
         <right>td_sc_a2a_v</right>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(G1 GX) (GZ GZX) (GY GXY) (GYZ G5T)</gammas>
-          <gauge>gauge</gauge>
-        </spinTaste>
+        <gammas>gammas_onelink_00_03</gammas>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>gammas_onelink_04_07</name>
+        <type>MFermion::SpinTaste</type>
+      </id>
+      <options>
+        <gammas>(GX G1) (GZX GZ) (GXY GY) (G5T GYZ)</gammas>
+        <applyG5>false</applyG5>
+        <gauge>gauge</gauge>
       </options>
     </module>
     <module>
@@ -160,11 +184,18 @@
         </mom>
         <output>work/a2a-mesonfields-32/td_cg</output>
         <right>td_sc_a2a_v</right>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(GX G1) (GZX GZ) (GXY GY) (G5T GYZ)</gammas>
-          <gauge>gauge</gauge>
-        </spinTaste>
+        <gammas>gammas_onelink_04_07</gammas>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>gammas_onelink_08_11</name>
+        <type>MFermion::SpinTaste</type>
+      </id>
+      <options>
+        <gammas>(GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5)</gammas>
+        <applyG5>false</applyG5>
+        <gauge>gauge</gauge>
       </options>
     </module>
     <module>
@@ -182,11 +213,18 @@
         </mom>
         <output>work/a2a-mesonfields-32/td_cg</output>
         <right>td_sc_a2a_v</right>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5)</gammas>
-          <gauge>gauge</gauge>
-        </spinTaste>
+        <gammas>gammas_onelink_08_11</gammas>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>gammas_onelink_12_15</name>
+        <type>MFermion::SpinTaste</type>
+      </id>
+      <options>
+        <gammas>(GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+        <applyG5>false</applyG5>
+        <gauge>gauge</gauge>
       </options>
     </module>
     <module>
@@ -204,11 +242,7 @@
         </mom>
         <output>work/a2a-mesonfields-32/td_cg</output>
         <right>td_sc_a2a_v</right>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge</gauge>
-        </spinTaste>
+        <gammas>gammas_onelink_12_15</gammas>
       </options>
     </module>
   </modules>

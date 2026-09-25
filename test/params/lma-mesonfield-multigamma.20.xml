@@ -99,6 +99,20 @@
       <options><nsrc>1</nsrc><tStep>4</tStep></options>
     </module>
 
+    <!-- ONE SpinTaste module per distinct (gammas, applyG5, gauge) triple,
+         declared BEFORE every consumer. LMAMesonFieldProp never reads the
+         gauge field (U is only read by appliers), so gammas_mg's gauge
+         binding is shared safely across the A2AMesonField writer (which
+         does need it) and the file-driven reconstructions (which don't). -->
+    <module>
+      <id><name>gammas_mg</name><type>MFermion::SpinTaste</type></id>
+      <options>
+        <gammas>(G1 G1) (G5 G5)</gammas>
+        <applyG5>false</applyG5>
+        <gauge>gauge</gauge>
+      </options>
+    </module>
+
     <!-- Production-layout meson-field write with TWO gammas: writes
          work/mfout-mg.20/G1_G1_0_0_0.h5 and G5_G5_0_0_0.h5. -->
     <module>
@@ -113,11 +127,7 @@
         <mom><elem>0 0 0</elem></mom>
         <output>work/mfout-mg</output>
         <right>noise_vec</right>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(G1 G1) (G5 G5)</gammas>
-          <gauge>gauge</gauge>
-        </spinTaste>
+        <gammas>gammas_mg</gammas>
       </options>
     </module>
 
@@ -156,25 +166,21 @@
 
     <!-- Eager multi-gamma file-driven propagator producer (replaces the
          former MSolver solver family and its per-gamma GaugeProp
-         middlemen): with two gammas the outputs are named
-         lma_file_t<t>_G1_G1 and lma_file_t<t>_G5_G5 - labels from the
-         RAW spinTaste.gammas list, GaugeProp's guess grammar. The
-         time-diluted noise lives on timeslice 0 only, so the range is
+         middlemen): with two gammas the output is ONE per-timeslice
+         TGammaMap "lma_file_t<t>" keyed G1_G1/G5_G5, labels from
+         gammas_mg's RAW list, gamma-free (no predicted suffixes anywhere).
+         The time-diluted noise lives on timeslice 0 only, so the range is
          tA=0, tB=0. The pairing self-check runs for the (G1,G1)-VALUE
          table only (gamma-independent live reference); both loaders'
-         metadata is cross-checked against the applyG5-conjugated values
-         at execute time. nNoise=1 keeps scalar outputs (bit-compat
-         with the previous schedule generation). -->
+         metadata is cross-checked against the physics pair (_spin/_taste)
+         of gammas_mg's objects at execute time. nNoise=1 keeps scalar
+         outputs (bit-compat with the previous schedule generation). -->
     <module>
       <id><name>lma_file</name><type>MFermion::StagLMAMesonFieldProp</type></id>
       <options>
         <action>stag</action>
         <lowModes>eig</lowModes>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(G1 G1) (G5 G5)</gammas>
-          <gauge></gauge>
-        </spinTaste>
+        <gammas>gammas_mg</gammas>
         <mesonField>mf_g1 mf_g5</mesonField>
         <noiseIndex>0</noiseIndex>
         <nNoise>1</nNoise>
@@ -191,18 +197,16 @@
 
     <!-- Apply the live reference solver to the raw noise fields (noise 0
          lives on timeslice 0, the only slice whose file rows are non-zero
-         for this time-diluted noise). -->
+         for this time-diluted noise). (G1,G1) with applyG5=false is
+         already exactly the identity operator -> D5 legacy empty-gammas
+         path (bare output). -->
     <module>
       <id><name>gprop_ref</name><type>MFermion::StagGaugeProp</type></id>
       <options>
         <guess></guess>
         <solver>lma_ref</solver>
         <source>noise_vec</source>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(G1 G1)</gammas>
-          <gauge>gauge</gauge>
-        </spinTaste>
+        <gammas></gammas>
       </options>
     </module>
 
@@ -221,47 +225,59 @@
       </options>
     </module>
 
-    <!-- Regression: multi-gamma GaugeProp consuming LMAMesonFieldProp
-         outputs as per-gamma guesses: the production AMA wiring whose
-         graph build failed before the gamma-key grammar alignment
-         (guess expansion produced lma_file_t0G1_G1 while the producer
-         emits lma_file_t0_G1_G1). guess is a PREFIX: GaugeProp appends
-         its own per-gamma keys (_G1_G1/_G5_G5), resolving to
-         lma_file_t0_G1_G1 / lma_file_t0_G5_G5. The source is the
-         scalar PropagatorField lma_file_t0_G1_G1 (the guess type must
-         match the source type); the CG solver above completes each
-         normal-equations solve from its guess (the G5 solve's
-         guess/source pairing is deliberately mismatched: one
-         (G1,G1)-rotated source serves both gammas; wiring-only
-         regression, per D4). Success = the module
-         graph builds and this module executes: no ObjectDefinition
-         throw; outputs gprop_guess_G1_G1 / gprop_guess_G5_G5 are left
-         unconsumed (unreferenced modules still execute under the
-         naive scheduler). -->
+    <!-- Regression: multi-gamma GaugeProp consuming lma_file's per-
+         timeslice TGammaMap as both guess and source: the D4 motivating
+         case for sourceLabel. guess resolves per-gamma
+         (guessMap.at(label)): lma_file_t0's G1_G1/G5_G5 entries feed the
+         G1_G1/G5_G5 solves respectively. source is FIXED to the map's
+         G1_G1 entry for EVERY gamma via sourceLabel (deliberately
+         mismatched for the G5_G5 solve: one (G1,G1)-rotated source serves
+         both gammas; wiring-only regression). Success = the module graph
+         builds and this module executes: no ObjectDefinition throw; the
+         output map gprop_guess (keyed G1_G1/G5_G5) is left unconsumed
+         (unreferenced modules still execute under the naive scheduler). -->
     <module>
       <id><name>gprop_guess</name><type>MFermion::StagGaugeProp</type></id>
       <options>
         <guess>lma_file_t0</guess>
+        <gammas>gammas_mg</gammas>
         <solver>cg</solver>
-        <source>lma_file_t0_G1_G1</source>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(G1 G1) (G5 G5)</gammas>
-          <gauge>gauge</gauge>
-        </spinTaste>
+        <source>lma_file_t0</source>
+        <sourceLabel>G1_G1</sourceLabel>
       </options>
     </module>
 
     <!-- Extract each gamma's t=0 propagator color columns for the probe
          contractions (same color-window comparability as the
-         file-compare schedule). -->
+         file-compare schedule); the map->bare bridge for PropToFermions'
+         bare 'prop' consumer (D6). -->
+    <module>
+      <id><name>lma_g1_t0</name><type>MUtilities::GammaMapElement</type></id>
+      <options><map>lma_file_t0</map><label>G1_G1</label></options>
+    </module>
     <module>
       <id><name>prop2f_g1</name><type>MUtilities::PropToFermions</type></id>
-      <options><prop>lma_file_t0_G1_G1</prop></options>
+      <options><prop>lma_g1_t0</prop></options>
+    </module>
+    <module>
+      <id><name>lma_g5_t0</name><type>MUtilities::GammaMapElement</type></id>
+      <options><map>lma_file_t0</map><label>G5_G5</label></options>
     </module>
     <module>
       <id><name>prop2f_g5</name><type>MUtilities::PropToFermions</type></id>
-      <options><prop>lma_file_t0_G5_G5</prop></options>
+      <options><prop>lma_g5_t0</prop></options>
+    </module>
+
+    <!-- ONE SpinTaste module for the identity probe contractions below
+         (cmp_ref/cmp_g1/cmp_g5/cmp_conj all use the same (G1,G1),
+         applyG5=false operator). -->
+    <module>
+      <id><name>gammas_g1</name><type>MFermion::SpinTaste</type></id>
+      <options>
+        <gammas>(G1 G1)</gammas>
+        <applyG5>false</applyG5>
+        <gauge>gauge</gauge>
+      </options>
     </module>
 
     <!-- Probe contractions of each solver output against the full
@@ -277,11 +293,7 @@
         <mom><elem>0 0 0</elem></mom>
         <output>work/lma-multigamma/ref</output>
         <right>gprop_ref</right>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(G1 G1)</gammas>
-          <gauge>gauge</gauge>
-        </spinTaste>
+        <gammas>gammas_g1</gammas>
       </options>
     </module>
     <module>
@@ -294,11 +306,7 @@
         <mom><elem>0 0 0</elem></mom>
         <output>work/lma-multigamma/g1</output>
         <right>prop2f_g1</right>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(G1 G1)</gammas>
-          <gauge>gauge</gauge>
-        </spinTaste>
+        <gammas>gammas_g1</gammas>
       </options>
     </module>
     <module>
@@ -311,37 +319,37 @@
         <mom><elem>0 0 0</elem></mom>
         <output>work/lma-multigamma/g5</output>
         <right>prop2f_g5</right>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(G1 G1)</gammas>
-          <gauge>gauge</gauge>
-        </spinTaste>
+        <gammas>gammas_g1</gammas>
       </options>
     </module>
 
     <!-- applyG5 conjugate-pairing family: with applyG5=true the raw
          "(G1 G1) (G5 G5)" list conjugates to (G5,G5),(G1,G1), so the
          file pairing is deliberately SWAPPED (mf_g5 mf_g1) while the
-         output labels stay on the raw list: lma_file_conj_t0_G1_G1
-         reconstructs from the G5_G5 file and lma_file_conj_t0_G5_G5
-         from the G1_G1 file. The metadata cross-check passes only when
-         it compares the CONJUGATED value (the pre-revision code
-         hard-errors on this pairing); the G5_G5-labeled output is
-         bit-identical to lma_file_t0_G1_G1 (same file, same
+         output labels stay on the raw list: lma_file_conj_t0's G1_G1
+         entry reconstructs from the G5_G5 file and its G5_G5 entry from
+         the G1_G1 file. The metadata cross-check passes only when it
+         compares the CONJUGATED physics pair (the pre-revision code
+         hard-errors on this pairing); the G5_G5-keyed entry is
+         bit-identical to lma_file_t0's G1_G1 entry (same file, same
          reconstruction algebra) and is compared offline against cmp_g1
          via cmp_conj below. The noise self-check finds the identity
          VALUE (G1,G1) at index 1 -> runs on mf_g1, the identity-content
          file, exactly as it should. -->
     <module>
+      <id><name>gammas_mg_conj</name><type>MFermion::SpinTaste</type></id>
+      <options>
+        <gammas>(G1 G1) (G5 G5)</gammas>
+        <applyG5>true</applyG5>
+        <gauge></gauge>
+      </options>
+    </module>
+    <module>
       <id><name>lma_file_conj</name><type>MFermion::StagLMAMesonFieldProp</type></id>
       <options>
         <action>stag</action>
         <lowModes>eig</lowModes>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (G5 G5)</gammas>
-          <gauge></gauge>
-        </spinTaste>
+        <gammas>gammas_mg_conj</gammas>
         <mesonField>mf_g5 mf_g1</mesonField>
         <noiseIndex>0</noiseIndex>
         <nNoise>1</nNoise>
@@ -356,8 +364,12 @@
       </options>
     </module>
     <module>
+      <id><name>lma_conj_g5_t0</name><type>MUtilities::GammaMapElement</type></id>
+      <options><map>lma_file_conj_t0</map><label>G5_G5</label></options>
+    </module>
+    <module>
       <id><name>prop2f_conj</name><type>MUtilities::PropToFermions</type></id>
-      <options><prop>lma_file_conj_t0_G5_G5</prop></options>
+      <options><prop>lma_conj_g5_t0</prop></options>
     </module>
     <!-- cmp_conj must equal cmp_g1 offline (both contract the
          reconstruction of the G1_G1 file): content invariance of the
@@ -372,11 +384,7 @@
         <mom><elem>0 0 0</elem></mom>
         <output>work/lma-multigamma/conj</output>
         <right>prop2f_conj</right>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(G1 G1)</gammas>
-          <gauge>gauge</gauge>
-        </spinTaste>
+        <gammas>gammas_g1</gammas>
       </options>
     </module>
   </modules>

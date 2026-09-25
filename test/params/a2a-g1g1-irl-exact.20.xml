@@ -132,6 +132,17 @@
     -->
     <module>
       <id>
+        <name>gammas_g1g1</name>
+        <type>MFermion::SpinTaste</type>
+      </id>
+      <options>
+        <gammas>(G1 G1)</gammas>
+        <applyG5>false</applyG5>
+        <gauge></gauge>
+      </options>
+    </module>
+    <module>
+      <id>
         <name>mf_g1g1_mass_l</name>
         <type>MContraction::StagA2AMesonField</type>
       </id>
@@ -145,11 +156,7 @@
         </mom>
         <output>work/e384n1dt1-irl-exact/mesons/m01/mf</output>
         <right></right>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(G1 G1)</gammas>
-          <gauge></gauge>
-        </spinTaste>
+        <gammas>gammas_g1g1</gammas>
       </options>
     </module>
   </modules>

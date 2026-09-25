@@ -165,6 +165,17 @@
     -->
     <module>
       <id>
+        <name>gammas_pc012</name>
+        <type>MFermion::SpinTaste</type>
+      </id>
+      <options>
+        <gammas>(G1 G1)(GX G1)(GXY G1)</gammas>
+        <applyG5>false</applyG5>
+        <gauge>gauge</gauge>
+      </options>
+    </module>
+    <module>
+      <id>
         <name>mf_stencil_pc012</name>
         <type>MContraction::StagA2AMesonField</type>
       </id>
@@ -179,11 +190,7 @@
         </mom>
         <output>work/e384n1dt1-cb/mesons/m01/mf_stencil_pc012</output>
         <right></right>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(G1 G1)(GX G1)(GXY G1)</gammas>
-          <gauge>gauge</gauge>
-        </spinTaste>
+        <gammas>gammas_pc012</gammas>
       </options>
     </module>
     <module>
@@ -201,11 +208,18 @@
         </mom>
         <output>work/e384n1dt1-cb/mesons/m01/mf_legacy_pc012</output>
         <right></right>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(G1 G1)(GX G1)(GXY G1)</gammas>
-          <gauge>gauge</gauge>
-        </spinTaste>
+        <gammas>gammas_pc012</gammas>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>gammas_pc3</name>
+        <type>MFermion::SpinTaste</type>
+      </id>
+      <options>
+        <gammas>(G5T G1)</gammas>
+        <applyG5>false</applyG5>
+        <gauge>gauge</gauge>
       </options>
     </module>
     <module>
@@ -224,11 +238,7 @@
         </mom>
         <output>work/e384n1dt1-cb/mesons/m01/mf_stencil_pc3</output>
         <right></right>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(G5T G1)</gammas>
-          <gauge>gauge</gauge>
-        </spinTaste>
+        <gammas>gammas_pc3</gammas>
       </options>
     </module>
     <module>
@@ -246,11 +256,18 @@
         </mom>
         <output>work/e384n1dt1-cb/mesons/m01/mf_legacy_pc3</output>
         <right></right>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(G5T G1)</gammas>
-          <gauge>gauge</gauge>
-        </spinTaste>
+        <gammas>gammas_pc3</gammas>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>gammas_pc4</name>
+        <type>MFermion::SpinTaste</type>
+      </id>
+      <options>
+        <gammas>(G5 G1)</gammas>
+        <applyG5>false</applyG5>
+        <gauge>gauge</gauge>
       </options>
     </module>
     <module>
@@ -269,11 +286,7 @@
         </mom>
         <output>work/e384n1dt1-cb/mesons/m01/mf_stencil_pc4</output>
         <right></right>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(G5 G1)</gammas>
-          <gauge>gauge</gauge>
-        </spinTaste>
+        <gammas>gammas_pc4</gammas>
       </options>
     </module>
     <module>
@@ -291,11 +304,7 @@
         </mom>
         <output>work/e384n1dt1-cb/mesons/m01/mf_legacy_pc4</output>
         <right></right>
-        <spinTaste>
-          <applyG5>false</applyG5>
-          <gammas>(G5 G1)</gammas>
-          <gauge>gauge</gauge>
-        </spinTaste>
+        <gammas>gammas_pc4</gammas>
       </options>
     </module>
   </modules>

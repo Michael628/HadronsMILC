@@ -115,7 +115,18 @@
       </options>
     </module>
 
-    <!-- 32 requested spin-taste labels used for both source construction and tie-up. -->
+    <!-- One gammas module owns the list; applyG5 honored; gauge bound once. -->
+    <module>
+      <id>
+        <name>gammas_32</name>
+        <type>MFermion::SpinTaste</type>
+      </id>
+      <options>
+        <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+        <applyG5>true</applyG5>
+        <gauge>gauge_apbc</gauge>
+      </options>
+    </module>
     <module>
       <id>
         <name>q_ops_rw</name>
@@ -125,16 +136,11 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>td_sc_noise</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT)
-            (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY
-            GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5)
-            (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas>gammas_32</gammas>
       </options>
     </module>
+    <!-- (G5 G5)+applyG5=true folds to the identity -> D5 legacy empty-gammas
+         path (bare output), what Meson's bare sink dispatch requires. -->
     <module>
       <id>
         <name>q_sink_rw</name>
@@ -144,11 +150,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>td_sc_noise</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G5 G5)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas></gammas>
       </options>
     </module>
     <module>
@@ -160,19 +162,8 @@
         <output>work/random-wall-spintaste/corr_32_rw</output>
         <sink>q_sink_rw</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
-        <sinkSpinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT)
-            (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY
-            GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5)
-            (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </sinkSpinTaste>
+        <gammas>gammas_32</gammas>
         <source>q_ops_rw</source>
-        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT
-          GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX)
-          (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X
-          G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
         <sourceShift>td_sc_noise_shift</sourceShift>
       </options>
     </module>
