@@ -123,7 +123,7 @@ std::vector<std::string> TSpinTasteMILC<FImpl>::getInput(void) {
 
 template <typename FImpl>
 std::vector<std::string> TSpinTasteMILC<FImpl>::getOutput(void) {
-  std::vector<std::string> out = {getName()};
+  std::vector<std::string> out = {getName(), getName() + "_map"};
 
   return out;
 }
@@ -164,7 +164,40 @@ template <typename FImpl> void TSpinTasteMILC<FImpl>::setup(void) {
                  << par().gauge << "')" << std::endl;
   }
 
+  // Centralized duplicate-label validation: the single derivation point
+  // for this check going forward (was ad hoc per-consumer, e.g. the former
+  // LMAMesonFieldProp.hpp:364-373 pairwise check). Every consumer's setup()
+  // runs after this one via the par().gammas dependency edge, so a
+  // duplicate label is caught here before any downstream module can act
+  // on it (previously: a silent redundant Krylov solve in GaugeProp's
+  // gammaLoop(), or a silent duplicate Result block in Meson).
+  for (unsigned int i = 0; i < ops.size(); ++i) {
+    for (unsigned int j = i + 1; j < ops.size(); ++j) {
+      if (ops[i].getLabelName() == ops[j].getLabelName()) {
+        HADRONS_ERROR(Argument,
+                      "duplicate gamma label '" + ops[i].getLabelName() +
+                          "' in SpinTaste module '" + getName() +
+                          "' (gamma-map entries would collide)");
+      }
+    }
+  }
+
   envCreate(std::vector<StagGamma>, getName(), 1, ops);
+
+  // Companion output: one TGammaMap<StagGamma> entry per gamma, keyed by
+  // its raw label. TGammaMap's templated ctor (SpinTaste.hpp:59-73) shares
+  // one set of ctor args across every entry and cannot route the loop
+  // variable itself into the map, so this is built via the inherited
+  // public std::map::emplace instead (precedented by GammaMapElement.hpp's
+  // copy-from-map-entry idiom) and envCreate'd as a pre-built object --
+  // Environment.hpp:777 copy-constructs from the single argument with no
+  // new constructor overload required. Modeled on LoadMesonField.hpp's
+  // _metadata dual-output precedent.
+  TGammaMap<StagGamma> opsMap;
+  for (auto &g : ops) {
+    opsMap.emplace(g.getLabelName(), g);
+  }
+  envCreate(TGammaMap<StagGamma>, getName() + "_map", 1, opsMap);
 }
 
 // execution ///////////////////////////////////////////////////////////////////

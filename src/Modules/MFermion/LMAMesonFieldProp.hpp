@@ -358,19 +358,10 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::setup(void) {
     HADRONS_ERROR(Argument, "gammas module '" + par().gammas +
                                 "' published an empty gamma list");
   }
-  // duplicate labels are fatal: the per-timeslice TGammaMap outputs key
-  // by label (map::emplace would silently dedupe, leaving the second
-  // entry's file unread and its reconstruction lost)
-  for (unsigned int i = 0; i < gammas.size(); ++i) {
-    for (unsigned int j = i + 1; j < gammas.size(); ++j) {
-      if (gammas[i].getLabelName() == gammas[j].getLabelName()) {
-        HADRONS_ERROR(Argument,
-                      "duplicate gamma label '" + gammas[i].getLabelName() +
-                          "' in gammas module '" + par().gammas +
-                          "' (per-timeslice map entries would collide)");
-      }
-    }
-  }
+  // duplicate-label validation is centralized in SpinTaste::setup()
+  // (SpinTaste.hpp), which always runs first via the par().gammas
+  // dependency edge -- a duplicate label is caught there before this
+  // module's own setup() runs.
   auto mfs = mesonFieldList(gammas);
 
   LOG(Message) << "Setting up meson-field driven low mode propagator '"
