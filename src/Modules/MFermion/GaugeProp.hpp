@@ -54,9 +54,11 @@ public:
                                   std::string, gammas, std::string, solver,
                                   std::string, guess, std::string, sourceLabel);
 };
-// gammas:   name of an MFermion::SpinTaste module publishing
-//           std::vector<StagGamma>; "" = the legacy default (identity
-//           (G1,G1) application, bare output under getName())
+// gammas:   REQUIRED name of an MFermion::SpinTaste module; this module
+//           consumes the SpinTaste module's `_map` companion output
+//           (par().gammas + "_map", a TGammaMap<StagGamma>) -- never the
+//           bare vector. Empty is a setup-time error (StagGaugePropLegacy
+//           preserves the former empty-gammas identity behavior).
 // guess:    name of a TGammaMap object (one entry per gamma label, e.g.
 //           an LMAMesonFieldProp per-timeslice map); per-gamma guess is
 //           guessMap.at(gammaLabel)
@@ -81,7 +83,7 @@ public:
 protected:
   // setup
   template <typename TField>
-  void setupHelper(const std::vector<StagGamma> &gammas);
+  void setupHelper(const TGammaMap<StagGamma> &gammas);
   virtual void setup(void);
   // execution
   template <typename TField>
@@ -92,8 +94,8 @@ protected:
   EnableIf<is_lattice<TField>, void>
   executeHelper(std::vector<TField> &sol, const std::vector<TField> &src,
                 const StagGamma &gamma, const std::vector<TField> *guess = nullptr);
-  // map-era drivers: one overload per source container shape; each feeds
-  // gammaLoop with a per-gamma source fetcher
+  // one overload per source container shape; each feeds gammaLoop with a
+  // per-gamma source fetcher
   template <typename TField> void executeHelper(const TField &src);
   template <typename TField> void executeHelper(const std::vector<TField> &src);
   template <typename TField> void executeHelper(const TGammaMap<TField> &srcMap);
@@ -127,11 +129,9 @@ TGaugePropMILC<FImpl>::TGaugePropMILC(const std::string name)
 // dependencies/products ///////////////////////////////////////////////////////
 template <typename FImpl>
 std::vector<std::string> TGaugePropMILC<FImpl>::getInput(void) {
-  std::vector<std::string> in = {par().source, par().solver};
+  std::vector<std::string> in = {par().source, par().solver,
+                                 par().gammas + "_map"};
 
-  if (!par().gammas.empty()) {
-    in.push_back(par().gammas);
-  }
   if (!par().guess.empty()) {
     in.push_back(par().guess);
   }
@@ -149,39 +149,17 @@ std::vector<std::string> TGaugePropMILC<FImpl>::getOutput(void) {
 // setup ///////////////////////////////////////////////////////////////////////
 template <typename FImpl>
 template <typename TField>
-void TGaugePropMILC<FImpl>::setupHelper(const std::vector<StagGamma> &gammas) {
+void TGaugePropMILC<FImpl>::setupHelper(const TGammaMap<StagGamma> &gammas) {
   envTmpLat(TField, "field");
 
-  if (gammas.empty()) {
-    // legacy identity path: bare output, exactly the former single-key ("")
-    // behavior
-    if (envHasType(TField, par().source)) {
-      envCreate(TField, getName(), 1, envGetGrid(TField));
-      envGet(TField, getName()) = Zero();
-    } else {
-      auto &src = envGet(std::vector<TField>, par().source);
-      envCreate(std::vector<TField>, getName(), 1,
-                std::vector<TField>(src.size(), envGetGrid(TField)));
-      for (auto &s : envGet(std::vector<TField>, getName())) {
-        s = Zero();
-      }
-    }
-  } else if (envHasType(TField, par().source) ||
-             envHasType(TGammaMap<TField>, par().source)) {
+  if (envHasType(TField, par().source) ||
+      envHasType(TGammaMap<TField>, par().source)) {
     envCreate(TGammaMap<TField>, getName(), 1, gammas, envGetGrid(TField));
     for (auto &p : envGet(TGammaMap<TField>, getName())) {
       p.second = Zero();
     }
   } else if (envHasType(TGammaMap<std::vector<TField>>, par().source)) {
     auto &src = envGet(TGammaMap<std::vector<TField>>, par().source);
-    // A pre-built vector is passed as ONE constructor argument: TGammaMap's
-    // ctor loops `this->emplace(label, args...)`, and std::map::emplace
-    // forwards args FLAT to pair's constructor (no automatic key/value
-    // split without std::piecewise_construct) -- pair has no 3-argument
-    // overload, so passing size_t and GridBase* separately does not
-    // compile. Bundling them here keeps construction inside the envCreate
-    // window (each entry still deep-copies from this prototype during
-    // TGammaMap's own emplace loop).
     envCreate(TGammaMap<std::vector<TField>>, getName(), 1, gammas,
               std::vector<TField>(src.begin()->second.size(),
                                   envGetGrid(TField)));
@@ -205,10 +183,18 @@ void TGaugePropMILC<FImpl>::setupHelper(const std::vector<StagGamma> &gammas) {
 template <typename FImpl> void TGaugePropMILC<FImpl>::setup(void) {
   _hasGuess = !par().guess.empty();
 
-  std::vector<StagGamma> gammasView; // empty for the legacy path
-  const std::vector<StagGamma> *gammas = &gammasView;
-  if (!par().gammas.empty()) {
-    gammas = &envGet(std::vector<StagGamma>, par().gammas);
+  if (par().gammas.empty()) {
+    HADRONS_ERROR(Argument,
+                  "GaugeProp requires the 'gammas' SpinTaste module name "
+                  "(use StagGaugePropLegacy for the former empty-gammas "
+                  "identity behavior)");
+  }
+  const auto &gammas = envGet(TGammaMap<StagGamma>, par().gammas + "_map");
+  if (gammas.empty()) {
+    HADRONS_ERROR(Argument,
+                  "SpinTaste module '" + par().gammas + "' published an "
+                  "empty gamma map -- GaugeProp requires at least one "
+                  "gamma");
   }
 
   if (envHasType(PropagatorField, par().source) ||
@@ -227,13 +213,13 @@ template <typename FImpl> void TGaugePropMILC<FImpl>::setup(void) {
     fermOut = Zero();
     fermGuess = Zero();
 
-    setupHelper<PropagatorField>(*gammas);
+    setupHelper<PropagatorField>(gammas);
 
   } else if (envHasType(FermionField, par().source) ||
              envHasType(std::vector<FermionField>, par().source) ||
              envHasType(TGammaMap<FermionField>, par().source) ||
              envHasType(TGammaMap<std::vector<FermionField>>, par().source)) {
-    setupHelper<FermionField>(*gammas);
+    setupHelper<FermionField>(gammas);
   } else {
     HADRONS_ERROR(Logic,
                   "Type of source '" + par().source + "' not recognized.");
@@ -316,7 +302,7 @@ EnableIf<is_lattice<TField>, void> TGaugePropMILC<FImpl>::executeHelper(
 template <typename FImpl>
 template <typename V, typename SrcFetch>
 void TGaugePropMILC<FImpl>::gammaLoop(SrcFetch &&srcFor) {
-  const auto &gammas = envGet(std::vector<StagGamma>, par().gammas);
+  const auto &gammas = envGet(TGammaMap<StagGamma>, par().gammas + "_map");
   auto &solMap = envGet(TGammaMap<V>, getName());
   const TGammaMap<V> *guessMap = nullptr;
 
@@ -330,8 +316,12 @@ void TGaugePropMILC<FImpl>::gammaLoop(SrcFetch &&srcFor) {
     guessMap = &envGet(TGammaMap<V>, par().guess);
   }
 
-  for (const auto &gamma : gammas) {
-    const std::string label = gamma.getLabelName();
+  // Iterates the map's OWN (label, StagGamma) pairs directly -- never
+  // re-derives the label from the gamma object, so a SpinTaste module's
+  // custom `labels` override flows through unchanged.
+  for (const auto &p : gammas) {
+    const std::string &label = p.first;
+    const StagGamma &gamma = p.second;
     LOG(Message) << "Solve for '" << par().source << "' with spin-taste: '"
                  << label << "'" << std::endl;
 
@@ -359,23 +349,6 @@ void TGaugePropMILC<FImpl>::gammaLoop(SrcFetch &&srcFor) {
 template <typename FImpl>
 template <typename TField>
 void TGaugePropMILC<FImpl>::executeHelper(const TField &src) {
-  if (par().gammas.empty()) {
-    // legacy default: identity operator, bare output, bare guess object
-    auto &sol = envGet(TField, getName());
-    const TField *guess = nullptr;
-    if (!par().guess.empty()) {
-      if (!envHasType(TField, par().guess)) {
-        HADRONS_ERROR(Argument,
-                      "guess parameter '" + par().guess +
-                          "' must have same data structure as source, '" +
-                          par().source + "'");
-      }
-      guess = &envGet(TField, par().guess);
-    }
-    StagGamma identity; // default (G1, G1)
-    executeHelper(sol, src, identity, guess);
-    return;
-  }
   gammaLoop<TField>(
       [&src](const StagGamma &, const std::string &) -> const TField & {
         return src;
@@ -385,22 +358,6 @@ void TGaugePropMILC<FImpl>::executeHelper(const TField &src) {
 template <typename FImpl>
 template <typename TField>
 void TGaugePropMILC<FImpl>::executeHelper(const std::vector<TField> &src) {
-  if (par().gammas.empty()) {
-    auto &sol = envGet(std::vector<TField>, getName());
-    const std::vector<TField> *guess = nullptr;
-    if (!par().guess.empty()) {
-      if (!envHasType(std::vector<TField>, par().guess)) {
-        HADRONS_ERROR(Argument,
-                      "guess parameter '" + par().guess +
-                          "' must have same data structure as source, '" +
-                          par().source + "'");
-      }
-      guess = &envGet(std::vector<TField>, par().guess);
-    }
-    StagGamma identity;
-    executeHelper(sol, src, identity, guess);
-    return;
-  }
   gammaLoop<std::vector<TField>>(
       [&src](const StagGamma &,
              const std::string &) -> const std::vector<TField> & {

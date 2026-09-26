@@ -1,0 +1,365 @@
+/*
+ * GaugePropLegacyMILC.hpp, part of Hadrons (https://github.com/aportelli/Hadrons)
+ *
+ * Copyright (C) 2015 - 2020
+ *
+ * Author: Antonin Portelli <antonin.portelli@me.com>
+ * Author: Guido Cossu <guido.cossu@ed.ac.uk>
+ * Author: Lanny91 <andrew.lawson@gmail.com>
+ * Author: Nils Asmussen <n.asmussen@soton.ac.uk>
+ * Author: Peter Boyle <paboyle@ph.ed.ac.uk>
+ * Author: pretidav <david.preti@csic.es>
+ * Author: Michael Lynch <michaellynch628@gmail.com>
+ *
+ * Hadrons is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * Hadrons is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Hadrons.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * See the full license in the file "LICENSE" in the top level distribution
+ * directory.
+ */
+
+/*  END LEGAL */
+
+#ifndef HadronsMILC_MFermion_GaugePropLegacy_hpp_
+#define HadronsMILC_MFermion_GaugePropLegacy_hpp_
+
+#include <Hadrons/Global.hpp>
+#include <Hadrons/Module.hpp>
+#include <Hadrons/ModuleFactory.hpp>
+#include <Hadrons/Solver.hpp>
+#include <GridMilc/GridMilc.h>
+
+BEGIN_HADRONS_NAMESPACE
+
+/******************************************************************************
+ *                                GaugePropLegacyMILC   *
+ ******************************************************************************/
+// Renamed, otherwise byte-identical copy of the `develop`-branch GaugeProp
+// (pre-dates the shared SpinTaste module / TGammaMap entirely), preserved
+// as a frozen regression baseline. The canonical StagGaugeProp
+// (GaugeProp.hpp) moved to the _map-centered SpinTaste-module-dependent
+// workflow; this module registers StagGaugePropLegacy. All class names
+// here are pairwise distinct from the canonical module's: both headers
+// compile into one TU via the auto-generated Modules.hpp.
+BEGIN_MODULE_NAMESPACE(MFermion)
+
+class GaugePropLegacyMILCPar : Serializable {
+public:
+  GRID_SERIALIZABLE_CLASS_MEMBERS(GaugePropLegacyMILCPar, std::string, source,
+                                  SpinTasteParams, spinTaste, std::string,
+                                  solver, std::string, guess);
+};
+
+template <typename FImpl>
+class TGaugePropMILCLegacy : public Module<GaugePropLegacyMILCPar> {
+public:
+  FERM_TYPE_ALIASES(FImpl, );
+  SOLVER_TYPE_ALIASES(FImpl, );
+
+public:
+  // constructor
+  TGaugePropMILCLegacy(const std::string name);
+  // destructor
+  virtual ~TGaugePropMILCLegacy(void) {};
+  // dependency relation
+  virtual std::vector<std::string> getInput(void);
+  virtual std::vector<std::string> getOutput(void);
+
+protected:
+  // setup
+  template <typename TField> void setupHelper(void);
+  virtual void setup(void);
+  // execution
+  template <typename TField>
+  EnableIf<is_lattice<TField>, void>
+  executeHelper(TField &sol, const TField &src, StagGamma &gamma,
+                const TField *guess = nullptr);
+  template <typename TField>
+  EnableIf<is_lattice<TField>, void>
+  executeHelper(std::vector<TField> &sol, const std::vector<TField> &src,
+                StagGamma &gamma, const std::vector<TField> *guess = nullptr);
+  template <typename TField> void executeHelper(const TField &src);
+  virtual void execute(void);
+
+private:
+  void parseGammas(void);
+  void solveField(FermionField &prop, const FermionField &src,
+                  const FermionField *guess = nullptr);
+  void solveField(PropagatorField &prop, const PropagatorField &src,
+                  const PropagatorField *guess = nullptr);
+
+private:
+  bool _hasGuess;
+  std::map<std::string, StagGamma::SpinTastePair> _mapGammas;
+};
+
+MODULE_REGISTER_TMP(StagGaugePropLegacy, TGaugePropMILCLegacy<STAGIMPL>, MFermion);
+
+/******************************************************************************
+ *                      TGaugePropMILCLegacy implementation   *
+ ******************************************************************************/
+// constructor /////////////////////////////////////////////////////////////////
+template <typename FImpl>
+TGaugePropMILCLegacy<FImpl>::TGaugePropMILCLegacy(const std::string name)
+    : Module<GaugePropLegacyMILCPar>(name) {}
+
+// dependencies/products ///////////////////////////////////////////////////////
+template <typename FImpl> void TGaugePropMILCLegacy<FImpl>::parseGammas(void) {
+  _mapGammas.clear();
+  if (!par().spinTaste.gammas.empty()) {
+    auto gamma_vals = StagGamma::ParseSpinTasteString(par().spinTaste.gammas,
+                                                      par().spinTaste.applyG5);
+    auto gamma_keys = StagGamma::ParseSpinTasteString(par().spinTaste.gammas);
+
+    for (int i = 0; i < gamma_vals.size(); ++i) {
+      if (gamma_vals.size() == 1) {
+        _mapGammas.insert({"", gamma_vals[i]});
+      } else {
+        _mapGammas.insert({StagGamma::GetName(gamma_keys[i]), gamma_vals[i]});
+      }
+    }
+  }
+  // Add a default do-nothing gamma
+  if (_mapGammas.empty()) {
+    _mapGammas.insert(
+        {"", StagGamma::SpinTastePair(StagGamma::StagAlgebra::G1,
+                                      StagGamma::StagAlgebra::G1)});
+  }
+}
+template <typename FImpl>
+std::vector<std::string> TGaugePropMILCLegacy<FImpl>::getInput(void) {
+
+  parseGammas();
+
+  std::vector<std::string> in = {par().source, par().solver};
+
+  if (!par().spinTaste.gauge.empty()) {
+    in.push_back(par().spinTaste.gauge);
+  }
+
+  if (!par().guess.empty()) {
+    for (auto iter = _mapGammas.begin(); iter != _mapGammas.end(); ++iter) {
+      in.push_back(par().guess + iter->first);
+    }
+  }
+
+  return in;
+}
+
+template <typename FImpl>
+std::vector<std::string> TGaugePropMILCLegacy<FImpl>::getOutput(void) {
+  parseGammas();
+  std::vector<std::string> out;
+
+  for (auto iter = _mapGammas.begin(); iter != _mapGammas.end(); ++iter) {
+    out.push_back(getName() + iter->first);
+  }
+
+  return out;
+}
+
+// setup ///////////////////////////////////////////////////////////////////////
+template <typename FImpl>
+template <typename TField>
+void TGaugePropMILCLegacy<FImpl>::setupHelper() {
+  envTmpLat(TField, "field");
+
+  // Create an output field for each gamma
+  auto initializeOutput = [this](std::string ext) {
+    envCreate(TField, getName() + ext, 1, envGetGrid(TField));
+    auto &sol = envGet(TField, getName() + ext);
+    sol = Zero();
+  };
+
+  // Create an output field for each gamma
+  auto initializeVectorOutput = [this](std::string ext) {
+    auto &src = envGet(std::vector<TField>, par().source);
+    envCreate(std::vector<TField>, getName() + ext, 1,
+              std::vector<TField>(src.size(), envGetGrid(TField)));
+
+    auto &sol = envGet(std::vector<TField>, getName() + ext);
+    for (auto &s : sol) {
+      s = Zero();
+    }
+  };
+
+  for (auto iter = _mapGammas.begin(); iter != _mapGammas.end(); ++iter) {
+    if (envHasType(TField, par().source)) {
+      initializeOutput(iter->first);
+    } else {
+      initializeVectorOutput(iter->first);
+    }
+  }
+}
+
+template <typename FImpl> void TGaugePropMILCLegacy<FImpl>::setup(void) {
+  _hasGuess = !par().guess.empty();
+
+  if (envHasType(PropagatorField, par().source) ||
+      envHasType(std::vector<PropagatorField>, par().source)) {
+
+    // Additional temp storage for propagator field calculations
+    envTmpLat(FermionField, "fermIn");
+    envTmpLat(FermionField, "fermOut");
+    envTmpLat(FermionField, "fermGuess");
+    envGetTmp(FermionField, fermIn);
+    envGetTmp(FermionField, fermOut);
+    envGetTmp(FermionField, fermGuess);
+    fermIn = Zero();
+    fermOut = Zero();
+    fermGuess = Zero();
+
+    setupHelper<PropagatorField>();
+
+  } else if (envHasType(FermionField, par().source) ||
+             envHasType(std::vector<FermionField>, par().source)) {
+    setupHelper<FermionField>();
+  } else {
+    HADRONS_ERROR(Logic,
+                  "Type of source '" + par().source + "' not recognized.");
+  }
+}
+
+// execution ///////////////////////////////////////////////////////////////////
+template <typename FImpl>
+void TGaugePropMILCLegacy<FImpl>::solveField(FermionField &sol,
+                                             const FermionField &src,
+                                             const FermionField *guess) {
+  auto &solver = envGet(Solver, par().solver);
+
+  if (guess != nullptr) {
+    solver(sol, src, *guess);
+  } else {
+    solver(sol, src);
+  }
+}
+
+template <typename FImpl>
+void TGaugePropMILCLegacy<FImpl>::solveField(PropagatorField &sol,
+                                             const PropagatorField &src,
+                                             const PropagatorField *guess) {
+  auto &solver = envGet(Solver, par().solver);
+
+  envGetTmp(FermionField, fermIn);
+  envGetTmp(FermionField, fermOut);
+  envGetTmp(FermionField, fermGuess);
+
+  for (unsigned int c = 0; c < FImpl::Dimension; ++c) {
+    PropToFerm<FImpl>(fermIn, src, c);
+    if (guess != nullptr) {
+      PropToFerm<FImpl>(fermGuess, *guess, c);
+      solver(fermOut, fermIn, fermGuess);
+    } else {
+      solver(fermOut, fermIn);
+    }
+    FermToProp<FImpl>(sol, fermOut, c);
+  }
+}
+
+template <typename FImpl>
+template <typename TField>
+EnableIf<is_lattice<TField>, void>
+TGaugePropMILCLegacy<FImpl>::executeHelper(TField &sol, const TField &src,
+                                           StagGamma &gamma, const TField *guess) {
+  envGetTmp(TField, field);
+
+  gamma(field, src);
+
+  if (_hasGuess) {
+    solveField(sol, field, guess);
+  } else {
+    solveField(sol, field);
+  }
+}
+
+template <typename FImpl>
+template <typename TField>
+EnableIf<is_lattice<TField>, void> TGaugePropMILCLegacy<FImpl>::executeHelper(
+    std::vector<TField> &sol, const std::vector<TField> &src, StagGamma &gamma,
+    const std::vector<TField> *guess) {
+  envGetTmp(TField, field);
+
+  for (int i = 0; i < src.size(); i++) {
+
+    gamma(field, src[i]);
+
+    if (_hasGuess) {
+      const TField *guessTemp = &(guess->at(i));
+      solveField(sol[i], field, guessTemp);
+    } else {
+      solveField(sol[i], field);
+    }
+  }
+}
+
+template <typename FImpl>
+template <typename TField>
+void TGaugePropMILCLegacy<FImpl>::executeHelper(const TField &src) {
+  StagGamma gamma;
+
+  auto solveFunc = [this, &src, &gamma](std::string ext) {
+    auto &sol = envGet(TField, getName() + ext);
+
+    if (!par().guess.empty()) {
+      if (!envHasType(TField, par().guess + ext)) {
+        HADRONS_ERROR(Argument,
+                      "guess parameter '" + par().guess + ext +
+                          "' must have same data structure as source, '" +
+                          par().source + "'");
+      }
+      auto &guess = envGet(TField, par().guess + ext);
+      executeHelper(sol, src, gamma, &guess);
+    } else {
+      executeHelper(sol, src, gamma);
+    }
+  };
+
+  if (!par().spinTaste.gauge.empty()) {
+    auto &Umu = envGet(GaugeField, par().spinTaste.gauge);
+    gamma.setGaugeField(Umu);
+  }
+
+  for (auto iter = _mapGammas.begin(); iter != _mapGammas.end(); ++iter) {
+    // Apply gamma to source
+    gamma.setSpinTaste(iter->second);
+    LOG(Message) << "Solve for '" << par().source << "' with spin-taste: '"
+                 << iter->first << "'" << std::endl;
+
+    solveFunc(iter->first);
+  }
+}
+
+template <typename FImpl> void TGaugePropMILCLegacy<FImpl>::execute(void) {
+  LOG(Message) << "Computing quark propagator '" << getName() << "'"
+               << std::endl;
+
+  if (envHasType(PropagatorField, par().source)) {
+    const auto &src = envGet(PropagatorField, par().source);
+    executeHelper(src);
+  } else if (envHasType(std::vector<PropagatorField>, par().source)) {
+    const auto &src = envGet(std::vector<PropagatorField>, par().source);
+    executeHelper(src);
+  } else if (envHasType(FermionField, par().source)) {
+    const auto &src = envGet(FermionField, par().source);
+    executeHelper(src);
+  } else {
+    const auto &src = envGet(std::vector<FermionField>, par().source);
+    executeHelper(src);
+  }
+}
+
+END_MODULE_NAMESPACE
+
+END_HADRONS_NAMESPACE
+
+#endif // Hadrons_MFermion_GaugePropLegacy_hpp_

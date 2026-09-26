@@ -75,29 +75,36 @@ BEGIN_HADRONS_NAMESPACE
     action      Staggered action module (Meooe parity move)
     lowModes    MassShiftEigenPack module with the CHECKERBOARDED
                 eigenvectors/eigenvalues (row pair k <-> evec[k], eval[k])
-    gammas      name of an MFermion::SpinTaste module publishing
-                std::vector<StagGamma> (one entry per output family).
-                This module applies no spin-taste operator: each entry's
-                RAW label (StagGamma::getLabelName) keys the per-
-                timeslice TGammaMap outputs (naming follows the label),
-                and its physics pair (_spin/_taste = P, fold-invariant
-                under the module's applyG5) is the FILE KEY that must
-                match each loaded file's metadata (the producing
-                StagA2AMesonField writes gamma_spin/gamma_taste as its
-                own P pair). With applyG5=true in the gammas module the
-                file pairing permutes while the labels stay on the raw
-                list -- the former double parse, now carried by the
-                objects. The module's gauge binding is irrelevant here
-                (U is only read by appliers); duplicate labels are
-                fatal (map entries would collide)
+    gammas      name of an MFermion::SpinTaste module; this module consumes
+                the SpinTaste module's `_map` companion output
+                (par().gammas + "_map", a TGammaMap<StagGamma>) for
+                per-label StagGamma lookup -- NOT the bare vector. The
+                module applies no spin-taste operator: each requested
+                label's physics pair (_spin/_taste = P, fold-invariant
+                under the gammas module's applyG5) is the FILE KEY that
+                must match each loaded file's metadata (the producing
+                StagA2AMesonField writes gamma_spin/gamma_taste as its own
+                P pair). The module's gauge binding is irrelevant here (U
+                is only read by appliers)
+    labels      REQUIRED whitespace-separated list, positionally parallel
+                ONLY to mesonField (labels[i] <-> mesonField[i]); each
+                label is looked up by key in the gammas module's `_map` at
+                setup (fatal if missing, with a dynamic available-keys
+                diagnostic) -- fully replaces the former
+                gammas[i]<->mesonField[i] positional contract. Naming
+                follows the label (keys the per-timeslice TGammaMap
+                outputs), physics follows the resolved StagGamma object. A
+                subset of the gammas module's full published list is now
+                legal (labels need not cover every entry the gammas
+                module publishes)
     mesonField  whitespace-separated LoadMesonField module names, one per
-                gamma (positional parallel list, gammas[i] <-> entry i);
+                label (positional parallel list, labels[i] <-> entry i);
                 each loader's published MesonFieldMILCMetadata side object
                 ("<loader>_metadata") is cross-checked against the
-                physics pair (_spin/_taste) of the gammas module's i-th
-                object at execute time (mesonField[i] must load the file
-                produced under the i-th gamma's physics pair), so a
-                miswired gamma/file pairing fails loudly instead of
+                physics pair (_spin/_taste) of labels[i]'s resolved
+                StagGamma object at execute time (mesonField[i] must load
+                the file produced under that gamma's physics pair), so a
+                miswired label/file pairing fails loudly instead of
                 silently mislabeling output names
     noiseIndex  index of the FIRST noise window (unit = NOISES, not
                 columns): the module reconstructs noises
@@ -115,7 +122,7 @@ BEGIN_HADRONS_NAMESPACE
     tB          last timeslice to produce (inclusive, must be < nt)
     tStep       timeslice stride (>= 1); ONE TGammaMap output per
                 t in [tA, tB] with stride tStep, named "<name>_t<t>"
-                (gamma-free: the gamma label is the map key, resolved
+                (gamma-free: the label is the map key, resolved
                 by consumers such as a StagGaugeProp's guess/source
                 lookup at execute time)
     eigStart    first eigenpair to include (pair space)
@@ -149,6 +156,7 @@ public:
                                   std::string,   lowModes,
                                   std::string,   mesonField,
                                   std::string,   gammas,
+                                  std::string,   labels,
                                   unsigned int,  noiseIndex,
                                   unsigned int,  nNoise,
                                   unsigned int,  tA,
@@ -162,10 +170,14 @@ public:
   LMAMesonFieldPropMILCPar(void)
       : tStep(1), nNoise(1), negFirst(""), pairScale("") {}
 };
-// gammas: name of an MFermion::SpinTaste module publishing
-//         std::vector<StagGamma>; REQUIRED (empty is an error). Keys the
-//         per-timeslice TGammaMap outputs; pairs positionally with
-//         mesonField
+// gammas: name of an MFermion::SpinTaste module; this module consumes its
+//         `_map` companion output (par().gammas + "_map") for per-label
+//         StagGamma lookup -- NOT the bare vector.
+// labels: REQUIRED whitespace-separated list, positionally parallel ONLY
+//         to mesonField (labels[i] <-> mesonField[i]); each label is
+//         looked up by key in the gammas module's `_map` at setup (fatal
+//         if missing) -- fully replaces the former
+//         gammas[i]<->mesonField[i] positional contract.
 
 template <typename FImpl, typename Pack>
 class TLMAMesonFieldPropMILC : public Module<LMAMesonFieldPropMILCPar> {
@@ -173,19 +185,23 @@ public:
   FERM_TYPE_ALIASES(FImpl, );
 
 private:
-  // one LoadMesonField module name per gamma (positional parallel list,
-  // strToVec<std::string>); count mismatch vs the gammas module's list
-  // is fatal before any positional access (checked at setup, where the
-  // objects exist; getInput only wires edges)
+  // one LoadMesonField module name per label (positional parallel list,
+  // strToVec<std::string>); count mismatch vs the labels list is fatal
+  // before any positional access (checked at setup, where the objects
+  // exist; getInput only wires edges)
   std::vector<std::string> mesonFieldList(
-      const std::vector<StagGamma> &gammas) const;
+      const std::vector<std::string> &labels) const;
+  // REQUIRED labels parameter: one entry per mesonField, positionally
+  // parallel (labels[i] <-> mesonField[i]); each looked up by key in the
+  // gammas module's `_map` at setup (fatal if missing).
+  std::vector<std::string> parseLabels(void) const;
   // the timeslices this instance materializes: t in [tA, tB] stride
   // tStep, clamped to the lattice time extent (single source shared by
   // getOutput()/setup()/execute() -- the name family cannot diverge
   // between the three sites)
   std::vector<unsigned int> sliceTimes(void) const;
   // the per-timeslice TGammaMap output name: "<name>_t<t>" (gamma-free;
-  // the gamma label is the map key)
+  // the label is the map key)
   std::string mapName(const unsigned int t) const;
 
 public:
@@ -216,19 +232,29 @@ TLMAMesonFieldPropMILC<FImpl, Pack>::TLMAMesonFieldPropMILC(
     const std::string name)
     : Module<LMAMesonFieldPropMILCPar>(name) {}
 
-// gamma/meson-field parallel lists //////////////////////////////////////////
+// labels / meson-field parallel lists //////////////////////////////////////////
+template <typename FImpl, typename Pack>
+std::vector<std::string> TLMAMesonFieldPropMILC<FImpl, Pack>::parseLabels(
+    void) const {
+  if (par().labels.empty()) {
+    HADRONS_ERROR(Argument,
+                  "LMAMesonFieldProp requires the 'labels' parameter "
+                  "(one label per mesonField entry)");
+  }
+  return strToVec<std::string>(par().labels);
+}
+
 template <typename FImpl, typename Pack>
 std::vector<std::string> TLMAMesonFieldPropMILC<FImpl, Pack>::mesonFieldList(
-    const std::vector<StagGamma> &gammas) const {
+    const std::vector<std::string> &labels) const {
   auto mfs = strToVec<std::string>(par().mesonField);
-  if (mfs.size() != gammas.size()) {
+  if (mfs.size() != labels.size()) {
     HADRONS_ERROR(Argument,
-                  "gammas module '" + par().gammas + "' has " +
-                      std::to_string(gammas.size()) +
-                      " entries but mesonField names " +
+                  "'labels' has " + std::to_string(labels.size()) +
+                      " entries but 'mesonField' names " +
                       std::to_string(mfs.size()) +
-                      " module(s): one LoadMesonField module per gamma "
-                      "(positional parallel list)");
+                      " module(s): labels and mesonField must be "
+                      "positionally parallel lists of equal length");
   }
 
   return mfs;
@@ -274,8 +300,10 @@ std::vector<std::string> TLMAMesonFieldPropMILC<FImpl, Pack>::getInput(void) {
                   "LMAMesonFieldProp requires the 'gammas' SpinTaste "
                   "module name");
   }
-  std::vector<std::string> in{par().action, par().lowModes, par().gammas};
-  for (auto &mf : strToVec<std::string>(par().mesonField)) {
+  auto labels = parseLabels();
+  std::vector<std::string> in{par().action, par().lowModes,
+                              par().gammas + "_map"};
+  for (auto &mf : mesonFieldList(labels)) {
     in.push_back(mf);
     // explicit edge on the loader's metadata side object (GaugeProp
     // guess-object pattern): naming an env object in getInput() keeps
@@ -353,16 +381,31 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::setup(void) {
                   "LMAMesonFieldProp requires the 'gammas' SpinTaste "
                   "module name");
   }
-  const auto &gammas = envGet(std::vector<StagGamma>, par().gammas);
-  if (gammas.empty()) {
-    HADRONS_ERROR(Argument, "gammas module '" + par().gammas +
-                                "' published an empty gamma list");
+  auto labels = parseLabels();
+  auto mfs = mesonFieldList(labels);
+
+  const auto &gammaMap = envGet(TGammaMap<StagGamma>, par().gammas + "_map");
+  // Setup-time key-set validation (GammaMapElement/Meson checkKeys
+  // precedent): every requested label must exist in the gammas module's
+  // _map, with a dynamic available-keys diagnostic on miss. `selected`
+  // restricts the per-timeslice TGammaMap output to exactly the
+  // requested labels (a SUBSET of the gammas module's full list is now
+  // legal), built via the new TGammaMap(const TGammaMap<StagGamma>&,
+  // Args...) ctor overload at each envCreate call below.
+  TGammaMap<StagGamma> selected;
+  for (auto &label : labels) {
+    auto it = gammaMap.find(label);
+    if (it == gammaMap.end()) {
+      std::string available;
+      for (auto &q : gammaMap) {
+        available += (available.empty() ? "" : ", ") + q.first;
+      }
+      HADRONS_ERROR(Argument, "gammas module '" + par().gammas +
+                                  "' has no entry for label '" + label +
+                                  "' (available: " + available + ")");
+    }
+    selected.emplace(label, it->second);
   }
-  // duplicate-label validation is centralized in SpinTaste::setup()
-  // (SpinTaste.hpp), which always runs first via the par().gammas
-  // dependency edge -- a duplicate label is caught there before this
-  // module's own setup() runs.
-  auto mfs = mesonFieldList(gammas);
 
   LOG(Message) << "Setting up meson-field driven low mode propagator '"
                << getName() << "' for action '" << par().action
@@ -372,11 +415,11 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::setup(void) {
                << "', one map per timeslice in [tA=" << par().tA
                << ", tB=" << par().tB << "] with stride " << par().tStep
                << "):" << std::endl;
-  for (unsigned int g = 0; g < gammas.size(); ++g) {
-    LOG(Message) << "  gamma '" << gammas[g].getLabelName()
-                 << "' (file key '"
-                 << StagGamma::GetName(gammas[g]._spin, gammas[g]._taste)
-                 << "') from '" << mfs[g] << "'" << std::endl;
+  for (unsigned int i = 0; i < labels.size(); ++i) {
+    const auto &g = selected.at(labels[i]);
+    LOG(Message) << "  label '" << labels[i] << "' (file key '"
+                 << StagGamma::GetName(g._spin, g._taste)
+                 << "') from '" << mfs[i] << "'" << std::endl;
   }
 
   auto &epack = envGet(Pack, par().lowModes);
@@ -395,7 +438,7 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::setup(void) {
                   "bounds.");
   }
 
-  // meson-field tables: one per gamma; container-size check only (the
+  // meson-field tables: one per label; container-size check only (the
   // loader fills the nt-length vector in its own setup, so this is
   // dry-run safe). Row/column/metadata CONTENT checks live in execute()
   for (auto &mfName : mfs) {
@@ -431,14 +474,14 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::setup(void) {
 
   // allocation-only output creation: ONE TGammaMap per timeslice --
   // TGammaMap<PropagatorField> when nNoise == 1 (a scalar field per
-  // gamma label), TGammaMap<std::vector<PropagatorField>> of length
-  // nNoise otherwise (noise-major). Entries are constructed from the
-  // gammas module's objects INSIDE the envCreate window (profiler-
-  // visible) and zeroed; keys are the RAW labels. Sizing from
-  // par().nNoise -- never from table contents (dry-run safety)
+  // label), TGammaMap<std::vector<PropagatorField>> of length
+  // nNoise otherwise (noise-major). Entries are constructed from
+  // `selected` INSIDE the envCreate window (profiler-visible) and
+  // zeroed; keys are the SELECTED labels. Sizing from par().nNoise --
+  // never from table contents (dry-run safety)
   for (auto &t : sliceTimes()) {
     if (par().nNoise == 1) {
-      envCreate(TGammaMap<PropagatorField>, mapName(t), 1, gammas,
+      envCreate(TGammaMap<PropagatorField>, mapName(t), 1, selected,
                 envGetGrid(PropagatorField));
       for (auto &p : envGet(TGammaMap<PropagatorField>, mapName(t))) {
         p.second = Zero();
@@ -454,7 +497,7 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::setup(void) {
       // envCreate window (each entry still deep-copies from this
       // prototype during TGammaMap's own emplace loop)
       envCreate(TGammaMap<std::vector<PropagatorField>>, mapName(t), 1,
-                gammas,
+                selected,
                 std::vector<PropagatorField>(par().nNoise,
                                              envGetGrid(PropagatorField)));
       for (auto &p :
@@ -473,18 +516,20 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
   // content checks run here, not in setup(): the scheduler's memory-
   // profiling pass dry-runs every module's setup() BEFORE anything
   // executes, when the loader tables are still nt empty 0x0 matrices
-  const auto &gammas = envGet(std::vector<StagGamma>, par().gammas);
-  auto mfs = mesonFieldList(gammas);
+  auto labels = parseLabels();
+  auto mfs = mesonFieldList(labels);
+  const auto &gammaMap = envGet(TGammaMap<StagGamma>, par().gammas + "_map");
   auto &mat = envGet(FMat, par().action);
   auto &epack = envGet(Pack, par().lowModes);
   int nt = env().getDim().back();
 
-  for (unsigned int g = 0; g < gammas.size(); ++g) {
+  for (unsigned int i = 0; i < labels.size(); ++i) {
+    const StagGamma &gamma = gammaMap.at(labels[i]);
     auto &mf =
-        envGet(std::vector<A2AMatrix<HADRONS_A2AM_IO_TYPE>>, mfs[g]);
+        envGet(std::vector<A2AMatrix<HADRONS_A2AM_IO_TYPE>>, mfs[i]);
     if (static_cast<unsigned int>(mf[0].rows()) !=
         2 * static_cast<unsigned int>(epack.evec.size())) {
-      HADRONS_ERROR(Size, "meson field '" + mfs[g] + "' has " +
+      HADRONS_ERROR(Size, "meson field '" + mfs[i] + "' has " +
                               std::to_string(mf[0].rows()) +
                               " rows, expected 2*" +
                               std::to_string(epack.evec.size()) +
@@ -498,7 +543,7 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
     if (static_cast<unsigned int>(mf[0].cols()) <
         (par().noiseIndex + par().nNoise) * FImpl::Dimension) {
       HADRONS_ERROR(Size,
-                    "meson field '" + mfs[g] + "' has " +
+                    "meson field '" + mfs[i] + "' has " +
                         std::to_string(mf[0].cols()) +
                         " columns, too few for noise windows [noiseIndex=" +
                         std::to_string(par().noiseIndex) +
@@ -509,31 +554,29 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
                                        FImpl::Dimension) +
                         " columns: (noiseIndex+nNoise)*3)");
     }
-    // gamma/file pairing cross-check against the loader's published
-    // metadata, on the object physics pair (_spin/_taste = P; the
-    // producing StagA2AMesonField writes gamma_spin/gamma_taste as its
-    // own P pair)
+    // label/file pairing cross-check against the loader's published
+    // metadata, on the resolved object's physics pair (_spin/_taste = P;
+    // the producing StagA2AMesonField writes gamma_spin/gamma_taste as
+    // its own P pair)
     auto &md = envGet(MContraction::MesonFieldMILCMetadata,
-                      mfs[g] + "_metadata");
-    if ((md.gamma_spin != gammas[g]._spin) ||
-        (md.gamma_taste != gammas[g]._taste)) {
+                      mfs[i] + "_metadata");
+    if ((md.gamma_spin != gamma._spin) || (md.gamma_taste != gamma._taste)) {
       // distinguish a never-filled side object (non-HDF5 build or
-      // legacy file) from a genuine gamma/file miswire
+      // legacy file) from a genuine label/file miswire
       const std::string fileSt =
           StagGamma::GetName(md.gamma_spin, md.gamma_taste);
       if (fileSt.find("undef") != std::string::npos) {
         HADRONS_ERROR(Argument,
-                      "meson field '" + mfs[g] + "' carries undefined "
+                      "meson field '" + mfs[i] + "' carries undefined "
                       "spin-taste metadata (non-HDF5 build or legacy "
-                      "file): cannot cross-check gamma '" +
-                          gammas[g].getLabelName() + "'");
+                      "file): cannot cross-check label '" +
+                          labels[i] + "'");
       }
       HADRONS_ERROR(Argument,
-                    "gamma '" + gammas[g].getLabelName() + "' (file key '" +
-                        StagGamma::GetName(gammas[g]._spin,
-                                           gammas[g]._taste) +
+                    "label '" + labels[i] + "' (file key '" +
+                        StagGamma::GetName(gamma._spin, gamma._taste) +
                         "' from gammas module '" + par().gammas +
-                        "') is configured for meson field '" + mfs[g] +
+                        "') is configured for meson field '" + mfs[i] +
                         "', but the file holds spin-taste '" + fileSt +
                         "'");
     }
@@ -547,7 +590,7 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
   // live reference is gamma-independent, so the checkable table is the
   // one whose file CONTENT is the identity pairing: scan the physics
   // pairs (_spin/_taste; with applyG5=true the identity table is
-  // reached through its conjugated file key); other gammas get a skip
+  // reached through its conjugated file key); other labels get a skip
   // notice
   if (!par().noise.empty()) {
     auto &noise = envGet(std::vector<FermionField>, par().noise);
@@ -558,10 +601,11 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
                               par().noise + "'");
     }
     int gIdentity = -1;
-    for (unsigned int g = 0; g < gammas.size(); ++g) {
-      if ((gammas[g]._spin == StagGamma::StagAlgebra::G1) &&
-          (gammas[g]._taste == StagGamma::StagAlgebra::G1)) {
-        gIdentity = g;
+    for (unsigned int i = 0; i < labels.size(); ++i) {
+      const StagGamma &gamma = gammaMap.at(labels[i]);
+      if ((gamma._spin == StagGamma::StagAlgebra::G1) &&
+          (gamma._taste == StagGamma::StagAlgebra::G1)) {
+        gIdentity = i;
         break;
       }
     }
@@ -605,11 +649,11 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
         // ComplexD (thrust::complex) of GPU builds
         if (std::hypot(ipFull.real(), ipFull.imag()) > 1.e-12) {
           ComplexD pLive = sumFile / ipFull;
-          LOG(Message) << "Self-check (gamma '"
-                       << gammas[gIdentity].getLabelName()
+          LOG(Message) << "Self-check (label '"
+                       << labels[gIdentity]
                        << "', file key '"
-                       << StagGamma::GetName(gammas[gIdentity]._spin,
-                                             gammas[gIdentity]._taste)
+                       << StagGamma::GetName(gammaMap.at(labels[gIdentity])._spin,
+                                             gammaMap.at(labels[gIdentity])._taste)
                        << "', noise window " << n << "): file-derived "
                        << "production constant P = " << pLive
                        << " (configured pairScale = " << pairScale
@@ -635,14 +679,17 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
     }
   }
 
-  // reconstruction: one output per (t, gamma) name -- a scalar
+  // reconstruction: one output per (t, label) name -- a scalar
   // PropagatorField when nNoise == 1, nNoise propagators otherwise.
   // Color slot c of noise n is reconstructed from the color-diluted
   // source's table column j = (noiseIndex + n)*3 + c (adjacent columns
   // = adjacent colors, TimeDilutedSpinColorDiagonal color-fast layout)
   // and assembled FermToProp-style -- the GaugeProp solveField
   // color-loop pattern applied to meson-field columns, once per noise
-  // window
+  // window. This entire kernel (accelerator_for batching, Meooe
+  // application, site-matrix assembly) is UNCHANGED from before this
+  // slice -- only the outer per-(label,file) driver loop below changed
+  // from vector-index `g` to `labels[i]`/`gammaMap.at(labels[i])`.
   unsigned int eigStart = par().eigStart;
   int nEigs = par().nEigs;
   if (nEigs < 1) {
@@ -679,15 +726,16 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
   RealD norm = 1. / ::sqrt(norm2(epack.evec[0]));
 
   auto ts = sliceTimes();
-  for (unsigned int g = 0; g < gammas.size(); ++g) {
+  for (unsigned int i = 0; i < labels.size(); ++i) {
     auto &mf =
-        envGet(std::vector<A2AMatrix<HADRONS_A2AM_IO_TYPE>>, mfs[g]);
-    const std::string label = gammas[g].getLabelName();
+        envGet(std::vector<A2AMatrix<HADRONS_A2AM_IO_TYPE>>, mfs[i]);
+    const std::string &label = labels[i];
     for (auto &t : ts) {
       const A2AMatrix<HADRONS_A2AM_IO_TYPE> &mft = mf[t];
-      // per-timeslice map output; the entry is keyed by the RAW label
-      // (TGammaMap was built from the same gammas list at setup and
-      // duplicate labels are fatal there, so the key always exists)
+      // per-timeslice map output; the entry is keyed by the SELECTED
+      // label (TGammaMap was built from `selected` at setup and every
+      // requested label was validated present there, so the key always
+      // exists)
       std::vector<PropagatorField> *propVec = nullptr;
       PropagatorField *propScalar = nullptr;
       if (par().nNoise == 1) {
@@ -1232,13 +1280,13 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
         }
 
       }
-      LOG(Message) << "Reconstructed '" << mapName(t) << "' gamma '"
+      LOG(Message) << "Reconstructed '" << mapName(t) << "' label '"
                    << label << "' (" << par().nNoise
                    << " noise window(s)) from columns "
                    << par().noiseIndex * FImpl::Dimension << ".."
                    << ((par().noiseIndex + 1) *
                        FImpl::Dimension - 1)
-                   << " of '" << mfs[g] << "'" << std::endl;
+                   << " of '" << mfs[i] << "'" << std::endl;
     }
   }
 }

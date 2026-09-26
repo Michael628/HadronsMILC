@@ -3,9 +3,11 @@ modules_cpp =\
   Modules/MAction/ImprovedStaggered5D.cpp \
   Modules/MContraction/ASlashMesonField.cpp \
   Modules/MContraction/Meson.cpp \
+  Modules/MContraction/MesonLegacy.cpp \
   Modules/MContraction/MesonField.cpp \
   Modules/MContraction/MesonFieldLegacy.cpp \
   Modules/MFermion/GaugeProp.cpp \
+  Modules/MFermion/GaugePropLegacy.cpp \
   Modules/MFermion/LMAMesonFieldProp.cpp \
   Modules/MFermion/SpinTaste.cpp \
   Modules/MGauge/APBCGauge.cpp \
@@ -41,9 +43,11 @@ modules_hpp =\
   Modules/MAction/ImprovedStaggered5D.hpp \
   Modules/MContraction/ASlashMesonField.hpp \
   Modules/MContraction/Meson.hpp \
+  Modules/MContraction/MesonLegacy.hpp \
   Modules/MContraction/MesonField.hpp \
   Modules/MContraction/MesonFieldLegacy.hpp \
   Modules/MFermion/GaugeProp.hpp \
+  Modules/MFermion/GaugePropLegacy.hpp \
   Modules/MFermion/LMAMesonFieldProp.hpp \
   Modules/MFermion/SpinTaste.hpp \
   Modules/MGauge/APBCGauge.hpp \

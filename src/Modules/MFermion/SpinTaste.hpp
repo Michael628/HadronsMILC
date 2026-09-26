@@ -45,16 +45,18 @@ BEGIN_HADRONS_NAMESPACE
 /******************************************************************************
  *                     TGammaMap: label-keyed per-gamma maps                   *
  ******************************************************************************/
-// Cross-module gamma association: the key is each gamma's RAW label
-// (StagGamma::getLabelName -- naming follows the label, physics follows
+// Cross-module gamma association: the key is each gamma's EFFECTIVE label
+// (a SpinTaste module's custom `labels` override when given, else
+// StagGamma::getLabelName() -- naming follows the label, physics follows
 // the object), the value the per-gamma product (propagator fields,
 // per-timeslice maps, ...). Entries are constructed from the gammas
-// module's vector INSIDE the envCreate window: the environment's memory
-// profiler sizes objects by the allocation delta around construction
-// (Hadrons/Environment.hpp createObject), so post-hoc fills would be
-// invisible to the scheduler's peak-memory objective. Duplicate labels
-// dedupe by first occurrence (map::emplace no-op on existing keys),
-// matching the first-wins semantics of the former std::map::insert keys.
+// module's vector or label map INSIDE the envCreate window: the
+// environment's memory profiler sizes objects by the allocation delta
+// around construction (Hadrons/Environment.hpp createObject), so post-hoc
+// fills would be invisible to the scheduler's peak-memory objective.
+// Duplicate labels dedupe by first occurrence (map::emplace no-op on
+// existing keys), matching the first-wins semantics of the former
+// std::map::insert keys.
 template <typename T>
 class TGammaMap : public std::map<std::string, T> {
 public:
@@ -62,12 +64,29 @@ public:
 
   // One entry per gamma label; every value copy-constructed from the
   // same ctor arguments (a GridBase* for lattices, a size and a
-  // GridBase* for per-source vectors).
+  // GridBase* for per-source vectors). Keys by StagGamma::getLabelName()
+  // -- used only where no label map is available (should not occur for
+  // producer modules downstream of a SpinTaste module's `_map` output;
+  // kept for direct StagGamma::MakeSpinTasteOps() callers with no
+  // custom-label concept).
   template <typename... Args>
   TGammaMap(const std::vector<StagGamma> &gammas, Args &&...args)
       : std::map<std::string, T>() {
     for (auto &g : gammas) {
       this->emplace(g.getLabelName(), args...);
+    }
+  }
+
+  // One entry per (label, StagGamma) pair already resolved by a
+  // producer -- reuses the label map's OWN keys instead of re-deriving
+  // via getLabelName(), so a SpinTaste module's custom `labels` override
+  // flows through unchanged. This is the constructor GaugeProp and
+  // LMAMesonFieldProp use against a SpinTaste `_map` object.
+  template <typename... Args>
+  TGammaMap(const TGammaMap<StagGamma> &labelMap, Args &&...args)
+      : std::map<std::string, T>() {
+    for (auto &p : labelMap) {
+      this->emplace(p.first, args...);
     }
   }
 };
@@ -77,8 +96,27 @@ public:
  ******************************************************************************/
 BEGIN_MODULE_NAMESPACE(MFermion)
 
+// Hadrons-local Par: nests Grid's SpinTasteParams (gammas/gauge/applyG5,
+// StagGamma.h:23-27) unchanged, plus a sibling `labels` override -- keeps
+// the custom-label mechanism entirely on the Hadrons side, no StagGamma/
+// Grid changes. Modeled on ImplicitlyRestartedLanczos.hpp:18-27's
+// LanczosParams-nested-in-ImplicitlyRestartedLanczosMILCPar precedent.
+//
+// labels: optional whitespace-separated list, positionally parallel to
+//         the parsed spinTaste.gammas list; "" = every gamma defaults to
+//         StagGamma::getLabelName(). When non-empty, size must match the
+//         parsed gamma count (fatal otherwise). The EFFECTIVE label
+//         (custom or default) is what keys this module's `_map` output
+//         and feeds the duplicate-label check -- naming follows the
+//         effective label, physics still follows the StagGamma object.
+class SpinTasteMILCPar : Serializable {
+public:
+  GRID_SERIALIZABLE_CLASS_MEMBERS(SpinTasteMILCPar, SpinTasteParams,
+                                  spinTaste, std::string, labels);
+};
+
 template <typename FImpl>
-class TSpinTasteMILC : public Module<SpinTasteParams> {
+class TSpinTasteMILC : public Module<SpinTasteMILCPar> {
 public:
   FERM_TYPE_ALIASES(FImpl, );
 
@@ -97,6 +135,14 @@ protected:
   virtual void setup(void);
   // execution
   virtual void execute(void);
+
+private:
+  // the effective label for ops[i]: par().labels[i] when the (validated,
+  // count-matched) override list is non-empty, else ops[i].getLabelName().
+  // Single derivation point for setup()'s opsMap keying AND the
+  // duplicate-label check, so the two can never disagree.
+  std::vector<std::string> effectiveLabels(
+      const std::vector<StagGamma> &ops) const;
 };
 
 MODULE_REGISTER_TMP(SpinTaste, TSpinTasteMILC<STAGIMPL>, MFermion);
@@ -107,15 +153,15 @@ MODULE_REGISTER_TMP(SpinTaste, TSpinTasteMILC<STAGIMPL>, MFermion);
 // constructor /////////////////////////////////////////////////////////////////
 template <typename FImpl>
 TSpinTasteMILC<FImpl>::TSpinTasteMILC(const std::string name)
-    : Module<SpinTasteParams>(name) {}
+    : Module<SpinTasteMILCPar>(name) {}
 
 // dependencies/products ///////////////////////////////////////////////////////
 template <typename FImpl>
 std::vector<std::string> TSpinTasteMILC<FImpl>::getInput(void) {
   std::vector<std::string> in;
 
-  if (!par().gauge.empty()) {
-    in.push_back(par().gauge);
+  if (!par().spinTaste.gauge.empty()) {
+    in.push_back(par().spinTaste.gauge);
   }
 
   return in;
@@ -132,11 +178,39 @@ template <typename FImpl>
 DependencyMap TSpinTasteMILC<FImpl>::getObjectDependencies(void) {
   DependencyMap dep;
 
-  if (!par().gauge.empty()) {
-    dep.insert({par().gauge, getName()});
+  if (!par().spinTaste.gauge.empty()) {
+    dep.insert({par().spinTaste.gauge, getName()});
   }
 
   return dep;
+}
+
+// effective-label derivation //////////////////////////////////////////////////
+template <typename FImpl>
+std::vector<std::string> TSpinTasteMILC<FImpl>::effectiveLabels(
+    const std::vector<StagGamma> &ops) const {
+  auto overrides = strToVec<std::string>(par().labels);
+  std::vector<std::string> labels;
+  labels.reserve(ops.size());
+
+  if (overrides.empty()) {
+    for (auto &g : ops) {
+      labels.push_back(g.getLabelName());
+    }
+    return labels;
+  }
+
+  if (overrides.size() != ops.size()) {
+    HADRONS_ERROR(Argument,
+                  "SpinTaste module '" + getName() + "': 'labels' has " +
+                      std::to_string(overrides.size()) +
+                      " entries but 'spinTaste.gammas' parsed " +
+                      std::to_string(ops.size()) +
+                      " gamma(s) -- labels must be a positionally parallel "
+                      "list, one entry per gamma");
+  }
+
+  return overrides;
 }
 
 // setup ///////////////////////////////////////////////////////////////////////
@@ -148,10 +222,11 @@ template <typename FImpl> void TSpinTasteMILC<FImpl>::setup(void) {
   // must bind them through const& (setSpin/setTaste/setSpinTaste re-derive
   // _negated from the stored P pair and silently destroy the fold).
   LatticeGaugeField *U = nullptr;
-  if (!par().gauge.empty()) {
-    U = &envGet(LatticeGaugeField, par().gauge);
+  if (!par().spinTaste.gauge.empty()) {
+    U = &envGet(LatticeGaugeField, par().spinTaste.gauge);
   }
-  auto ops = StagGamma::MakeSpinTasteOps(par().gammas, par().applyG5, U);
+  auto ops = StagGamma::MakeSpinTasteOps(par().spinTaste.gammas,
+                                        par().spinTaste.applyG5, U);
 
   if (ops.empty()) {
     LOG(Warning) << "SpinTaste module '" << getName()
@@ -160,22 +235,25 @@ template <typename FImpl> void TSpinTasteMILC<FImpl>::setup(void) {
   } else {
     LOG(Message) << "Publishing " << ops.size()
                  << " spin-taste operator(s) (applyG5 "
-                 << (par().applyG5 ? "true" : "false") << ", gauge '"
-                 << par().gauge << "')" << std::endl;
+                 << (par().spinTaste.applyG5 ? "true" : "false") << ", gauge '"
+                 << par().spinTaste.gauge << "')" << std::endl;
   }
 
-  // Centralized duplicate-label validation: the single derivation point
-  // for this check going forward (was ad hoc per-consumer, e.g. the former
-  // LMAMesonFieldProp.hpp:364-373 pairwise check). Every consumer's setup()
-  // runs after this one via the par().gammas dependency edge, so a
-  // duplicate label is caught here before any downstream module can act
-  // on it (previously: a silent redundant Krylov solve in GaugeProp's
-  // gammaLoop(), or a silent duplicate Result block in Meson).
-  for (unsigned int i = 0; i < ops.size(); ++i) {
-    for (unsigned int j = i + 1; j < ops.size(); ++j) {
-      if (ops[i].getLabelName() == ops[j].getLabelName()) {
+  // Single derivation point: the effective label (custom override or
+  // default getLabelName()) feeds BOTH the duplicate check below and the
+  // opsMap keying -- they can never disagree.
+  auto labels = effectiveLabels(ops);
+
+  // Centralized duplicate-label validation on the EFFECTIVE label (not
+  // getLabelName() directly): a duplicate label is caught here before any
+  // downstream module can act on it. Intentional label sharing ACROSS
+  // separate SpinTaste module instances is unaffected -- only within-list
+  // duplicates are fatal here.
+  for (unsigned int i = 0; i < labels.size(); ++i) {
+    for (unsigned int j = i + 1; j < labels.size(); ++j) {
+      if (labels[i] == labels[j]) {
         HADRONS_ERROR(Argument,
-                      "duplicate gamma label '" + ops[i].getLabelName() +
+                      "duplicate gamma label '" + labels[i] +
                           "' in SpinTaste module '" + getName() +
                           "' (gamma-map entries would collide)");
       }
@@ -185,17 +263,10 @@ template <typename FImpl> void TSpinTasteMILC<FImpl>::setup(void) {
   envCreate(std::vector<StagGamma>, getName(), 1, ops);
 
   // Companion output: one TGammaMap<StagGamma> entry per gamma, keyed by
-  // its raw label. TGammaMap's templated ctor (SpinTaste.hpp:59-73) shares
-  // one set of ctor args across every entry and cannot route the loop
-  // variable itself into the map, so this is built via the inherited
-  // public std::map::emplace instead (precedented by GammaMapElement.hpp's
-  // copy-from-map-entry idiom) and envCreate'd as a pre-built object --
-  // Environment.hpp:777 copy-constructs from the single argument with no
-  // new constructor overload required. Modeled on LoadMesonField.hpp's
-  // _metadata dual-output precedent.
+  // its EFFECTIVE label (custom override or default getLabelName()).
   TGammaMap<StagGamma> opsMap;
-  for (auto &g : ops) {
-    opsMap.emplace(g.getLabelName(), g);
+  for (unsigned int i = 0; i < ops.size(); ++i) {
+    opsMap.emplace(labels[i], ops[i]);
   }
   envCreate(TGammaMap<StagGamma>, getName() + "_map", 1, opsMap);
 }
