@@ -59,13 +59,12 @@ public:
   GRID_SERIALIZABLE_CLASS_MEMBERS(MesonFieldLegacyMILCPar, int, block,
                                   std::string, lowModes, std::string, left,
                                   std::string, action, std::string, right,
-                                  std::string, output, std::string, gammas,
-                                  std::vector<std::string>, mom);
+                                  std::string, output, SpinTasteParams,
+                                  spinTaste, std::vector<std::string>, mom);
   MesonFieldLegacyMILCPar() {}
 };
-// gammas: name of an MFermion::SpinTaste module publishing
-//         std::vector<StagGamma> (gauge bound by the module for every
-//         displacing operator)
+// spinTaste: gammas/gauge/applyG5 -- gauge (if non-empty) is bound to every
+//            displacing operator built by MakeSpinTasteOps in setup()
 
 class MesonFieldLegacyMILCMetadata : Serializable {
 public:
@@ -176,7 +175,8 @@ public:
 
 private:
   std::string _momphName;
-  std::vector<StagGamma> _gammas, _gammaComms, _gammaLocal, _gammaMulti;
+  std::vector<StagGamma> _gammasAll, _gammas, _gammaComms, _gammaLocal,
+      _gammaMulti;
   std::vector<std::vector<Real>> _mom;
 };
 
@@ -209,11 +209,9 @@ std::vector<std::string> TMesonFieldMILCLegacy<FImpl, Pack>::getInput(void) {
     in.push_back(par().lowModes);
   }
 
-  if (par().gammas.empty()) {
-    HADRONS_ERROR(Argument, "MesonFieldLegacy requires the 'gammas' "
-                            "SpinTaste module name");
+  if (!par().spinTaste.gauge.empty()) {
+    in.push_back(par().spinTaste.gauge);
   }
-  in.push_back(par().gammas);
 
   return in;
 }
@@ -228,22 +226,23 @@ std::vector<std::string> TMesonFieldMILCLegacy<FImpl, Pack>::getOutput(void) {
 // setup ///////////////////////////////////////////////////////////////////////
 template <typename FImpl, typename Pack>
 void TMesonFieldMILCLegacy<FImpl, Pack>::setup(void) {
-  if (par().gammas.empty()) {
-    HADRONS_ERROR(Argument, "MesonFieldLegacy requires the 'gammas' "
-                            "SpinTaste module name");
+  LatticeGaugeField *U = nullptr;
+  if (!par().spinTaste.gauge.empty()) {
+    U = &envGet(LatticeGaugeField, par().spinTaste.gauge);
   }
-  const auto &gammasAll = envGet(std::vector<StagGamma>, par().gammas);
+  _gammasAll = StagGamma::MakeSpinTasteOps(par().spinTaste.gammas,
+                                           par().spinTaste.applyG5, U);
 
-  if (gammasAll.empty()) {
+  if (_gammasAll.empty()) {
     LOG(Warning) << "MesonFieldLegacy: empty spin-taste gamma list; no meson "
                     "fields will be computed"
                  << std::endl;
   }
-  for (const auto &g : gammasAll) {
+  for (const auto &g : _gammasAll) {
     if ((StagGamma::popcountShift(g._spin, g._taste) > 0) && (g.U == nullptr)) {
       HADRONS_ERROR(Argument,
-                    "gammas module '" + par().gammas + "' carries no gauge "
-                    "but gamma '" + g.getLabelName() + "' is displacing");
+                    "MesonFieldLegacy: 'spinTaste.gauge' is empty but gamma '" +
+                    g.getLabelName() + "' is displacing");
     }
   }
 
@@ -255,7 +254,7 @@ void TMesonFieldMILCLegacy<FImpl, Pack>::setup(void) {
   _gammaComms.clear();
   _gammaLocal.clear();
   _gammaMulti.clear();
-  for (const auto &g : gammasAll) {
+  for (const auto &g : _gammasAll) {
     int pc = StagGamma::popcountShift(g._spin, g._taste);
     if (pc == 0) {
       _gammaLocal.push_back(g);
@@ -360,10 +359,8 @@ void TMesonFieldMILCLegacy<FImpl, Pack>::execute(void) {
     LOG(Message) << "  " << p << std::endl;
   }
 
-  const auto &gammasAll = envGet(std::vector<StagGamma>, par().gammas);
-
   LOG(Message) << "Spin bilinears:" << std::endl;
-  for (const auto &g : gammasAll) {
+  for (const auto &g : _gammasAll) {
     LOG(Message) << "  " << g.getLabelName()
                  << " (physics pair '" << StagGamma::GetName(g._spin, g._taste)
                  << "')" << std::endl;
@@ -430,8 +427,8 @@ void TMesonFieldMILCLegacy<FImpl, Pack>::execute(void) {
   Kernel kernel(envGetGrid(FermionField));
 
   GaugeField *U = nullptr;
-  if (!gammasAll.empty()) {
-    U = gammasAll[0].U; // bound by the gammas module (public member)
+  if (!par().spinTaste.gauge.empty()) {
+    U = env().template getObject<GaugeField>(par().spinTaste.gauge);
   }
 
   int orthogDir = env().getNd() - 1;
