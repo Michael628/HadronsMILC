@@ -107,9 +107,12 @@
     <module>
       <id><name>gammas_mg</name><type>MFermion::SpinTaste</type></id>
       <options>
-        <gammas>(G1 G1) (G5 G5)</gammas>
-        <applyG5>false</applyG5>
-        <gauge>gauge</gauge>
+        <spinTaste>
+          <gammas>(G1 G1) (G5 G5)</gammas>
+          <applyG5>false</applyG5>
+          <gauge>gauge</gauge>
+        </spinTaste>
+        <labels></labels>
       </options>
     </module>
 
@@ -181,6 +184,7 @@
         <action>stag</action>
         <lowModes>eig</lowModes>
         <gammas>gammas_mg</gammas>
+        <labels>G1_G1 G5_G5</labels>
         <mesonField>mf_g1 mf_g5</mesonField>
         <noiseIndex>0</noiseIndex>
         <nNoise>1</nNoise>
@@ -189,6 +193,7 @@
         <tStep>1</tStep>
         <eigStart>0</eigStart>
         <nEigs>-1</nEigs>
+        <projector>true</projector>
         <negFirst></negFirst>
         <pairScale></pairScale>
         <noise>noise_vec</noise>
@@ -201,12 +206,16 @@
          already exactly the identity operator -> D5 legacy empty-gammas
          path (bare output). -->
     <module>
-      <id><name>gprop_ref</name><type>MFermion::StagGaugeProp</type></id>
+      <id><name>gprop_ref</name><type>MFermion::StagGaugePropLegacy</type></id>
       <options>
-        <guess></guess>
-        <solver>lma_ref</solver>
         <source>noise_vec</source>
-        <gammas></gammas>
+        <solver>lma_ref</solver>
+        <guess></guess>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(G1 G1)</gammas>
+          <gauge>gauge</gauge>
+        </spinTaste>
       </options>
     </module>
 
@@ -274,9 +283,12 @@
     <module>
       <id><name>gammas_g1</name><type>MFermion::SpinTaste</type></id>
       <options>
-        <gammas>(G1 G1)</gammas>
-        <applyG5>false</applyG5>
-        <gauge>gauge</gauge>
+        <spinTaste>
+          <gammas>(G1 G1)</gammas>
+          <applyG5>false</applyG5>
+          <gauge>gauge</gauge>
+        </spinTaste>
+        <labels></labels>
       </options>
     </module>
 
@@ -339,9 +351,12 @@
     <module>
       <id><name>gammas_mg_conj</name><type>MFermion::SpinTaste</type></id>
       <options>
-        <gammas>(G1 G1) (G5 G5)</gammas>
-        <applyG5>true</applyG5>
-        <gauge></gauge>
+        <spinTaste>
+          <gammas>(G1 G1) (G5 G5)</gammas>
+          <applyG5>true</applyG5>
+          <gauge></gauge>
+        </spinTaste>
+        <labels></labels>
       </options>
     </module>
     <module>
@@ -350,6 +365,7 @@
         <action>stag</action>
         <lowModes>eig</lowModes>
         <gammas>gammas_mg_conj</gammas>
+        <labels>G1_G1 G5_G5</labels>
         <mesonField>mf_g5 mf_g1</mesonField>
         <noiseIndex>0</noiseIndex>
         <nNoise>1</nNoise>
@@ -358,6 +374,7 @@
         <tStep>1</tStep>
         <eigStart>0</eigStart>
         <nEigs>-1</nEigs>
+        <projector>true</projector>
         <negFirst></negFirst>
         <pairScale></pairScale>
         <noise>noise_vec</noise>

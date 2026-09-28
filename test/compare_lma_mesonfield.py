@@ -91,7 +91,8 @@ def main():
 
     if rel > args.tol:
         sys.exit("FAIL: relative deviation exceeds tolerance")
-    print("PASS: StagLMAMesonFieldProp reproduces StagLMA (projector branch)")
+    print("PASS: StagLMAMesonFieldProp reproduces StagLMA "
+          "(branch determined by --ref/--file's <projector> setting)")
 
 
 if __name__ == "__main__":

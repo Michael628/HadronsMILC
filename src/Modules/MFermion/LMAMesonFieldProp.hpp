@@ -50,9 +50,14 @@ BEGIN_HADRONS_NAMESPACE
     difference reconstruct the parity-split inner products LowModeProj
     computes live:
 
-      SUM_k(t,j)  = M[t][2k][j] + M[t][2k+1][j] ~ <e_E^k|eta_j,E>(t)
-      DIFF_k(t,j) = M[t][2k][j] - M[t][2k+1][j]
-                    ~ (i/lam_k) <Meooe(e_E^k)|eta_j,O>(t)
+      SUM_k(t,j)  ~ <e_cb^k|eta_j,cb>(t)
+      DIFF_k(t,j) ~ (i/lam_k) <Meooe(e_cb^k)|eta_j,!cb>(t)
+
+    where cb is the eigenvectors' checkerboard. The rows are |E+O>/|E-O>
+    in physical parity, so M[t][2k][j] + M[t][2k+1][j] is the even-site
+    partial and M[t][2k][j] - M[t][2k+1][j] the odd-site one: SUM is the
+    former for even packs and the latter for odd packs (evenEigen=false),
+    and DIFF is the other one.
 
     giving (see the 2026-09-17 design artifact, decision D8, for the full
     derivation):
@@ -127,6 +132,19 @@ BEGIN_HADRONS_NAMESPACE
                 lookup at execute time)
     eigStart    first eigenpair to include (pair space)
     nEigs       number of eigenpairs (< 1: all)
+    projector   ""/"false" (default): reconstruct LowModeProj's
+                project=false (invmag-weighted, deflated-solution)
+                formula -- the ONLY form safe to use as a solver guess.
+                "true": reconstruct the bare projection (LowModeProj's
+                project=true formula, LowModeProj.hpp:206-210) -- same
+                units as the source, NOT a solution; do not feed to a
+                solver as guess=. std::string (not bool), mirroring
+                negFirst: Grid's XmlReader::readDefault aborts the
+                process if a bool-typed serializable member's XML node
+                is entirely absent (BaseIO.h:518-535's fromString hits
+                failbit on an empty stream); a std::string member
+                degrades a missing node to "" with only a warning, so
+                XMLs that never set this param stay safe
     negFirst    ""/"false" (default): row 2k is |e+o>; "true": |e-o> comes
                 first (flips the DIFF sign)
     pairScale   production normalization constant P (default sqrt(2); use
@@ -164,11 +182,12 @@ public:
                                   unsigned int,  tStep,
                                   unsigned int,  eigStart,
                                   int,           nEigs,
+                                  std::string,   projector,
                                   std::string,   negFirst,
                                   std::string,   pairScale,
                                   std::string,   noise);
   LMAMesonFieldPropMILCPar(void)
-      : tStep(1), nNoise(1), negFirst(""), pairScale("") {}
+      : tStep(1), nNoise(1), projector(""), negFirst(""), pairScale("") {}
 };
 // gammas: name of an MFermion::SpinTaste module; this module consumes its
 //         `_map` companion output (par().gammas + "_map") for per-label
@@ -618,13 +637,25 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
       auto &mf = envGet(std::vector<A2AMatrix<HADRONS_A2AM_IO_TYPE>>,
                         mfs[gIdentity]);
       unsigned int eigStart = par().eigStart;
+      bool negFirst = (par().negFirst == "true");
       RealD pairScale = std::sqrt(2.0);
       if (!par().pairScale.empty()) {
         pairScale = strToVec<RealD>(par().pairScale)[0];
       }
 
       FermionField rbNoise(envGetRbGrid(FermionField));
+      FermionField rbNoiseOdd(envGetRbGrid(FermionField));
+      FermionField MeooeE(envGetRbGrid(FermionField));
       int cb = epack.evec[0].Checkerboard();
+      int cbNeg = (cb == Even) ? Odd : Even;
+      const RealD lam_D = epack.eval[eigStart].imag();
+
+      // Meooe(e_eigStart) doesn't depend on the noise window -- hoisted
+      // out of the loop below. Checkerboard labeled BEFORE the call,
+      // matching EigenPackCBPairs.hpp:110-117's documented convention
+      // and this file's own :1200-1202 precedent
+      MeooeE.Checkerboard() = cbNeg;
+      mat.Meooe(epack.evec[eigStart], MeooeE);
 
       // one self-check per noise window (D5): window n checks
       // noise[(noiseIndex + n)*3] against the same table column pair,
@@ -638,12 +669,27 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
         rbNoise.Checkerboard() = cb;
         pickCheckerboard(cb, rbNoise, noise[j]);
 
+        rbNoiseOdd = Zero();
+        rbNoiseOdd.Checkerboard() = cbNeg;
+        pickCheckerboard(cbNeg, rbNoiseOdd, noise[j]);
+
         ComplexD ipFull =
             TensorRemove(innerProduct(epack.evec[eigStart], rbNoise));
+        ComplexD ipNegFull = TensorRemove(innerProduct(MeooeE, rbNoiseOdd));
         ComplexD sumFile = 0.;
+        ComplexD diffFile = 0.;
         for (int t = 0; t < nt; ++t) {
-          sumFile += ComplexD(mf[t](2 * eigStart, j)) +
-                     ComplexD(mf[t](2 * eigStart + 1, j));
+          // physical-parity partials; swapped onto the eigenvector's
+          // checkerboard exactly as in the reconstruction's coeffs
+          ComplexD evenPart = ComplexD(mf[t](2 * eigStart, j)) +
+                              ComplexD(mf[t](2 * eigStart + 1, j));
+          ComplexD oddPart = ComplexD(mf[t](2 * eigStart, j)) -
+                             ComplexD(mf[t](2 * eigStart + 1, j));
+          if (negFirst) {
+            oddPart = -oddPart;
+          }
+          sumFile += (cb == Even) ? evenPart : oddPart;
+          diffFile += (cb == Even) ? oddPart : evenPart;
         }
         // |ip| through .real()/.imag(): std::abs has no overload for the
         // ComplexD (thrust::complex) of GPU builds
@@ -675,6 +721,38 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
                        << "): live inner product <e_eigStart|eta_" << j
                        << "> vanishes" << std::endl;
         }
+
+        // DIFF-channel self-check: validates the file's DIFF row
+        // against the module's own documented DIFF_k ~ (i/lam_k)
+        // <Meooe(e_E^k)|eta_j,O> contract (module header, :54) --
+        // closes the blind spot where only the SUM channel above was
+        // ever exercised, even though this is exactly the row the
+        // weighted-branch phase-drop defect lived in
+        if ((std::abs(lam_D) > 1.e-12) &&
+            (std::hypot(ipNegFull.real(), ipNegFull.imag()) > 1.e-12)) {
+          const ComplexD iOverLam(0., 1. / lam_D);
+          ComplexD pLiveDiff = diffFile / (iOverLam * ipNegFull);
+          LOG(Message) << "Self-check DIFF channel (label '"
+                       << labels[gIdentity]
+                       << "', noise window " << n << "): file-derived "
+                       << "production constant P = " << pLiveDiff
+                       << " (configured pairScale = " << pairScale
+                       << ")" << std::endl;
+          const ComplexD dPDiff = pLiveDiff - static_cast<RealD>(pairScale);
+          if (std::hypot(dPDiff.real(), dPDiff.imag()) >
+              0.05 * std::abs(pairScale)) {
+            LOG(Warning) << "Meson-field DIFF-channel normalization/phase "
+                            "mismatch (noise window " << n << "): derived "
+                            "P = " << pLiveDiff << " but pairScale = "
+                         << pairScale << " -- check the Meooe(e_E^k)/"
+                            "eta_O phase relation" << std::endl;
+          }
+        } else {
+          LOG(Warning) << "DIFF-channel self-check skipped (noise window "
+                       << n << "): lam_D vanishes or live "
+                       << "<Meooe(e_eigStart)|eta_" << j << "_odd> vanishes"
+                       << std::endl;
+        }
       }
     }
   }
@@ -696,6 +774,7 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
     nEigs = epack.evec.size();
   }
   bool negFirst = (par().negFirst == "true");
+  bool project = (par().projector == "true");
   RealD pairScale = std::sqrt(2.0);
   if (!par().pairScale.empty()) {
     pairScale = strToVec<RealD>(par().pairScale)[0];
@@ -816,18 +895,40 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
           // per-eigenpair table coefficients (expressions identical to the
           // former inline computation -- value- and order-identical)
           auto coeffs = [&](const int k, ComplexD sumC[], ComplexD negC[]) {
+            const RealD mass = epack.eval[k].real();
             const RealD lam_D = epack.eval[k].imag();
+            const RealD invmag = 1. / (mass * mass + lam_D * lam_D);
+            // the file DIFF row carries an inherent i/lam_k phase
+            // (module header, DIFF_k contract); the bare branch's
+            // negC=diff/lam_D relies on the assembly's single downstream
+            // negI (:1230) to supply it, but the weighted branch mixes
+            // SUM and DIFF content together, so the cross-channel term
+            // in each accumulator needs the phase applied explicitly --
+            // negI reused here matches the assembly's constant exactly
+            const ComplexD negI(0., -1.);
             for (unsigned int c = 0; c < FImpl::Dimension; ++c) {
               const unsigned int j = nBase + c;
-              ComplexD sum =
+              // rows 2k/2k+1 are |E+O>/|E-O> in PHYSICAL parity
+              // (MesonField.hpp reconstructLegacy), so their sum is the
+              // even-site partial and their difference the odd-site one.
+              // SUM must be the eigenvector's own checkerboard: swap the
+              // channels for odd-checkerboard packs (evenEigen=false)
+              ComplexD evenPart =
                   ComplexD(mft(2 * k, j)) + ComplexD(mft(2 * k + 1, j));
-              ComplexD diff =
+              ComplexD oddPart =
                   ComplexD(mft(2 * k, j)) - ComplexD(mft(2 * k + 1, j));
               if (negFirst) {
-                diff = -diff;
+                oddPart = -oddPart;
               }
-              sumC[c] = sum;
-              negC[c] = diff / lam_D;
+              const ComplexD sum = (cb == Even) ? evenPart : oddPart;
+              const ComplexD diff = (cb == Even) ? oddPart : evenPart;
+              if (project) {
+                sumC[c] = sum;
+                negC[c] = diff / lam_D;
+              } else {
+                sumC[c] = invmag * (mass * sum + negI * lam_D * diff);
+                negC[c] = invmag * (mass * diff / lam_D + negI * sum);
+              }
             }
           };
 

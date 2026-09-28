@@ -43,10 +43,11 @@ Output lands in `work/`. Comparison scripts read `ref/` and `work/`.
 
 | Script | Compares |
 |---|---|
-| `compare_lma_mesonfield.py` | `StagLMAMesonFieldProp` (file-driven) vs `StagLMA` projector branch |
+| `compare_lma_mesonfield.py` | `StagLMAMesonFieldProp` (file-driven) vs `StagLMA` projector branch — pass `--ref work/lma-weighted-compare/ref --file work/lma-weighted-compare/file --nnoise 2 --tol 1e-6` to instead check the weighted (`projector=false`) branch against `params/lma-mesonfield-weighted-compare.20.xml` |
 | `compare_cb_mesonfield.py` | stencil CB meson field vs `StagA2AMesonFieldLegacy` |
 | `compare_point_source_a2a.py` | A2A LL correlators vs the point-source reference |
 | `average_point_sources.py` | averages 256 point sources -> `all-points.20.h5` |
+| `compare_guess_quality.py` | `StagLMAMesonFieldProp`-driven CG guess residual vs zero-guess baseline (reads a captured run log, not `work/`/`ref/` HDF5 output — run with `../HadronsMILC params/lma-mesonfield-guess-quality.20.xml --grid 4.4.4.4 > work/guess-quality.log` first) |
 
 ## Promoting a reference
 
