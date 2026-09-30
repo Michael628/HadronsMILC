@@ -1,0 +1,254 @@
+<grid>
+  <modules>
+    <module>
+      <id><name>gauge</name><type>MIO::LoadIldg</type></id>
+      <options>
+        <file>/global/homes/m/mlynch/run/l3248-tsm-tuning/lat/scidac/l3248f211b580m002426m06730m8447a.ildg</file>
+      </options>
+    </module>
+    <module>
+      <id><name>gauge_smear_fat</name><type>MIO::LoadIldg</type></id>
+      <options>
+        <file>/global/homes/m/mlynch/run/l3248-tsm-tuning/lat/scidac/fat3248f211b580m002426m06730m8447a.ildg</file>
+      </options>
+    </module>
+    <module>
+      <id><name>gauge_smear_long</name><type>MIO::LoadIldg</type></id>
+      <options>
+        <file>/global/homes/m/mlynch/run/l3248-tsm-tuning/lat/scidac/lng3248f211b580m002426m06730m8447a.ildg</file>
+      </options>
+    </module>
+
+    <module>
+      <id><name>epack</name><type>MIO::StagLoadFermionEigenPack</type></id>
+      <options>
+        <Ls>1</Ls>
+        <filestem>/global/homes/m/mlynch/run/l3248-tsm-tuning/eigen/eig3248f211b580m002426m06730m8447nv1000a</filestem>
+        <multiFile>false</multiFile>
+        <redBlack>true</redBlack>
+        <size>1000</size>
+      </options>
+    </module>
+    <module>
+      <id><name>evecs_mass_l</name><type>MUtilities::ModifyEigenPackMILC</type></id>
+      <options>
+        <eigenPack>epack</eigenPack>
+        <evenEigen>false</evenEigen>
+        <mass>0.002426</mass>
+        <normalizeCheckerboard>false</normalizeCheckerboard>
+      </options>
+    </module>
+
+    <module>
+      <id><name>gauge_smear_fatf</name><type>MUtilities::GaugeSinglePrecisionCast</type></id>
+      <options><field>gauge_smear_fat</field></options>
+    </module>
+    <module>
+      <id><name>gauge_smear_longf</name><type>MUtilities::GaugeSinglePrecisionCast</type></id>
+      <options><field>gauge_smear_long</field></options>
+    </module>
+    <module>
+      <id><name>stag_mass_l</name><type>MAction::ImprovedStaggeredMILC</type></id>
+      <options>
+        <gaugefat>gauge_smear_fat</gaugefat>
+        <gaugelong>gauge_smear_long</gaugelong>
+        <mass>0.002426</mass>
+      </options>
+    </module>
+    <module>
+      <id><name>istag_mass_l</name><type>MAction::ImprovedStaggeredMILCF</type></id>
+      <options>
+        <gaugefat>gauge_smear_fatf</gaugefat>
+        <gaugelong>gauge_smear_longf</gaugelong>
+        <mass>0.002426</mass>
+      </options>
+    </module>
+
+    <!-- Production's own mixed-precision solver, verbatim - the exact
+         solver every quark_ama_* module in the real run solves through. -->
+    <module>
+      <id><name>stag_ama_mass_l</name><type>MSolver::StagMixedPrecisionCG</type></id>
+      <options>
+        <innerAction>istag_mass_l</innerAction>
+        <isEven>false</isEven>
+        <maxInnerIteration>10000</maxInnerIteration>
+        <maxOuterIteration>10000</maxOuterIteration>
+        <outerAction>stag_mass_l</outerAction>
+        <residual>1e-08</residual>
+      </options>
+    </module>
+
+    <module>
+      <id><name>cbpairs_l</name><type>MUtilities::EigenPackCBPairs</type></id>
+      <options><action>stag_mass_l</action><eigenPack>evecs_mass_l</eigenPack></options>
+    </module>
+    <module>
+      <id><name>cbpairs_r</name><type>MUtilities::EigenPackCBPairs</type></id>
+      <options><action>stag_mass_l</action><eigenPack>evecs_mass_l</eigenPack></options>
+    </module>
+
+    <!-- Production noise pipeline: same split as the probe-compare file -
+         raw noise feeds the writer, RandomWall-masked noise feeds every
+         solver/guess module. -->
+    <module>
+      <id><name>noise_fv</name><type>MNoise::StagFullVolumeSpinColorDiagonal</type></id>
+      <options><nsrc>20</nsrc></options>
+    </module>
+    <module>
+      <id><name>noise_t0</name><type>MSource::StagRandomWall</type></id>
+      <options>
+        <colorDiag>true</colorDiag>
+        <nSrc>20</nSrc>
+        <noise>noise_fv</noise>
+        <reuset0>false</reuset0>
+        <t0>0</t0>
+        <tStep>48</tStep>
+      </options>
+    </module>
+
+    <module>
+      <id><name>gammas_g1</name><type>MFermion::SpinTaste</type></id>
+      <options>
+        <spinTaste>
+          <gammas>(G1 G1)</gammas>
+          <applyG5>false</applyG5>
+          <gauge>gauge</gauge>
+        </spinTaste>
+        <labels></labels>
+      </options>
+    </module>
+
+    <!-- Test-only output path - sibling to production's real
+         data/e1000n20dt1-meson tree, distinctly named. ADJUST to your own
+         scratch/quota area if this path isn't appropriate. -->
+    <module>
+      <id><name>mfwrite</name><type>MContraction::StagA2AMesonField</type></id>
+      <options>
+        <action></action>
+        <block>500</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft>
+        <cbPairsRight>cbpairs_r</cbPairsRight>
+        <left></left>
+        <lowModes>evecs_mass_l</lowModes>
+        <mom><elem>0 0 0</elem></mom>
+        <output>/global/homes/m/mlynch/run/l3248-tsm-tuning/data/e1000n20dt1-meson-TEST/guess-quality/mfout</output>
+        <right>noise_fv_vec</right>
+        <gammas>gammas_g1</gammas>
+      </options>
+    </module>
+    <module>
+      <id><name>mf</name><type>MIO::LoadMesonField</type></id>
+      <options>
+        <file>/global/homes/m/mlynch/run/l3248-tsm-tuning/data/e1000n20dt1-meson-TEST/guess-quality/mfout.@traj@/G1_G1_0_0_0.h5</file>
+        <dataset>G1_G1_0_0_0</dataset>
+        <side></side>
+        <lowModes></lowModes>
+      </options>
+    </module>
+
+    <!-- lma_ref: WEIGHTED (invmag) branch, the ONLY form safe to use as a
+         solver guess - deliberately projector=false (a meaningful "live
+         guess" baseline for a real deflation measurement, not the bare
+         projection). -->
+    <module>
+      <id><name>lma_ref</name><type>MSolver::StagLMA</type></id>
+      <options>
+        <action>stag_mass_l</action>
+        <eigStart>0</eigStart>
+        <lowModes>evecs_mass_l</lowModes>
+        <nEigs>-1</nEigs>
+        <projector>false</projector>
+      </options>
+    </module>
+    <module>
+      <id><name>lma_file</name><type>MFermion::StagLMAMesonFieldProp</type></id>
+      <options>
+        <action>stag_mass_l</action>
+        <lowModes>evecs_mass_l</lowModes>
+        <gammas>gammas_g1</gammas>
+        <labels>G1_G1</labels>
+        <mesonField>mf</mesonField>
+        <noiseIndex>0</noiseIndex>
+        <nNoise>20</nNoise>
+        <tA>0</tA>
+        <tB>0</tB>
+        <tStep>1</tStep>
+        <eigStart>0</eigStart>
+        <nEigs>-1</nEigs>
+        <projector></projector>
+        <negFirst></negFirst>
+        <pairScale></pairScale>
+        <noise>noise_fv_vec</noise>
+      </options>
+    </module>
+
+    <!-- Live-guess reference: MODERN StagGaugeProp (not Legacy), so its
+         output is TGammaMap-typed and directly usable as quark_liveguess's
+         guess= below. -->
+    <module>
+      <id><name>gprop_ref</name><type>MFermion::StagGaugeProp</type></id>
+      <options>
+        <source>noise_t0</source>
+        <solver>lma_ref</solver>
+        <guess></guess>
+        <gammas>gammas_g1</gammas>
+        <sourceLabel></sourceLabel>
+      </options>
+    </module>
+
+    <!-- Three guess comparisons, all through the MODERN StagGaugeProp -
+         production's actual quark_ama_*_t0 dispatch, solving through
+         stag_ama_mass_l - production's real solver, at production scale. -->
+    <module>
+      <id><name>quark_zeroguess</name><type>MFermion::StagGaugeProp</type></id>
+      <options>
+        <source>noise_t0</source>
+        <solver>stag_ama_mass_l</solver>
+        <guess></guess>
+        <gammas>gammas_g1</gammas>
+        <sourceLabel></sourceLabel>
+      </options>
+    </module>
+    <module>
+      <id><name>quark_liveguess</name><type>MFermion::StagGaugeProp</type></id>
+      <options>
+        <source>noise_t0</source>
+        <solver>stag_ama_mass_l</solver>
+        <guess>gprop_ref</guess>
+        <gammas>gammas_g1</gammas>
+        <sourceLabel></sourceLabel>
+      </options>
+    </module>
+    <module>
+      <id><name>quark_fileguess</name><type>MFermion::StagGaugeProp</type></id>
+      <options>
+        <source>noise_t0</source>
+        <solver>stag_ama_mass_l</solver>
+        <guess>lma_file_t0</guess>
+        <gammas>gammas_g1</gammas>
+        <sourceLabel></sourceLabel>
+      </options>
+    </module>
+  </modules>
+  <parameters>
+    <genetic>
+      <maxCstGen>100</maxCstGen>
+      <maxGen>1000</maxGen>
+      <mutationRate>0.1</mutationRate>
+      <popSize>20</popSize>
+    </genetic>
+    <graphFile></graphFile>
+    <parallelWriteMaxRetry>-1</parallelWriteMaxRetry>
+    <runId>lma-fullvolume-guess-quality-e1000n20-a</runId>
+    <saveSchedule>false</saveSchedule>
+    <scheduleFile></scheduleFile>
+    <scheduler>
+      <schedulerType>naive</schedulerType>
+    </scheduler>
+    <trajCounter>
+      <end>10000</end>
+      <start>60</start>
+      <step>10000</step>
+    </trajCounter>
+  </parameters>
+</grid>

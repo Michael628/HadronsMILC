@@ -1,0 +1,376 @@
+<grid>
+  <modules>
+    <!-- ================= infrastructure (guess-quality topology) ===== -->
+    <module>
+      <id><name>gauge</name><type>MIO::LoadIldg</type></id>
+      <options><file>lat/lat.sample.l4444.ildg</file></options>
+    </module>
+    <module>
+      <id><name>gauge_fat</name><type>MIO::LoadIldg</type></id>
+      <options><file>lat/fatlinks.l4444.ildg</file></options>
+    </module>
+    <module>
+      <id><name>gauge_long</name><type>MIO::LoadIldg</type></id>
+      <options><file>lat/longlinks.l4444.ildg</file></options>
+    </module>
+    <!-- massless action: Meooe for the LMA producer / CB pairs -->
+    <module>
+      <id><name>stag</name><type>MAction::ImprovedStaggeredMILC</type></id>
+      <options>
+        <Ls>1</Ls><boundary>1 1 1 1</boundary><c1>1.0</c1><c2>1.0</c2>
+        <gaugefat>gauge_fat</gaugefat><gaugelong>gauge_long</gaugelong>
+        <mass>0.0</mass><tad>1.0</tad><twist>0 0 0</twist>
+      </options>
+    </module>
+    <module>
+      <id><name>stag_op</name><type>MFermion::StagOperators</type></id>
+      <options><action>stag</action></options>
+    </module>
+    <!-- mass-0.01 pair for the production mixed-precision solve -->
+    <module>
+      <id><name>stag_m</name><type>MAction::ImprovedStaggeredMILC</type></id>
+      <options>
+        <Ls>1</Ls><boundary>1 1 1 1</boundary><c1>1.0</c1><c2>1.0</c2>
+        <gaugefat>gauge_fat</gaugefat><gaugelong>gauge_long</gaugelong>
+        <mass>0.01</mass><tad>1.0</tad><twist>0 0 0</twist>
+      </options>
+    </module>
+    <module>
+      <id><name>gauge_fatf</name><type>MUtilities::GaugeSinglePrecisionCast</type></id>
+      <options><field>gauge_fat</field></options>
+    </module>
+    <module>
+      <id><name>gauge_longf</name><type>MUtilities::GaugeSinglePrecisionCast</type></id>
+      <options><field>gauge_long</field></options>
+    </module>
+    <module>
+      <id><name>istag_m</name><type>MAction::ImprovedStaggeredMILCF</type></id>
+      <options>
+        <Ls>1</Ls><boundary>1 1 1 1</boundary><c1>1.0</c1><c2>1.0</c2>
+        <gaugefat>gauge_fatf</gaugefat><gaugelong>gauge_longf</gaugelong>
+        <mass>0.01</mass><tad>1.0</tad><twist>0 0 0</twist>
+      </options>
+    </module>
+    <module>
+      <id><name>stag_ama</name><type>MSolver::StagMixedPrecisionCG</type></id>
+      <options>
+        <innerAction>istag_m</innerAction>
+        <isEven>false</isEven>
+        <maxInnerIteration>10000</maxInnerIteration>
+        <maxOuterIteration>10000</maxOuterIteration>
+        <outerAction>stag_m</outerAction>
+        <residual>1e-08</residual>
+      </options>
+    </module>
+    <!-- production eigenscale (guess-quality template) -->
+    <module>
+      <id><name>epack</name><type>MSolver::StagFermionIRL</type></id>
+      <options>
+        <evenEigen>true</evenEigen>
+        <lanczosParams>
+          <Cheby><Npoly>11</Npoly><alpha>0.0</alpha><beta>24.0</beta></Cheby>
+          <MaxIt>5000</MaxIt><MinRes>0</MinRes><Nk>370</Nk><Nm>384</Nm>
+          <Nstop>360</Nstop><betastp>0</betastp><resid>1e-08</resid>
+        </lanczosParams>
+        <multiFile>false</multiFile>
+        <op>stag_op_schur</op>
+        <output></output>
+        <redBlack>true</redBlack>
+      </options>
+    </module>
+    <module>
+      <id><name>eig</name><type>MUtilities::ModifyEigenPackMILC</type></id>
+      <options>
+        <eigenPack>epack</eigenPack>
+        <evenEigen>true</evenEigen>
+        <mass>0.01</mass>
+      </options>
+    </module>
+    <module>
+      <id><name>cbpairs_l</name><type>MUtilities::EigenPackCBPairs</type></id>
+      <options><action>stag</action><eigenPack>eig</eigenPack></options>
+    </module>
+    <module>
+      <id><name>cbpairs_r</name><type>MUtilities::EigenPackCBPairs</type></id>
+      <options><action>stag</action><eigenPack>eig</eigenPack></options>
+    </module>
+    <!-- ================= noise and sources ============================ -->
+    <module>
+      <id><name>noise_fv</name><type>MNoise::StagFullVolumeSpinColorDiagonal</type></id>
+      <options><nsrc>2</nsrc></options>
+    </module>
+    <!-- tStep=1: every timeslice a source (nSlices=4); nSrc=2 =>
+         noise_t0_vec = 2*4*3 = 24 columns, slice-major -->
+    <module>
+      <id><name>noise_t0</name><type>MSource::StagRandomWall</type></id>
+      <options>
+        <colorDiag>true</colorDiag>
+        <nSrc>2</nSrc>
+        <noise>noise_fv</noise>
+        <reuset0>false</reuset0>
+        <t0>0</t0>
+        <tStep>1</tStep>
+      </options>
+    </module>
+    <!-- ================= gamma modules ================================= -->
+    <module>
+      <id><name>gammas_scalar</name><type>MFermion::SpinTaste</type></id>
+      <options>
+        <spinTaste>
+          <gammas>(G1 G1)</gammas>
+          <applyG5>false</applyG5>
+          <gauge>gauge</gauge>
+        </spinTaste>
+        <labels></labels>
+      </options>
+    </module>
+    <module>
+      <id><name>gammas_vloc</name><type>MFermion::SpinTaste</type></id>
+      <options>
+        <spinTaste>
+          <gammas>(GX GX) (GY GY) (GZ GZ)</gammas>
+          <applyG5>false</applyG5>
+          <gauge></gauge>
+        </spinTaste>
+        <labels></labels>
+      </options>
+    </module>
+    <module>
+      <id><name>gammas_vol</name><type>MFermion::SpinTaste</type></id>
+      <options>
+        <spinTaste>
+          <gammas>(GX G1) (GY G1) (GZ G1)</gammas>
+          <applyG5>false</applyG5>
+          <gauge>gauge</gauge>
+        </spinTaste>
+        <labels></labels>
+      </options>
+    </module>
+    <!-- ================= low/high producers =========================== -->
+    <!-- MF(ell, eta, G1_G1): the table g reconstructs from (production
+         LL layout: CB pair rows, eta columns) -->
+    <module>
+      <id><name>mfwrite</name><type>MContraction::StagA2AMesonField</type></id>
+      <options>
+        <action></action>
+        <block>12</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft>
+        <cbPairsRight>cbpairs_r</cbPairsRight>
+        <left></left>
+        <lowModes>eig</lowModes>
+        <mom><elem>0 0 0</elem></mom>
+        <output>work/sib-hvp/tab</output>
+        <right>noise_fv_vec</right>
+        <gammas>gammas_scalar</gammas>
+      </options>
+    </module>
+    <module>
+      <id><name>mf</name><type>MIO::LoadMesonField</type></id>
+      <options>
+        <file>work/sib-hvp/tab.@traj@/G1_G1_0_0_0.h5</file>
+        <dataset>G1_G1_0_0_0</dataset>
+        <side></side>
+        <lowModes></lowModes>
+      </options>
+    </module>
+    <!-- g: the LMA batch guess (tA/tStep/nNoise matched to the
+         RandomWall t0/tStep/nSrc; projector empty = weighted form) -->
+    <module>
+      <id><name>g</name><type>MFermion::StagLMAMesonFieldProp</type></id>
+      <options>
+        <action>stag</action>
+        <lowModes>eig</lowModes>
+        <gammas>gammas_scalar</gammas>
+        <labels>G1_G1</labels>
+        <mesonField>mf</mesonField>
+        <noiseIndex>0</noiseIndex>
+        <nNoise>2</nNoise>
+        <tA>0</tA>
+        <tB>3</tB>
+        <tStep>1</tStep>
+        <eigStart>0</eigStart>
+        <nEigs>-1</nEigs>
+        <projector></projector>
+        <negFirst></negFirst>
+        <pairScale></pairScale>
+        <noise>noise_fv_vec</noise>
+        <a2a_batch>true</a2a_batch>
+      </options>
+    </module>
+    <!-- h: the unprojected high-mode solve (low subspace still in source
+         and solution; removed at contraction) -->
+    <module>
+      <id><name>h</name><type>MFermion::StagGaugeProp</type></id>
+      <options>
+        <source>noise_t0_vec</source>
+        <solver>stag_ama</solver>
+        <guess>g</guess>
+        <gammas>gammas_scalar</gammas>
+        <sourceLabel></sourceLabel>
+      </options>
+    </module>
+    <!-- ================= the 18 blocks ================================ -->
+    <!-- Six blocks per Gamma module; eta on the left of every eta block
+         (full-volume, never time-diluted: the meson field's time index
+         picks the slice). Low sides (LL, l*h, l*g, eta*l) all use the
+         production CB layout (cbPairs + lowModes). Pure high blocks
+         (eta*h, eta*g) carry no low modes. -->
+    <module>
+      <id><name>mf_s_ll</name><type>MContraction::StagA2AMesonField</type></id>
+      <options><action></action><block>12</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft><cbPairsRight>cbpairs_r</cbPairsRight>
+        <left></left><right></right><lowModes>eig</lowModes>
+        <mom><elem>0 0 0</elem></mom><output>work/sib-hvp/s_ll</output>
+        <gammas>gammas_scalar</gammas></options>
+    </module>
+    <module>
+      <id><name>mf_s_lh</name><type>MContraction::StagA2AMesonField</type></id>
+      <options><action></action><block>12</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft><cbPairsRight>cbpairs_r</cbPairsRight>
+        <left></left><right>h</right><lowModes>eig</lowModes>
+        <mom><elem>0 0 0</elem></mom><output>work/sib-hvp/s_lh</output>
+        <gammas>gammas_scalar</gammas></options>
+    </module>
+    <module>
+      <id><name>mf_s_lg</name><type>MContraction::StagA2AMesonField</type></id>
+      <options><action></action><block>12</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft><cbPairsRight>cbpairs_r</cbPairsRight>
+        <left></left><right>g</right><lowModes>eig</lowModes>
+        <mom><elem>0 0 0</elem></mom><output>work/sib-hvp/s_lg</output>
+        <gammas>gammas_scalar</gammas></options>
+    </module>
+    <module>
+      <id><name>mf_s_el</name><type>MContraction::StagA2AMesonField</type></id>
+      <options><action></action><block>12</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft><cbPairsRight>cbpairs_r</cbPairsRight>
+        <left>noise_fv_vec</left><right></right><lowModes>eig</lowModes>
+        <mom><elem>0 0 0</elem></mom><output>work/sib-hvp/s_el</output>
+        <gammas>gammas_scalar</gammas></options>
+    </module>
+    <module>
+      <id><name>mf_s_eh</name><type>MContraction::StagA2AMesonField</type></id>
+      <options><action></action><block>12</block>
+        <left>noise_fv_vec</left><right>h</right><lowModes></lowModes>
+        <mom><elem>0 0 0</elem></mom><output>work/sib-hvp/s_eh</output>
+        <gammas>gammas_scalar</gammas></options>
+    </module>
+    <module>
+      <id><name>mf_s_eg</name><type>MContraction::StagA2AMesonField</type></id>
+      <options><action></action><block>12</block>
+        <left>noise_fv_vec</left><right>g</right><lowModes></lowModes>
+        <mom><elem>0 0 0</elem></mom><output>work/sib-hvp/s_eg</output>
+        <gammas>gammas_scalar</gammas></options>
+    </module>
+    <module>
+      <id><name>mf_vl_ll</name><type>MContraction::StagA2AMesonField</type></id>
+      <options><action></action><block>12</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft><cbPairsRight>cbpairs_r</cbPairsRight>
+        <left></left><right></right><lowModes>eig</lowModes>
+        <mom><elem>0 0 0</elem></mom><output>work/sib-hvp/vl_ll</output>
+        <gammas>gammas_vloc</gammas></options>
+    </module>
+    <module>
+      <id><name>mf_vl_lh</name><type>MContraction::StagA2AMesonField</type></id>
+      <options><action></action><block>12</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft><cbPairsRight>cbpairs_r</cbPairsRight>
+        <left></left><right>h</right><lowModes>eig</lowModes>
+        <mom><elem>0 0 0</elem></mom><output>work/sib-hvp/vl_lh</output>
+        <gammas>gammas_vloc</gammas></options>
+    </module>
+    <module>
+      <id><name>mf_vl_lg</name><type>MContraction::StagA2AMesonField</type></id>
+      <options><action></action><block>12</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft><cbPairsRight>cbpairs_r</cbPairsRight>
+        <left></left><right>g</right><lowModes>eig</lowModes>
+        <mom><elem>0 0 0</elem></mom><output>work/sib-hvp/vl_lg</output>
+        <gammas>gammas_vloc</gammas></options>
+    </module>
+    <module>
+      <id><name>mf_vl_el</name><type>MContraction::StagA2AMesonField</type></id>
+      <options><action></action><block>12</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft><cbPairsRight>cbpairs_r</cbPairsRight>
+        <left>noise_fv_vec</left><right></right><lowModes>eig</lowModes>
+        <mom><elem>0 0 0</elem></mom><output>work/sib-hvp/vl_el</output>
+        <gammas>gammas_vloc</gammas></options>
+    </module>
+    <module>
+      <id><name>mf_vl_eh</name><type>MContraction::StagA2AMesonField</type></id>
+      <options><action></action><block>12</block>
+        <left>noise_fv_vec</left><right>h</right><lowModes></lowModes>
+        <mom><elem>0 0 0</elem></mom><output>work/sib-hvp/vl_eh</output>
+        <gammas>gammas_vloc</gammas></options>
+    </module>
+    <module>
+      <id><name>mf_vl_eg</name><type>MContraction::StagA2AMesonField</type></id>
+      <options><action></action><block>12</block>
+        <left>noise_fv_vec</left><right>g</right><lowModes></lowModes>
+        <mom><elem>0 0 0</elem></mom><output>work/sib-hvp/vl_eg</output>
+        <gammas>gammas_vloc</gammas></options>
+    </module>
+    <module>
+      <id><name>mf_vo_ll</name><type>MContraction::StagA2AMesonField</type></id>
+      <options><action></action><block>12</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft><cbPairsRight>cbpairs_r</cbPairsRight>
+        <left></left><right></right><lowModes>eig</lowModes>
+        <mom><elem>0 0 0</elem></mom><output>work/sib-hvp/vo_ll</output>
+        <gammas>gammas_vol</gammas></options>
+    </module>
+    <module>
+      <id><name>mf_vo_lh</name><type>MContraction::StagA2AMesonField</type></id>
+      <options><action></action><block>12</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft><cbPairsRight>cbpairs_r</cbPairsRight>
+        <left></left><right>h</right><lowModes>eig</lowModes>
+        <mom><elem>0 0 0</elem></mom><output>work/sib-hvp/vo_lh</output>
+        <gammas>gammas_vol</gammas></options>
+    </module>
+    <module>
+      <id><name>mf_vo_lg</name><type>MContraction::StagA2AMesonField</type></id>
+      <options><action></action><block>12</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft><cbPairsRight>cbpairs_r</cbPairsRight>
+        <left></left><right>g</right><lowModes>eig</lowModes>
+        <mom><elem>0 0 0</elem></mom><output>work/sib-hvp/vo_lg</output>
+        <gammas>gammas_vol</gammas></options>
+    </module>
+    <module>
+      <id><name>mf_vo_el</name><type>MContraction::StagA2AMesonField</type></id>
+      <options><action></action><block>12</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft><cbPairsRight>cbpairs_r</cbPairsRight>
+        <left>noise_fv_vec</left><right></right><lowModes>eig</lowModes>
+        <mom><elem>0 0 0</elem></mom><output>work/sib-hvp/vo_el</output>
+        <gammas>gammas_vol</gammas></options>
+    </module>
+    <module>
+      <id><name>mf_vo_eh</name><type>MContraction::StagA2AMesonField</type></id>
+      <options><action></action><block>12</block>
+        <left>noise_fv_vec</left><right>h</right><lowModes></lowModes>
+        <mom><elem>0 0 0</elem></mom><output>work/sib-hvp/vo_eh</output>
+        <gammas>gammas_vol</gammas></options>
+    </module>
+    <module>
+      <id><name>mf_vo_eg</name><type>MContraction::StagA2AMesonField</type></id>
+      <options><action></action><block>12</block>
+        <left>noise_fv_vec</left><right>g</right><lowModes></lowModes>
+        <mom><elem>0 0 0</elem></mom><output>work/sib-hvp/vo_eg</output>
+        <gammas>gammas_vol</gammas></options>
+    </module>
+  </modules>
+  <parameters>
+    <genetic>
+      <maxCstGen>100</maxCstGen><maxGen>1000</maxGen>
+      <mutationRate>0.1</mutationRate><popSize>20</popSize>
+    </genetic>
+    <graphFile></graphFile>
+    <parallelWriteMaxRetry>-1</parallelWriteMaxRetry>
+    <runId>sib-hvp</runId>
+    <saveSchedule>false</saveSchedule>
+    <scheduleFile></scheduleFile>
+    <scheduler>
+      <!-- naive: declaration order. Required: the meson-field writer
+           (mfwrite) and the loader (mf) have no environment edge. -->
+      <schedulerType>naive</schedulerType>
+    </scheduler>
+    <trajCounter>
+      <end>10000</end><start>20</start><step>10000</step>
+    </trajCounter>
+  </parameters>
+</grid>

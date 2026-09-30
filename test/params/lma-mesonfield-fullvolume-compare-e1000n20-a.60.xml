@@ -1,0 +1,286 @@
+<grid>
+  <modules>
+    <!-- Production gauge/eigenpack inputs, verbatim paths from
+         stat-high-thesis-ranLL-opt-e1000-n20-a.60.xml. trajCounter below
+         supplies the .60 suffix Hadrons appends at load time. -->
+    <module>
+      <id><name>gauge</name><type>MIO::LoadIldg</type></id>
+      <options>
+        <file>/global/homes/m/mlynch/run/l3248-tsm-tuning/lat/scidac/l3248f211b580m002426m06730m8447a.ildg</file>
+      </options>
+    </module>
+    <module>
+      <id><name>gauge_smear_fat</name><type>MIO::LoadIldg</type></id>
+      <options>
+        <file>/global/homes/m/mlynch/run/l3248-tsm-tuning/lat/scidac/fat3248f211b580m002426m06730m8447a.ildg</file>
+      </options>
+    </module>
+    <module>
+      <id><name>gauge_smear_long</name><type>MIO::LoadIldg</type></id>
+      <options>
+        <file>/global/homes/m/mlynch/run/l3248-tsm-tuning/lat/scidac/lng3248f211b580m002426m06730m8447a.ildg</file>
+      </options>
+    </module>
+
+    <!-- Precomputed 1000-eigenvector pack (no on-the-fly Lanczos - loaded
+         from disk exactly as production does), then mass-shifted to the
+         physical light-quark mass. action below uses this shifted pack's
+         eigenvalues for the invmag weighting; action's own mass field is
+         irrelevant to Meooe, so stag_mass_l (not a separate massless
+         action) is the correct action for cbpairs/eigfull/lma_ref/lma_file,
+         exactly matching production's quark_ranLL_*'s action=stag_mass_l. -->
+    <module>
+      <id><name>epack</name><type>MIO::StagLoadFermionEigenPack</type></id>
+      <options>
+        <Ls>1</Ls>
+        <filestem>/global/homes/m/mlynch/run/l3248-tsm-tuning/eigen/eig3248f211b580m002426m06730m8447nv1000a</filestem>
+        <multiFile>false</multiFile>
+        <redBlack>true</redBlack>
+        <size>1000</size>
+      </options>
+    </module>
+    <module>
+      <id><name>evecs_mass_l</name><type>MUtilities::ModifyEigenPackMILC</type></id>
+      <options>
+        <eigenPack>epack</eigenPack>
+        <evenEigen>false</evenEigen>
+        <mass>0.002426</mass>
+        <normalizeCheckerboard>false</normalizeCheckerboard>
+      </options>
+    </module>
+
+    <module>
+      <id><name>gauge_smear_fatf</name><type>MUtilities::GaugeSinglePrecisionCast</type></id>
+      <options><field>gauge_smear_fat</field></options>
+    </module>
+    <module>
+      <id><name>gauge_smear_longf</name><type>MUtilities::GaugeSinglePrecisionCast</type></id>
+      <options><field>gauge_smear_long</field></options>
+    </module>
+    <module>
+      <id><name>stag_mass_l</name><type>MAction::ImprovedStaggeredMILC</type></id>
+      <options>
+        <gaugefat>gauge_smear_fat</gaugefat>
+        <gaugelong>gauge_smear_long</gaugelong>
+        <mass>0.002426</mass>
+      </options>
+    </module>
+    <module>
+      <id><name>istag_mass_l</name><type>MAction::ImprovedStaggeredMILCF</type></id>
+      <options>
+        <gaugefat>gauge_smear_fatf</gaugefat>
+        <gaugelong>gauge_smear_longf</gaugelong>
+        <mass>0.002426</mass>
+      </options>
+    </module>
+
+    <!-- Two distinct on-demand CB pair sources over the mass-shifted pack
+         (mfwrite's low-mode rows) - two instances mandatory, as in the
+         toy harness. -->
+    <module>
+      <id><name>cbpairs_l</name><type>MUtilities::EigenPackCBPairs</type></id>
+      <options><action>stag_mass_l</action><eigenPack>evecs_mass_l</eigenPack></options>
+    </module>
+    <module>
+      <id><name>cbpairs_r</name><type>MUtilities::EigenPackCBPairs</type></id>
+      <options><action>stag_mass_l</action><eigenPack>evecs_mass_l</eigenPack></options>
+    </module>
+
+    <!-- Full-volume |e+o>/|e-o> pairs: probe basis only (cmp_ref/cmp_file
+         contract solver outputs against this parity-complete basis). -->
+    <module>
+      <id><name>eigfull</name><type>MUtilities::EigenPackFullPairs</type></id>
+      <options><eigenPack>evecs_mass_l</eigenPack><action>stag_mass_l</action></options>
+    </module>
+
+    <!-- Production noise pipeline: full-volume noise (nsrc=20, matching
+         production exactly) feeds the meson-field writer RAW; a SEPARATE
+         StagRandomWall consumer masks it to one timeslice (t0=0,
+         tStep=nt=48) for every solver/guess module - bit-for-bit the
+         production split (noise_fv/noise_t0). -->
+    <module>
+      <id><name>noise_fv</name><type>MNoise::StagFullVolumeSpinColorDiagonal</type></id>
+      <options><nsrc>20</nsrc></options>
+    </module>
+    <module>
+      <id><name>noise_t0</name><type>MSource::StagRandomWall</type></id>
+      <options>
+        <colorDiag>true</colorDiag>
+        <nSrc>20</nSrc>
+        <noise>noise_fv</noise>
+        <reuset0>false</reuset0>
+        <t0>0</t0>
+        <tStep>48</tStep>
+      </options>
+    </module>
+
+    <!-- ONE identity SpinTaste operator shared by mfwrite/lma_file/cmp_ref/
+         cmp_file - same convention validated at 4^4 scale. -->
+    <module>
+      <id><name>gammas_g1</name><type>MFermion::SpinTaste</type></id>
+      <options>
+        <spinTaste>
+          <gammas>(G1 G1)</gammas>
+          <applyG5>false</applyG5>
+          <gauge>gauge</gauge>
+        </spinTaste>
+        <labels></labels>
+      </options>
+    </module>
+
+    <!-- Production-layout meson-field write: RAW full-volume noise
+         (noise_fv_vec), never the RandomWall-masked source. Test-only
+         output path - sibling to production's real
+         data/e1000n20dt1-meson tree, distinctly named so it cannot
+         collide with production's mf_a data. ADJUST to your own
+         scratch/quota area if this path isn't appropriate. -->
+    <module>
+      <id><name>mfwrite</name><type>MContraction::StagA2AMesonField</type></id>
+      <options>
+        <action></action>
+        <block>500</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft>
+        <cbPairsRight>cbpairs_r</cbPairsRight>
+        <left></left>
+        <lowModes>evecs_mass_l</lowModes>
+        <mom><elem>0 0 0</elem></mom>
+        <output>/global/homes/m/mlynch/run/l3248-tsm-tuning/data/e1000n20dt1-meson-TEST/probe-compare/mfout</output>
+        <right>noise_fv_vec</right>
+        <gammas>gammas_g1</gammas>
+      </options>
+    </module>
+    <module>
+      <id><name>mf</name><type>MIO::LoadMesonField</type></id>
+      <options>
+        <file>/global/homes/m/mlynch/run/l3248-tsm-tuning/data/e1000n20dt1-meson-TEST/probe-compare/mfout.@traj@/G1_G1_0_0_0.h5</file>
+        <dataset>G1_G1_0_0_0</dataset>
+        <side></side>
+        <lowModes></lowModes>
+      </options>
+    </module>
+
+    <!-- Reference: live LowModeProj, WEIGHTED (invmag) branch - the ONLY
+         branch safe to use as a solver guess, matching production's
+         quark_ranLL_* defaults (no <projector> element = "false"). -->
+    <module>
+      <id><name>lma_ref</name><type>MSolver::StagLMA</type></id>
+      <options>
+        <action>stag_mass_l</action>
+        <eigStart>0</eigStart>
+        <lowModes>evecs_mass_l</lowModes>
+        <nEigs>-1</nEigs>
+        <projector>false</projector>
+      </options>
+    </module>
+
+    <!-- File-driven propagator producer, WEIGHTED (invmag) branch, nNoise=20
+         matching production's noise count. tA=tB=0 matches noise_t0's t0=0. -->
+    <module>
+      <id><name>lma_file</name><type>MFermion::StagLMAMesonFieldProp</type></id>
+      <options>
+        <action>stag_mass_l</action>
+        <lowModes>evecs_mass_l</lowModes>
+        <gammas>gammas_g1</gammas>
+        <labels>G1_G1</labels>
+        <mesonField>mf</mesonField>
+        <noiseIndex>0</noiseIndex>
+        <nNoise>20</nNoise>
+        <tA>0</tA>
+        <tB>0</tB>
+        <tStep>1</tStep>
+        <eigStart>0</eigStart>
+        <nEigs>-1</nEigs>
+        <projector></projector>
+        <negFirst></negFirst>
+        <pairScale></pairScale>
+        <noise>noise_fv_vec</noise>
+      </options>
+    </module>
+
+    <!-- Apply the live reference solver to the RandomWall-masked source
+         (noise_t0), matching production's real quark_ama_* input. -->
+    <module>
+      <id><name>gprop_ref</name><type>MFermion::StagGaugePropLegacy</type></id>
+      <options>
+        <source>noise_t0</source>
+        <solver>lma_ref</solver>
+        <guess></guess>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(G1 G1)</gammas>
+          <gauge>gauge</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id><name>gprop_ref_f</name><type>MUtilities::PropToFermions</type></id>
+      <options><prop>gprop_ref</prop></options>
+    </module>
+
+    <module>
+      <id><name>lma_fc_g1_t0</name><type>MUtilities::GammaMapElement</type></id>
+      <options><map>lma_file_t0</map><label>G1_G1</label></options>
+    </module>
+    <module>
+      <id><name>prop2f_file</name><type>MUtilities::PropToFermions</type></id>
+      <options><prop>lma_fc_g1_t0</prop></options>
+    </module>
+
+    <!-- Probe contractions of both sides against the full eigenvector-pair
+         basis - the SAME size contraction (2000 left x 60 right)
+         production already runs routinely as mfwrite_mass_l; compared
+         offline via compare_lma_mesonfield.py with ref=
+         ./probe-compare/ref file=./probe-compare/file nnoise=20
+         tol=1e-6. -->
+    <module>
+      <id><name>cmp_ref</name><type>MContraction::StagA2AMesonField</type></id>
+      <options>
+        <action></action>
+        <block>500</block>
+        <left>eigfull_vec</left>
+        <lowModes></lowModes>
+        <mom><elem>0 0 0</elem></mom>
+        <output>/global/homes/m/mlynch/run/l3248-tsm-tuning/data/e1000n20dt1-meson-TEST/probe-compare/ref</output>
+        <right>gprop_ref_f</right>
+        <gammas>gammas_g1</gammas>
+      </options>
+    </module>
+    <module>
+      <id><name>cmp_file</name><type>MContraction::StagA2AMesonField</type></id>
+      <options>
+        <action></action>
+        <block>500</block>
+        <left>eigfull_vec</left>
+        <lowModes></lowModes>
+        <mom><elem>0 0 0</elem></mom>
+        <output>/global/homes/m/mlynch/run/l3248-tsm-tuning/data/e1000n20dt1-meson-TEST/probe-compare/file</output>
+        <right>prop2f_file</right>
+        <gammas>gammas_g1</gammas>
+      </options>
+    </module>
+  </modules>
+  <parameters>
+    <genetic>
+      <maxCstGen>100</maxCstGen>
+      <maxGen>1000</maxGen>
+      <mutationRate>0.1</mutationRate>
+      <popSize>20</popSize>
+    </genetic>
+    <graphFile></graphFile>
+    <parallelWriteMaxRetry>-1</parallelWriteMaxRetry>
+    <runId>lma-fullvolume-compare-e1000n20-a</runId>
+    <saveSchedule>false</saveSchedule>
+    <scheduleFile></scheduleFile>
+    <scheduler>
+      <!-- naive required: no saved .sched file exists for this new test,
+           and the writer/loader ordering (mfwrite before mf) has no
+           dependency edge for the genetic scheduler to see. -->
+      <schedulerType>naive</schedulerType>
+    </scheduler>
+    <trajCounter>
+      <end>10000</end>
+      <start>60</start>
+      <step>10000</step>
+    </trajCounter>
+  </parameters>
+</grid>

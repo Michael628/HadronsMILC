@@ -1,0 +1,373 @@
+<grid>
+  <modules>
+    <!-- Gauge fields from the 4^4 test configuration set (trajectory
+    suffix supplied by trajCounter). -->
+    <module>
+      <id><name>gauge</name><type>MIO::LoadIldg</type></id>
+      <options><file>lat/lat.sample.l4444.ildg</file></options>
+    </module>
+    <module>
+      <id><name>gauge_fat</name><type>MIO::LoadIldg</type></id>
+      <options><file>lat/fatlinks.l4444.ildg</file></options>
+    </module>
+    <module>
+      <id><name>gauge_long</name><type>MIO::LoadIldg</type></id>
+      <options><file>lat/longlinks.l4444.ildg</file></options>
+    </module>
+
+    <!-- Massless action: Meooe only (mass shift enters via
+         ModifyEigenPack); the LMA producers and the CB-pair/full-pair
+         builders all use it. -->
+    <module>
+      <id><name>stag</name><type>MAction::ImprovedStaggeredMILC</type></id>
+      <options>
+        <Ls>1</Ls><boundary>1 1 1 1</boundary><c1>1.0</c1><c2>1.0</c2>
+        <gaugefat>gauge_fat</gaugefat><gaugelong>gauge_long</gaugelong>
+        <mass>0.0</mass><tad>1.0</tad><twist>0 0 0</twist>
+      </options>
+    </module>
+    <module>
+      <id><name>stag_op</name><type>MFermion::StagOperators</type></id>
+      <options><action>stag</action></options>
+    </module>
+
+    <!-- Mixed-precision solve pair at the eigen mass (stag_m/istag_m),
+         matching the guess-quality production topology. -->
+    <module>
+      <id><name>stag_m</name><type>MAction::ImprovedStaggeredMILC</type></id>
+      <options>
+        <Ls>1</Ls><boundary>1 1 1 1</boundary><c1>1.0</c1><c2>1.0</c2>
+        <gaugefat>gauge_fat</gaugefat><gaugelong>gauge_long</gaugelong>
+        <mass>0.01</mass><tad>1.0</tad><twist>0 0 0</twist>
+      </options>
+    </module>
+    <module>
+      <id><name>gauge_fatf</name><type>MUtilities::GaugeSinglePrecisionCast</type></id>
+      <options><field>gauge_fat</field></options>
+    </module>
+    <module>
+      <id><name>gauge_longf</name><type>MUtilities::GaugeSinglePrecisionCast</type></id>
+      <options><field>gauge_long</field></options>
+    </module>
+    <module>
+      <id><name>istag_m</name><type>MAction::ImprovedStaggeredMILCF</type></id>
+      <options>
+        <Ls>1</Ls><boundary>1 1 1 1</boundary><c1>1.0</c1><c2>1.0</c2>
+        <gaugefat>gauge_fatf</gaugefat><gaugelong>gauge_longf</gaugelong>
+        <mass>0.01</mass><tad>1.0</tad><twist>0 0 0</twist>
+      </options>
+    </module>
+    <module>
+      <id><name>stag_ama</name><type>MSolver::StagMixedPrecisionCG</type></id>
+      <options>
+        <innerAction>istag_m</innerAction>
+        <isEven>false</isEven>
+        <maxInnerIteration>10000</maxInnerIteration>
+        <maxOuterIteration>10000</maxOuterIteration>
+        <outerAction>stag_m</outerAction>
+        <residual>1e-08</residual>
+      </options>
+    </module>
+
+    <!-- Checkerboarded massless eigenvectors (file-compare eig scale),
+         mass-shifted for the deflation. -->
+    <module>
+      <id><name>epack</name><type>MSolver::StagFermionIRL</type></id>
+      <options>
+        <evenEigen>true</evenEigen>
+        <lanczosParams>
+          <Cheby><Npoly>11</Npoly><alpha>0.0</alpha><beta>24.0</beta></Cheby>
+          <MaxIt>5000</MaxIt><MinRes>0</MinRes><Nk>24</Nk><Nm>32</Nm>
+          <Nstop>20</Nstop><betastp>0</betastp><resid>1e-08</resid>
+        </lanczosParams>
+        <multiFile>false</multiFile>
+        <op>stag_op_schur</op>
+        <output></output>
+        <redBlack>true</redBlack>
+      </options>
+    </module>
+    <module>
+      <id><name>eig</name><type>MUtilities::ModifyEigenPackMILC</type></id>
+      <options>
+        <eigenPack>epack</eigenPack>
+        <evenEigen>true</evenEigen>
+        <mass>0.01</mass>
+      </options>
+    </module>
+    <module>
+      <id><name>cbpairs_l</name><type>MUtilities::EigenPackCBPairs</type></id>
+      <options><action>stag</action><eigenPack>eig</eigenPack></options>
+    </module>
+    <module>
+      <id><name>cbpairs_r</name><type>MUtilities::EigenPackCBPairs</type></id>
+      <options><action>stag</action><eigenPack>eig</eigenPack></options>
+    </module>
+    <module>
+      <id><name>eigfull</name><type>MUtilities::EigenPackFullPairs</type></id>
+      <options><eigenPack>eig</eigenPack><action>stag</action></options>
+    </module>
+
+    <!-- Full-volume noise (the ONLY randomness source): eta_fv_vec has
+         nsrc*3 = 6 color-fast entries. -->
+    <module>
+      <id><name>noise_fv</name><type>MNoise::StagFullVolumeSpinColorDiagonal</type></id>
+      <options><nsrc>2</nsrc></options>
+    </module>
+
+    <!-- tStep=2 => nSlices=2 (slices t=0,2); nSrc=2 => _vec has
+         2*2*3 = 12 columns 3*(i*nSlices+j)+k. Slice-major ordering is
+         NON-degenerate: with nSlices=1 the batch order would collapse
+         to noise-major and checks 1-3 could not catch a slice/noise
+         swap. -->
+    <module>
+      <id><name>noise_t0</name><type>MSource::StagRandomWall</type></id>
+      <options>
+        <colorDiag>true</colorDiag>
+        <nSrc>2</nSrc>
+        <noise>noise_fv</noise>
+        <reuset0>false</reuset0>
+        <t0>0</t0>
+        <tStep>2</tStep>
+      </options>
+    </module>
+
+    <!-- Identity spin-taste: label G1_G1 keys the batch map (Phase 2)
+         and must equal the guess key the solve looks up. -->
+    <module>
+      <id><name>gammas_g1</name><type>MFermion::SpinTaste</type></id>
+      <options>
+        <spinTaste>
+          <gammas>(G1 G1)</gammas>
+          <applyG5>false</applyG5>
+          <gauge>gauge</gauge>
+        </spinTaste>
+        <labels></labels>
+      </options>
+    </module>
+
+    <!-- MF(ell, eta) table (production LL layout: CB pair rows, noise
+         columns) - the file the LMA producers reconstruct from. -->
+    <module>
+      <id><name>mfwrite</name><type>MContraction::StagA2AMesonField</type></id>
+      <options>
+        <action></action>
+        <block>12</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft>
+        <cbPairsRight>cbpairs_r</cbPairsRight>
+        <left></left>
+        <lowModes>eig</lowModes>
+        <mom><elem>0 0 0</elem></mom>
+        <output>work/mfout-sib</output>
+        <right>noise_fv_vec</right>
+        <gammas>gammas_g1</gammas>
+      </options>
+    </module>
+    <module>
+      <id><name>mf</name><type>MIO::LoadMesonField</type></id>
+      <options>
+        <file>work/mfout-sib.@traj@/G1_G1_0_0_0.h5</file>
+        <dataset>G1_G1_0_0_0</dataset>
+        <side></side>
+        <lowModes></lowModes>
+      </options>
+    </module>
+
+    <!-- g: the A2A batch guess. tA/tStep/nNoise match the RandomWall
+         t0/tStep/nSrc (user-responsibility contract). projector stays
+         empty (weighted form: the only solver-safe guess). -->
+    <module>
+      <id><name>lma_batch</name><type>MFermion::StagLMAMesonFieldProp</type></id>
+      <options>
+        <action>stag</action>
+        <lowModes>eig</lowModes>
+        <gammas>gammas_g1</gammas>
+        <labels>G1_G1</labels>
+        <mesonField>mf</mesonField>
+        <noiseIndex>0</noiseIndex>
+        <nNoise>2</nNoise>
+        <tA>0</tA>
+        <tB>2</tB>
+        <tStep>2</tStep>
+        <eigStart>0</eigStart>
+        <nEigs>-1</nEigs>
+        <projector></projector>
+        <negFirst></negFirst>
+        <pairScale></pairScale>
+        <noise>noise_fv_vec</noise>
+        <a2a_batch>true</a2a_batch>
+      </options>
+    </module>
+
+    <!-- Default-mode per-slice producer (same tables, same slices):
+         outputs lma_ps_t0 / lma_ps_t2 - check 2's reference path. -->
+    <module>
+      <id><name>lma_ps</name><type>MFermion::StagLMAMesonFieldProp</type></id>
+      <options>
+        <action>stag</action>
+        <lowModes>eig</lowModes>
+        <gammas>gammas_g1</gammas>
+        <labels>G1_G1</labels>
+        <mesonField>mf</mesonField>
+        <noiseIndex>0</noiseIndex>
+        <nNoise>2</nNoise>
+        <tA>0</tA>
+        <tB>2</tB>
+        <tStep>2</tStep>
+        <eigStart>0</eigStart>
+        <nEigs>-1</nEigs>
+        <projector></projector>
+        <negFirst></negFirst>
+        <pairScale></pairScale>
+        <noise>noise_fv_vec</noise>
+      </options>
+    </module>
+
+    <!-- Reference bridge (check 2): per-slice map entry -> bare
+         propagators -> noise-major fermions (n*3+c within each slice). -->
+    <module>
+      <id><name>gme_t0</name><type>MUtilities::GammaMapElement</type></id>
+      <options><map>lma_ps_t0</map><label>G1_G1</label></options>
+    </module>
+    <module>
+      <id><name>p2f_t0</name><type>MUtilities::PropToFermions</type></id>
+      <options><prop>gme_t0</prop></options>
+    </module>
+    <module>
+      <id><name>gme_t2</name><type>MUtilities::GammaMapElement</type></id>
+      <options><map>lma_ps_t2</map><label>G1_G1</label></options>
+    </module>
+    <module>
+      <id><name>p2f_t2</name><type>MUtilities::PropToFermions</type></id>
+      <options><prop>gme_t2</prop></options>
+    </module>
+    <!-- Bare copy of the batch's single entry (check 4). -->
+    <module>
+      <id><name>gme_batch</name><type>MUtilities::GammaMapElement</type></id>
+      <options><map>lma_batch</map><label>G1_G1</label></options>
+    </module>
+
+    <!-- Solves over the SAME 12-column _vec source: check 5's pair,
+         and h is check 1's high-mode side. -->
+    <module>
+      <id><name>quark_zeroguess</name><type>MFermion::StagGaugeProp</type></id>
+      <options>
+        <source>noise_t0_vec</source>
+        <solver>stag_ama</solver>
+        <guess></guess>
+        <gammas>gammas_g1</gammas>
+        <sourceLabel></sourceLabel>
+      </options>
+    </module>
+    <module>
+      <id><name>quark_batchguess</name><type>MFermion::StagGaugeProp</type></id>
+      <options>
+        <source>noise_t0_vec</source>
+        <solver>stag_ama</solver>
+        <guess>lma_batch</guess>
+        <gammas>gammas_g1</gammas>
+        <sourceLabel></sourceLabel>
+      </options>
+    </module>
+
+    <!-- Probe contractions against the full |e+o>/|e-o> pair basis
+         (rows expose even AND odd content; identity gamma + zero
+         momentum => each column's entries are its projections). -->
+    <module>
+      <id><name>mf_eta</name><type>MContraction::StagA2AMesonField</type></id>
+      <options>
+        <action></action><block>12</block>
+        <left>eigfull_vec</left><lowModes></lowModes>
+        <mom><elem>0 0 0</elem></mom>
+        <output>work/sib-a2a/eta</output>
+        <right>noise_fv_vec</right>
+        <gammas>gammas_g1</gammas>
+      </options>
+    </module>
+    <module>
+      <id><name>mf_rwvec</name><type>MContraction::StagA2AMesonField</type></id>
+      <options>
+        <action></action><block>12</block>
+        <left>eigfull_vec</left><lowModes></lowModes>
+        <mom><elem>0 0 0</elem></mom>
+        <output>work/sib-a2a/rwvec</output>
+        <right>noise_t0_vec</right>
+        <gammas>gammas_g1</gammas>
+      </options>
+    </module>
+    <module>
+      <id><name>mf_h</name><type>MContraction::StagA2AMesonField</type></id>
+      <options>
+        <action></action><block>12</block>
+        <left>eigfull_vec</left><lowModes></lowModes>
+        <mom><elem>0 0 0</elem></mom>
+        <output>work/sib-a2a/h</output>
+        <right>quark_batchguess</right>
+        <gammas>gammas_g1</gammas>
+      </options>
+    </module>
+    <module>
+      <id><name>mf_g</name><type>MContraction::StagA2AMesonField</type></id>
+      <options>
+        <action></action><block>12</block>
+        <left>eigfull_vec</left><lowModes></lowModes>
+        <mom><elem>0 0 0</elem></mom>
+        <output>work/sib-a2a/g</output>
+        <right>lma_batch</right>
+        <gammas>gammas_g1</gammas>
+      </options>
+    </module>
+    <module>
+      <id><name>mf_g_ps_t0</name><type>MContraction::StagA2AMesonField</type></id>
+      <options>
+        <action></action><block>12</block>
+        <left>eigfull_vec</left><lowModes></lowModes>
+        <mom><elem>0 0 0</elem></mom>
+        <output>work/sib-a2a/gps0</output>
+        <right>p2f_t0</right>
+        <gammas>gammas_g1</gammas>
+      </options>
+    </module>
+    <module>
+      <id><name>mf_g_ps_t2</name><type>MContraction::StagA2AMesonField</type></id>
+      <options>
+        <action></action><block>12</block>
+        <left>eigfull_vec</left><lowModes></lowModes>
+        <mom><elem>0 0 0</elem></mom>
+        <output>work/sib-a2a/gps2</output>
+        <right>p2f_t2</right>
+        <gammas>gammas_g1</gammas>
+      </options>
+    </module>
+    <module>
+      <id><name>mf_g_bare</name><type>MContraction::StagA2AMesonField</type></id>
+      <options>
+        <action></action><block>12</block>
+        <left>eigfull_vec</left><lowModes></lowModes>
+        <mom><elem>0 0 0</elem></mom>
+        <output>work/sib-a2a/gbare</output>
+        <right>gme_batch</right>
+        <gammas>gammas_g1</gammas>
+      </options>
+    </module>
+  </modules>
+  <parameters>
+    <genetic>
+      <maxCstGen>100</maxCstGen><maxGen>1000</maxGen>
+      <mutationRate>0.1</mutationRate><popSize>20</popSize>
+    </genetic>
+    <graphFile></graphFile>
+    <parallelWriteMaxRetry>-1</parallelWriteMaxRetry>
+    <runId>sib-a2a-batch</runId>
+    <saveSchedule>false</saveSchedule>
+    <scheduleFile></scheduleFile>
+    <scheduler>
+      <!-- naive: declaration order. Required: the meson-field writer
+           (mfwrite) and the loader (mf) have no environment edge, so
+           the genetic scheduler may reorder them. -->
+      <schedulerType>naive</schedulerType>
+    </scheduler>
+    <trajCounter>
+      <end>10000</end><start>20</start><step>10000</step>
+    </trajCounter>
+  </parameters>
+</grid>

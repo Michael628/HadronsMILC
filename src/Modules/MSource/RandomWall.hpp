@@ -57,6 +57,18 @@ BEGIN_HADRONS_NAMESPACE
               matching the internal-noise output bit-for-bit when the noise
               module name in this run equals the RandomWall module name in
               the internal-noise run (same RNG stream) with nsrc >= nSrc.
+ - vec output: with colorDiag=true an additional output "<name>_vec" is
+              published: a std::vector<FermionField> of length
+              nSrc*nSlices*3 in COLUMN ORDER 3*(i*nSlices+j)+k (noise i,
+              timeslice j, color k fastest) -- the color-diluted companion
+              of the main output and the shared column-order contract of
+              the A2A batch (docs/CONTEXT.md). Filled by splitting each
+              already-computed propagator of the main output by color AFTER
+              the main assignment, so the reuset0 temporal Cshift chain is
+              inherited bit-exactly (setFerm commutes with Cshift). NEVER
+              scalar-collapsed: length 3 even when nSrc*nSlices == 1. Not
+              published when colorDiag=false -- a consumer naming it then
+              fails loudly at graph build.
 
  */
 
@@ -127,6 +139,13 @@ template <typename FImpl>
 std::vector<std::string> TRandomWallMILC<FImpl>::getOutput(void)
 {
     std::vector<std::string> out = {getName(), getName()+"_shift"};
+    // _vec only exists in the color-diluted mode: omitted here when
+    // colorDiag=false so a consumer naming it fails at graph build
+    // (loud) instead of hitting a created-but-empty object at execute
+    // (silent)
+    if (par().colorDiag) {
+        out.push_back(getName()+"_vec");
+    }
     
     return out;
 }
@@ -175,6 +194,23 @@ void TRandomWallMILC<FImpl>::setup(void)
     }
 
     envCreate(std::vector<Integer>, getName()+"_shift", 1, 0, 0);
+
+    // color-diluted companion output "<name>_vec" (header comment):
+    // one FermionField per (noise, slice, color) column, ALWAYS a
+    // vector -- never scalar-collapsed, length nVecs*3 even when the
+    // main output collapses to a scalar field. Created at FULL size
+    // inside the setup window (not created-empty-then-resized) so the
+    // memory profiler and the garbage-collection scheduler see the
+    // true footprint. nSources/nSlices are the setup locals above.
+    if (par().colorDiag) {
+        // FImpl::Dimension bound to a local first: passing it straight
+        // through envCreate's forwarding references would odr-use the
+        // constexpr static member (PropToFermions.hpp precedent)
+        const unsigned int nColor = FImpl::Dimension;
+        envCreate(std::vector<FermionField>, getName()+"_vec", 1,
+                  static_cast<unsigned int>(nSources)*nSlices*nColor,
+                  envGetGrid(FermionField));
+    }
 
     if (!par().reuset0.empty()) {
         if (!(std::istringstream(par().reuset0) >> std::boolalpha >> reuset0_)) {
@@ -257,10 +293,17 @@ void TRandomWallMILC<FImpl>::execute(void)
             auto &noisevec = envGet(PropagatorField,getName());
             noisevec = getNoiseProp(0, t0);
             time_shift[0] = t0;
+            // _vec never collapses (header comment): FImpl::Dimension
+            // columns split from the single scalar propagator
+            auto &noisevecFerm = envGet(std::vector<FermionField>,getName()+"_vec");
+            for (int k=0;k<FImpl::Dimension;k++) {
+                setFerm(noisevecFerm[k],noisevec,k);
+            }
             return;
         }
         auto &noisevec = envGet(std::vector<PropagatorField>,getName());
         noisevec.resize(nVecs,envGetGrid(PropagatorField));
+        auto &noisevecFerm = envGet(std::vector<FermionField>,getName()+"_vec");
 
         for (int i=0;i<nSources;i++) {
             if (reuset0_) {
@@ -276,6 +319,14 @@ void TRandomWallMILC<FImpl>::execute(void)
                     }
                 }
                 time_shift[idx] = j*tStep+t0;
+                // color-diluted companion: split AFTER the main
+                // assignment -- setFerm commutes with the temporal
+                // Cshift, so the reuset0 chain is inherited bit-exactly
+                // and full-volume/internal noise modes give identical
+                // columns (they differ only in how noisevec was filled)
+                for (int k=0;k<FImpl::Dimension;k++) {
+                    setFerm(noisevecFerm[3*idx+k],noisevec[idx],k);
+                }
             }
         }
     } else {

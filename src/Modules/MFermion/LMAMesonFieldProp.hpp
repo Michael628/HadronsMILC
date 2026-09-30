@@ -156,6 +156,26 @@ BEGIN_HADRONS_NAMESPACE
                 (full-time-extent sum; only the (G1,G1) table is
                 checkable against the live, gamma-independent reference;
                 other gammas log a skip)
+    a2a_batch   ""/"false" (default): per-timeslice outputs, unchanged
+                behavior. "true": publish ONE A2A batch instead -- a
+                single-key TGammaMap<std::vector<FermionField>> named
+                "<name>" (no per-timeslice "_t<t>" outputs), keyed by the
+                single required label, holding nNoise*nSlices*3 columns
+                in the shared column order 3*(n*nSlices + j) + c
+                (RandomWall order, docs/CONTEXT.md): column (n, j, c) is
+                the reconstruction for timeslice tA + j*tStep, noise
+                noiseIndex + n, color c -- the same values the
+                per-timeslice mode writes into that propagator's color
+                slot (same reconstruction path, only the destination
+                differs; bit-identical). tA plays RandomWall's t0: the
+                USER is responsible for matching tA/tStep/nNoise to the
+                RandomWall's t0/tStep/nSrc; when the batch feeds a
+                StagGaugeProp guess= the key must equal the gammas
+                module's effective label and the guess length is never
+                checked (cross-module contracts stay user
+                responsibility, like tA/tStep/nNoise matching). Requires
+                exactly one label and projector off (setup errors
+                otherwise)
 
     setup() only parses parameters, checks container sizes and allocates
     and zeroes the outputs (the scheduler dry-runs it for memory profiling
@@ -185,9 +205,11 @@ public:
                                   std::string,   projector,
                                   std::string,   negFirst,
                                   std::string,   pairScale,
-                                  std::string,   noise);
+                                  std::string,   noise,
+                                  std::string,   a2a_batch);
   LMAMesonFieldPropMILCPar(void)
-      : tStep(1), nNoise(1), projector(""), negFirst(""), pairScale("") {}
+      : tStep(1), nNoise(1), projector(""), negFirst(""), pairScale(""),
+        a2a_batch("") {}
 };
 // gammas: name of an MFermion::SpinTaste module; this module consumes its
 //         `_map` companion output (par().gammas + "_map") for per-label
@@ -339,6 +361,13 @@ std::vector<std::string> TLMAMesonFieldPropMILC<FImpl, Pack>::getInput(void) {
 
 template <typename FImpl, typename Pack>
 std::vector<std::string> TLMAMesonFieldPropMILC<FImpl, Pack>::getOutput(void) {
+  if (par().a2a_batch == "true") {
+    // batch mode: ONE single-key map output (header); no per-timeslice
+    // outputs. An invalid a2a_batch value falls through to the
+    // per-timeslice list here and is rejected by setup's three-value
+    // check immediately after
+    return {getName()};
+  }
   std::vector<std::string> out;
   for (auto &t : sliceTimes()) {
     out.push_back(mapName(t));
@@ -361,6 +390,11 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::setup(void) {
       (par().negFirst != "true")) {
     HADRONS_ERROR(Argument, "negFirst must be '', 'false' or 'true' (got '" +
                                 par().negFirst + "')");
+  }
+  if ((par().a2a_batch != "") && (par().a2a_batch != "false") &&
+      (par().a2a_batch != "true")) {
+    HADRONS_ERROR(Argument, "a2a_batch must be '', 'false' or 'true' (got '" +
+                                par().a2a_batch + "')");
   }
   if (!par().pairScale.empty()) {
     auto scale = strToVec<RealD>(par().pairScale);
@@ -424,6 +458,24 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::setup(void) {
                                   "' (available: " + available + ")");
     }
     selected.emplace(label, it->second);
+  }
+
+  const bool a2aBatch = (par().a2a_batch == "true");
+  if (a2aBatch) {
+    if (labels.size() != 1) {
+      HADRONS_ERROR(Argument,
+                    "a2a_batch=\"true\" requires exactly one label (got " +
+                        std::to_string(labels.size()) + ": '" + par().labels +
+                        "') -- the batch output is a single-key TGammaMap");
+    }
+    if (par().projector == "true") {
+      HADRONS_ERROR(Argument,
+                    "a2a_batch=\"true\" is incompatible with "
+                    "projector=\"true\": the bare projection is not a "
+                    "solution and must not be used as a solver guess "
+                    "(leave projector empty for the invmag-weighted "
+                    "guess form)");
+    }
   }
 
   LOG(Message) << "Setting up meson-field driven low mode propagator '"
@@ -498,6 +550,27 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::setup(void) {
   // `selected` INSIDE the envCreate window (profiler-visible) and
   // zeroed; keys are the SELECTED labels. Sizing from par().nNoise --
   // never from table contents (dry-run safety)
+  if (a2aBatch) {
+    // ONE batch output: single-key TGammaMap<std::vector<FermionField>>
+    // of length nNoise*nSlices*3, full-grid FermionField columns in the
+    // shared column order 3*(n*nSlices + j) + c (nSlices = sliceTimes()
+    // count). Constructed from `selected` (the one validated label)
+    // with a pre-built prototype vector as ONE ctor argument -- the
+    // nNoise>1 envCreate precedent -- so construction stays inside the
+    // envCreate window; zeroed like every other output (sizing from
+    // par(), never from table contents: dry-run safety)
+    const unsigned int nSlices = sliceTimes().size();
+    const unsigned int nCol =
+        par().nNoise * nSlices * FImpl::Dimension;
+    envCreate(TGammaMap<std::vector<FermionField>>, getName(), 1, selected,
+              std::vector<FermionField>(nCol, envGetGrid(FermionField)));
+    for (auto &p :
+         envGet(TGammaMap<std::vector<FermionField>>, getName())) {
+      for (auto &f : p.second) {
+        f = Zero();
+      }
+    }
+  } else {
   for (auto &t : sliceTimes()) {
     if (par().nNoise == 1) {
       envCreate(TGammaMap<PropagatorField>, mapName(t), 1, selected,
@@ -526,6 +599,7 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::setup(void) {
         }
       }
     }
+  }
   }
 }
 
@@ -775,6 +849,7 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
   }
   bool negFirst = (par().negFirst == "true");
   bool project = (par().projector == "true");
+  bool a2aBatch = (par().a2a_batch == "true");
   RealD pairScale = std::sqrt(2.0);
   if (!par().pairScale.empty()) {
     pairScale = strToVec<RealD>(par().pairScale)[0];
@@ -809,24 +884,32 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
     auto &mf =
         envGet(std::vector<A2AMatrix<HADRONS_A2AM_IO_TYPE>>, mfs[i]);
     const std::string &label = labels[i];
-    for (auto &t : ts) {
+    // batch destination: fetched ONCE per label (single-key map, one
+    // entry); the per-slice destinations below do not exist in batch
+    // mode and must not be envGot
+    std::vector<FermionField> *batchVec = nullptr;
+    if (a2aBatch) {
+      batchVec =
+          &(envGet(TGammaMap<std::vector<FermionField>>, getName()))
+               .at(label);
+    }
+    for (unsigned int j = 0; j < ts.size(); ++j) {
+      const unsigned int t = ts[j];
       const A2AMatrix<HADRONS_A2AM_IO_TYPE> &mft = mf[t];
-      // per-timeslice map output; the entry is keyed by the SELECTED
-      // label (TGammaMap was built from `selected` at setup and every
-      // requested label was validated present there, so the key always
-      // exists)
       std::vector<PropagatorField> *propVec = nullptr;
       PropagatorField *propScalar = nullptr;
-      if (par().nNoise == 1) {
-        // parenthesized: envGet(...).at(label) unparenthesized binds
-        // .at() to the raw getObject<T>() pointer BEFORE envGet's
-        // leading dereference applies (macro-expansion precedence)
-        propScalar =
-            &(envGet(TGammaMap<PropagatorField>, mapName(t))).at(label);
-      } else {
-        propVec = &(envGet(TGammaMap<std::vector<PropagatorField>>,
-                           mapName(t)))
-                       .at(label);
+      if (!a2aBatch) {
+        if (par().nNoise == 1) {
+          // parenthesized: envGet(...).at(label) unparenthesized binds
+          // .at() to the raw getObject<T>() pointer BEFORE envGet's
+          // leading dereference applies (macro-expansion precedence)
+          propScalar =
+              &(envGet(TGammaMap<PropagatorField>, mapName(t))).at(label);
+        } else {
+          propVec = &(envGet(TGammaMap<std::vector<PropagatorField>>,
+                             mapName(t)))
+                         .at(label);
+        }
       }
       // per-noise reconstruction (per-noise eigenpass loops): noise
       // window n is global noise noiseIndex + n, occupying columns
@@ -835,8 +918,14 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
       // accumulators, kernel passes and Meooe post-processing below
       // run once per noise
       for (unsigned int n = 0; n < par().nNoise; ++n) {
-        PropagatorField &prop =
-            (par().nNoise == 1) ? *propScalar : (*propVec)[n];
+        // destination handle: the per-slice propagator (default modes)
+        // or none (batch mode -- the assembly seam below addresses the
+        // batch columns directly). Everything from the eigenpass to the
+        // Meooe applications is destination-agnostic
+        PropagatorField *propP = nullptr;
+        if (!a2aBatch) {
+          propP = (par().nNoise == 1) ? propScalar : &(*propVec)[n];
+        }
         const unsigned int nBase =
             (par().noiseIndex + n) * FImpl::Dimension;
         // no zero-init of prop: the single assembly pass below writes
@@ -1281,6 +1370,84 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
           mat.Meooe(*rbTempNegC[c], *rbFermNegC[c]);
         }
 
+        if (a2aBatch) {
+          // batch assembly: three full-grid FermionField columns
+          // batch[3*(n*nSlices + j) + c]. Per site, per column, the
+          // value is EXACTLY what the site-matrix kernel stores into
+          // pmat()()(r, c) -- the same ssh-indexed reads and the same
+          // scale/negI scalar expressions; the FermionField site object
+          // IS that column's 3-component color vector, stored whole.
+          // One fused kernel writes all three columns (three
+          // destination views), mirroring the site-matrix kernel's
+          // fused structure. Every element is written (both parities):
+          // no zero-init
+          const unsigned int nSlices = ts.size();
+          FermionField &outF0 = (*batchVec)[3 * (n * nSlices + j) + 0];
+          FermionField &outF1 = (*batchVec)[3 * (n * nSlices + j) + 1];
+          FermionField &outF2 = (*batchVec)[3 * (n * nSlices + j) + 2];
+          const GridBase *halfGrid = rbFermNegC[0]->Grid();
+          const Coordinate rdimFull = outF0.Grid()->_rdimensions;
+          const Coordinate rdimHalf = halfGrid->_rdimensions;
+          const Coordinate cbMask = halfGrid->_checker_dim_mask;
+          const Coordinate ostride = halfGrid->_ostride;
+          const int ndim = halfGrid->_ndimension;
+          const RealD scale = norm / pairScale;
+          const ComplexD negI(0., -1.);
+          const int cbSum = cb;
+
+          // named references first: autoView(n, *ptr[c], m) expands to
+          // *ptr[c].View(m) -- '.' binds tighter than '*' (ledger)
+          FermionField &sumF0 = *rbTempC[0];
+          FermionField &sumF1 = *rbTempC[1];
+          FermionField &sumF2 = *rbTempC[2];
+          FermionField &negF0 = *rbFermNegC[0];
+          FermionField &negF1 = *rbFermNegC[1];
+          FermionField &negF2 = *rbFermNegC[2];
+          autoView(out0W, outF0, AcceleratorWrite);
+          autoView(out1W, outF1, AcceleratorWrite);
+          autoView(out2W, outF2, AcceleratorWrite);
+          autoView(sumR0, sumF0, AcceleratorRead);
+          autoView(sumR1, sumF1, AcceleratorRead);
+          autoView(sumR2, sumF2, AcceleratorRead);
+          autoView(negR0, negF0, AcceleratorRead);
+          autoView(negR1, negF1, AcceleratorRead);
+          autoView(negR2, negF2, AcceleratorRead);
+          accelerator_for(ss, outF0.Grid()->oSites(),
+                          FermionField::vector_type::Nsimd(), {
+            Coordinate coor;
+            int linear = 0;
+            Lexicographic::CoorFromIndex(coor, ss, rdimFull);
+            for (int d = 0; d < ndim; ++d) {
+              if (cbMask[d]) {
+                linear += coor[d];
+              }
+            }
+            int ssh = 0;
+            for (int d = 0; d < ndim; ++d) {
+              if (d == 0) {
+                ssh += ostride[d] * ((coor[d] / 2) % rdimHalf[d]);
+              } else {
+                ssh += ostride[d] * (coor[d] % rdimHalf[d]);
+              }
+            }
+            if ((linear & 0x1) == cbSum) {
+              coalescedWrite(out0W[ss],
+                             coalescedRead(sumR0[ssh]) * scale);
+              coalescedWrite(out1W[ss],
+                             coalescedRead(sumR1[ssh]) * scale);
+              coalescedWrite(out2W[ss],
+                             coalescedRead(sumR2[ssh]) * scale);
+            } else {
+              coalescedWrite(out0W[ss],
+                             (negI * coalescedRead(negR0[ssh])) * scale);
+              coalescedWrite(out1W[ss],
+                             (negI * coalescedRead(negR1[ssh])) * scale);
+              coalescedWrite(out2W[ss],
+                             (negI * coalescedRead(negR2[ssh])) * scale);
+            }
+          });
+        } else {
+          PropagatorField &prop = *propP;
         // single assembly pass over the full-grid output propagator.
         // Per site, per column, the op sequence is IDENTICAL to the
         // former per-column kernel -- cb-parity sites: sum * scale;
@@ -1379,15 +1546,27 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
             coalescedWrite(propW[ss], pmat);
           });
         }
+        }
 
       }
-      LOG(Message) << "Reconstructed '" << mapName(t) << "' label '"
-                   << label << "' (" << par().nNoise
-                   << " noise window(s)) from columns "
-                   << par().noiseIndex * FImpl::Dimension << ".."
-                   << ((par().noiseIndex + 1) *
-                       FImpl::Dimension - 1)
-                   << " of '" << mfs[i] << "'" << std::endl;
+      if (a2aBatch) {
+        LOG(Message) << "Reconstructed batch '" << getName() << "' label '"
+                     << label << "' slice t=" << t << " (" << par().nNoise
+                     << " noise window(s) x " << FImpl::Dimension
+                     << " colors) from columns "
+                     << par().noiseIndex * FImpl::Dimension << ".."
+                     << ((par().noiseIndex + par().nNoise) *
+                         FImpl::Dimension - 1)
+                     << " of '" << mfs[i] << "'" << std::endl;
+      } else {
+        LOG(Message) << "Reconstructed '" << mapName(t) << "' label '"
+                     << label << "' (" << par().nNoise
+                     << " noise window(s)) from columns "
+                     << par().noiseIndex * FImpl::Dimension << ".."
+                     << ((par().noiseIndex + 1) *
+                         FImpl::Dimension - 1)
+                     << " of '" << mfs[i] << "'" << std::endl;
+      }
     }
   }
 }

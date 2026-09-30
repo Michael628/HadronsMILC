@@ -48,6 +48,8 @@ Output lands in `work/`. Comparison scripts read `ref/` and `work/`.
 | `compare_point_source_a2a.py` | A2A LL correlators vs the point-source reference |
 | `average_point_sources.py` | averages 256 point sources -> `all-points.20.h5` |
 | `compare_guess_quality.py` | `StagLMAMesonFieldProp`-driven CG guess residual vs zero-guess baseline (reads a captured run log, not `work/`/`ref/` HDF5 output — run with `../HadronsMILC params/lma-mesonfield-guess-quality.20.xml --grid 4.4.4.4 > work/guess-quality.log` first) |
+| `compare_sib_hvp_a2a_batch.py` | SIB HVP A2A batch: RandomWall `_vec` + `StagLMAMesonFieldProp` `a2a_batch` + `StagA2AMesonField` unwrap — five checks (column-order match, batch-vs-per-slice, `_vec` correctness, unwrap equivalence, guess quality) from `params/sib-hvp-a2a-batch.20.xml` |
+| `check_setup_error.py` | negative cases: asserts the `sib-hvp-neg-*.20.xml` params abort at setup with their expected `HADRONS_ERROR` (no args runs all three; the abort fires in the setup dry-run, before any execute) |
 
 ## Promoting a reference
 

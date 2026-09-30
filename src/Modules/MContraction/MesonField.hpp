@@ -37,6 +37,7 @@
 #include <EigenPack.hpp>
 #include <A2AMatrix.hpp>
 #include <GridMilc/GridMilc.h>
+#include <Modules/MFermion/SpinTaste.hpp> // TGammaMap (left/right A2A-batch inputs)
 
 BEGIN_HADRONS_NAMESPACE
 
@@ -67,6 +68,17 @@ public:
 // gammas: name of an MFermion::SpinTaste module publishing
 //         std::vector<StagGamma> (gauge bound by the module for every
 //         displacing operator)
+// left/right: name of a std::vector<FermionField> (as before) or of a
+//         TGammaMap<std::vector<FermionField>> (an A2A batch: a
+//         StagLMAMesonFieldProp a2a_batch output, a StagGaugeProp
+//         vector-source solve, ...) -- resolved by type check only, no
+//         new parameters. A map input must hold EXACTLY ONE entry
+//         (setup Argument error listing the keys otherwise: a miswired
+//         multi-gamma solve must not silently pick an arbitrary entry);
+//         the single entry is unwrapped IN PLACE (a reference into the
+//         environment-owned map, no copy) and its label is logged.
+//         Output sizes come from the unwrapped vector, so batch inputs
+//         give N_i/N_j = the batch length automatically.
 
 class MesonFieldMILCMetadata : Serializable {
 public:
@@ -412,6 +424,37 @@ void TMesonFieldMILC<FImpl, Pack>::setup(void) {
     }
   }
 
+  // A2A-batch inputs (param comment above): a TGammaMap<std::vector<
+  // FermionField>> for left/right must hold EXACTLY ONE entry --
+  // validated at setup, before any consumer executes (GammaMapElement /
+  // StagMeson checkKeys precedent; the unwrap itself is execute-time, a
+  // no-copy reference). Setup-safe: the map object and its KEY SET
+  // exist from the producer's setup (input edge orders this setup after
+  // it); only the VALUES fill later
+  for (const std::string *side : {&par().left, &par().right}) {
+    if (!side->empty() &&
+        envHasType(TGammaMap<std::vector<FermionField>>, *side)) {
+      auto &map = envGet(TGammaMap<std::vector<FermionField>>, *side);
+      if (map.size() != 1) {
+        std::string keys;
+        for (auto &p : map) {
+          keys += (keys.empty() ? "" : ", ") + p.first;
+        }
+        HADRONS_ERROR(Argument,
+                      "'" + *side + "' is a gamma map with " +
+                          std::to_string(map.size()) + " entries ({ " +
+                          keys +
+                          " }) but MesonField accepts at most one -- "
+                          "use a single-label producing gammas module "
+                          "or bridge the entry you need");
+      }
+      LOG(Message) << "MesonField '" << getName()
+                   << "': unwrapping single-entry gamma map '" << *side
+                   << "' (label '" << map.begin()->first << "')"
+                   << std::endl;
+    }
+  }
+
   _mom.clear();
 
   for (auto &pstr : par().mom) {
@@ -487,12 +530,25 @@ void TMesonFieldMILC<FImpl, Pack>::execute(void) {
 
   envGetTmp(std::vector<FermionField>, dummy);
   if (!par().left.empty()) {
-    left = &(envGet(std::vector<FermionField>, par().left));
+    if (envHasType(TGammaMap<std::vector<FermionField>>, par().left)) {
+      // single-key A2A batch (validated at setup): unwrap IN PLACE --
+      // a reference into the environment-owned map, no copy (the
+      // GammaMapElement full-vector copy this branch replaces)
+      auto &map = envGet(TGammaMap<std::vector<FermionField>>, par().left);
+      left = &map.begin()->second;
+    } else {
+      left = &(envGet(std::vector<FermionField>, par().left));
+    }
   } else {
     left = &dummy;
   }
   if (!par().right.empty()) {
-    right = &(envGet(std::vector<FermionField>, par().right));
+    if (envHasType(TGammaMap<std::vector<FermionField>>, par().right)) {
+      auto &map = envGet(TGammaMap<std::vector<FermionField>>, par().right);
+      right = &map.begin()->second;
+    } else {
+      right = &(envGet(std::vector<FermionField>, par().right));
+    }
   } else {
     right = &dummy;
   }

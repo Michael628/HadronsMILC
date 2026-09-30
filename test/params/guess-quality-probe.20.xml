@@ -1,0 +1,357 @@
+<grid>
+  <modules>
+    <!-- Gauge fields from the 4^4 test configuration set (trajectory suffix
+    supplied by trajCounter). -->
+    <module>
+      <id><name>gauge</name><type>MIO::LoadIldg</type></id>
+      <options><file>lat/lat.sample.l4444.ildg</file></options>
+    </module>
+    <module>
+      <id><name>gauge_fat</name><type>MIO::LoadIldg</type></id>
+      <options><file>lat/fatlinks.l4444.ildg</file></options>
+    </module>
+    <module>
+      <id><name>gauge_long</name><type>MIO::LoadIldg</type></id>
+      <options><file>lat/longlinks.l4444.ildg</file></options>
+    </module>
+
+    <!-- Massless action: the projector branch uses only Meooe and lambda_D,
+         both mass-independent; the mass shift enters via ModifyEigenPack. -->
+    <module>
+      <id><name>stag</name><type>MAction::ImprovedStaggeredMILC</type></id>
+      <options>
+        <Ls>1</Ls>
+        <boundary>1 1 1 1</boundary>
+        <c1>1.0</c1>
+        <c2>1.0</c2>
+        <gaugefat>gauge_fat</gaugefat>
+        <gaugelong>gauge_long</gaugelong>
+        <mass>0.0</mass>
+        <tad>1.0</tad>
+        <twist>0 0 0</twist>
+      </options>
+    </module>
+    <module>
+      <id><name>stag_op</name><type>MFermion::StagOperators</type></id>
+      <options><action>stag</action></options>
+    </module>
+
+    <!-- GUESS-QUALITY PROBE: massive double/single-precision actions for a
+         real mixed-precision CG solve, mirroring production's
+         stag_mass_l/istag_mass_l pair (mass matches the eig mass shift). -->
+    <module>
+      <id><name>stag_m</name><type>MAction::ImprovedStaggeredMILC</type></id>
+      <options>
+        <Ls>1</Ls>
+        <boundary>1 1 1 1</boundary>
+        <c1>1.0</c1>
+        <c2>1.0</c2>
+        <gaugefat>gauge_fat</gaugefat>
+        <gaugelong>gauge_long</gaugelong>
+        <mass>0.01</mass>
+        <tad>1.0</tad>
+        <twist>0 0 0</twist>
+      </options>
+    </module>
+    <module>
+      <id><name>gauge_fatf</name><type>MUtilities::GaugeSinglePrecisionCast</type></id>
+      <options><field>gauge_fat</field></options>
+    </module>
+    <module>
+      <id><name>gauge_longf</name><type>MUtilities::GaugeSinglePrecisionCast</type></id>
+      <options><field>gauge_long</field></options>
+    </module>
+    <module>
+      <id><name>istag_m</name><type>MAction::ImprovedStaggeredMILCF</type></id>
+      <options>
+        <Ls>1</Ls>
+        <boundary>1 1 1 1</boundary>
+        <c1>1.0</c1>
+        <c2>1.0</c2>
+        <gaugefat>gauge_fatf</gaugefat>
+        <gaugelong>gauge_longf</gaugelong>
+        <mass>0.01</mass>
+        <tad>1.0</tad>
+        <twist>0 0 0</twist>
+      </options>
+    </module>
+    <module>
+      <id><name>stag_ama</name><type>MSolver::StagMixedPrecisionCG</type></id>
+      <options>
+        <innerAction>istag_m</innerAction>
+        <isEven>false</isEven>
+        <maxInnerIteration>10000</maxInnerIteration>
+        <maxOuterIteration>10000</maxOuterIteration>
+        <outerAction>stag_m</outerAction>
+        <residual>1e-08</residual>
+      </options>
+    </module>
+
+    <!-- Checkerboarded massless eigenvectors. -->
+    <module>
+      <id><name>epack</name><type>MSolver::StagFermionIRL</type></id>
+      <options>
+        <evenEigen>true</evenEigen>
+        <lanczosParams>
+          <Cheby><Npoly>11</Npoly><alpha>0.0</alpha><beta>24.0</beta></Cheby>
+          <MaxIt>5000</MaxIt>
+          <MinRes>0</MinRes>
+          <Nk>370</Nk>
+          <Nm>384</Nm>
+          <Nstop>360</Nstop>
+          <betastp>0</betastp>
+          <resid>1e-08</resid>
+        </lanczosParams>
+        <multiFile>false</multiFile>
+        <op>stag_op_schur</op>
+        <output></output>
+        <redBlack>true</redBlack>
+      </options>
+    </module>
+
+    <!-- Mass-shifted checkerboarded pack used by BOTH solvers. -->
+    <module>
+      <id><name>eig</name><type>MUtilities::ModifyEigenPackMILC</type></id>
+      <options>
+        <eigenPack>epack</eigenPack>
+        <evenEigen>true</evenEigen>
+        <mass>0.01</mass>
+      </options>
+    </module>
+
+    <!-- Two distinct on-demand CB pair sources over the mass-shifted pack:
+         mfwrite's low-mode rows come from these (odd partner = Meooe(e_E)/
+         (i*lam) filled on demand - no full-grid pair fields ever
+         materialize). Two instances are mandatory: the framework holds the
+         right-side bank across the left-side block loop, so the sides
+         cannot share one bank. -->
+    <module>
+      <id><name>cbpairs_l</name><type>MUtilities::EigenPackCBPairs</type></id>
+      <options><action>stag</action><eigenPack>eig</eigenPack></options>
+    </module>
+    <module>
+      <id><name>cbpairs_r</name><type>MUtilities::EigenPackCBPairs</type></id>
+      <options><action>stag</action><eigenPack>eig</eigenPack></options>
+    </module>
+
+    <!-- Full-volume |e+o>/|e-o> pairs built from the checkerboarded pack.
+         Probe basis only (cmp_ref/cmp_file contract solver outputs against
+         eigfull_vec, a parity-complete basis); the production file below is
+         written from the CB pair sources instead - the two layouts produce
+         numerically identical rows (writer CB 1/sqrt(2) norm reduction). -->
+    <module>
+      <id><name>eigfull</name><type>MUtilities::EigenPackFullPairs</type></id>
+      <options><eigenPack>eig</eigenPack><action>stag</action></options>
+    </module>
+
+    <!-- Time-diluted noise, production noise-index layout: nsrc=2,
+         tStep=nt=4 - noise_vec holds exactly nsrc*3 = 6 entries, both
+         noises on timeslice 0 (every block maps to t=0 when tStep=nt).
+         The meson field's 6 columns are the two noise windows of 3
+         colors each (covering StagLMAMesonFieldProp's noiseIndex=0,
+         nNoise=2 windows: (noiseIndex+nNoise)*3 = 6); gprop_ref solves
+         all 6 fields, giving the per-noise reference columns for the
+         offline comparison. The noise VALUES differ from an nsrc=1 run
+         by design (generateNoise draws 3 fields per source, so nsrc=2
+         doubles the bernoulli draw count and shifts the RNG stream) -
+         both sides of this comparison consume the same noise_vec, so
+         the comparison is unaffected. -->
+    <module>
+      <id><name>noise</name><type>MNoise::StagTimeDilutedSpinColorDiagonal</type></id>
+      <options><nsrc>2</nsrc><tStep>4</tStep></options>
+    </module>
+
+    <!-- ONE SpinTaste module for the identity operator shared by every
+         consumer below (mfwrite, lma_file, cmp_ref, cmp_file all use the
+         same (G1,G1), applyG5=false operator); declared before all four. -->
+    <module>
+      <id><name>gammas_g1</name><type>MFermion::SpinTaste</type></id>
+      <options>
+        <spinTaste>
+          <gammas>(G1 G1)</gammas>
+          <applyG5>false</applyG5>
+          <gauge>gauge</gauge>
+        </spinTaste>
+        <labels></labels>
+      </options>
+    </module>
+
+    <!-- Production-layout meson-field write: left empty (eigenvector rows =
+         the CB pair rows of 'eig', reconstructed to the legacy interleaved
+         2k/2k+1 = M0+/-M1 layout by the writer), right = noise, identity
+         spin-taste, zero momentum. Writes mfout.20/G1_G1_0_0_0.h5. -->
+    <module>
+      <id><name>mfwrite</name><type>MContraction::StagA2AMesonField</type></id>
+      <options>
+        <action></action>
+        <block>12</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft>
+        <cbPairsRight>cbpairs_r</cbPairsRight>
+        <left></left>
+        <lowModes>eig</lowModes>
+        <mom><elem>0 0 0</elem></mom>
+        <output>work/mfout</output>
+        <right>noise_vec</right>
+        <gammas>gammas_g1</gammas>
+      </options>
+    </module>
+
+    <!-- Load it back. -->
+    <module>
+      <id><name>mf</name><type>MIO::LoadMesonField</type></id>
+      <options>
+        <file>work/mfout.@traj@/G1_G1_0_0_0.h5</file>
+        <dataset>G1_G1_0_0_0</dataset>
+        <side></side>
+        <lowModes></lowModes>
+      </options>
+    </module>
+
+    <!-- Reference: live LowModeProj, projector branch. -->
+    <module>
+      <id><name>lma_ref</name><type>MSolver::StagLMA</type></id>
+      <options>
+        <action>stag</action>
+        <eigStart>0</eigStart>
+        <lowModes>eig</lowModes>
+        <nEigs>-1</nEigs>
+        <projector>true</projector>
+      </options>
+    </module>
+
+    <!-- Eager file-driven propagator producer (replaces the former
+         MSolver solver family and its GaugeProp middleman): ONE
+         per-timeslice TGammaMap "lma_file_t<t>" in [tA, tB] stride tStep,
+         keyed by gammas_g1's single label G1_G1 (nNoise=1: a scalar
+         PropagatorField entry; nNoise>1: a length-nNoise vector entry).
+         The noises live on timeslice 0 only, so the range is tA=0, tB=0;
+         noiseIndex selects the first noise window (unit = noises);
+         window n reads columns (noiseIndex+n)*3..(noiseIndex+n)*3+2.
+         nNoise=2 reconstructs ONE propagator per noise: lma_file_t0's
+         G1_G1 entry is a length-2 std::vector<PropagatorField>, flattened
+         noise-major by the GammaMapElement/PropToFermions bridge below.
+         The pairing self-check runs once per noise window against
+         noise_vec; the loader's published metadata is cross-checked
+         against the physics pair (_spin/_taste) of gammas_g1's object at
+         execute time (applyG5=false here: label == file key). -->
+    <module>
+      <id><name>lma_file</name><type>MFermion::StagLMAMesonFieldProp</type></id>
+      <options>
+        <action>stag</action>
+        <lowModes>eig</lowModes>
+        <gammas>gammas_g1</gammas>
+        <labels>G1_G1</labels>
+        <mesonField>mf</mesonField>
+        <noiseIndex>0</noiseIndex>
+        <nNoise>2</nNoise>
+        <tA>0</tA>
+        <tB>0</tB>
+        <tStep>1</tStep>
+        <eigStart>0</eigStart>
+        <nEigs>-1</nEigs>
+        <negFirst></negFirst>
+        <pairScale></pairScale>
+        <noise>noise_vec</noise>
+      </options>
+    </module>
+
+    <!-- Bridge lma_file_t0's G1_G1 entry onto a bare environment object,
+         then extract its 3-per-window color columns as a plain
+         vector<FermionField> (noise-major, 6 entries for nsrc=2) -- the
+         Legacy GaugeProp guess mechanism (below) takes a bare object
+         name directly, no TGammaMap involved. -->
+    <module>
+      <id><name>lma_fc_g1_t0</name><type>MUtilities::GammaMapElement</type></id>
+      <options><map>lma_file_t0</map><label>G1_G1</label></options>
+    </module>
+    <module>
+      <id><name>prop2f_file</name><type>MUtilities::PropToFermions</type></id>
+      <options><prop>lma_fc_g1_t0</prop></options>
+    </module>
+
+    <!-- GUESS-QUALITY PROBE (Legacy interface, matches the known-working
+         test-full-lma-a.20.xml pattern -- inline spinTaste, bare guess
+         object name, no _map/TGammaMap machinery): same noise_vec (6
+         fields: nsrc=2 x 3 colors), same mixed-precision CG solver,
+         three guesses -- zero / live-projector / file-driven. Compares
+         actual CG iteration counts logged by Grid. -->
+    <module>
+      <id><name>quark_zeroguess</name><type>MFermion::StagGaugePropLegacy</type></id>
+      <options>
+        <source>noise_vec</source>
+        <solver>stag_ama</solver>
+        <guess></guess>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(G1 G1)</gammas>
+          <gauge>gauge</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id><name>gprop_ref_legacy</name><type>MFermion::StagGaugePropLegacy</type></id>
+      <options>
+        <source>noise_vec</source>
+        <solver>lma_ref</solver>
+        <guess></guess>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(G1 G1)</gammas>
+          <gauge>gauge</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id><name>quark_liveguess</name><type>MFermion::StagGaugePropLegacy</type></id>
+      <options>
+        <source>noise_vec</source>
+        <solver>stag_ama</solver>
+        <guess>gprop_ref_legacy</guess>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(G1 G1)</gammas>
+          <gauge>gauge</gauge>
+        </spinTaste>
+      </options>
+    </module>
+    <module>
+      <id><name>quark_fileguess</name><type>MFermion::StagGaugePropLegacy</type></id>
+      <options>
+        <source>noise_vec</source>
+        <solver>stag_ama</solver>
+        <guess>prop2f_file</guess>
+        <spinTaste>
+          <applyG5>false</applyG5>
+          <gammas>(G1 G1)</gammas>
+          <gauge>gauge</gauge>
+        </spinTaste>
+      </options>
+    </module>
+  </modules>
+  <parameters>
+    <genetic>
+      <maxCstGen>100</maxCstGen>
+      <maxGen>1000</maxGen>
+      <mutationRate>0.1</mutationRate>
+      <popSize>20</popSize>
+    </genetic>
+    <graphFile></graphFile>
+    <parallelWriteMaxRetry>-1</parallelWriteMaxRetry>
+    <runId>lma-file-compare</runId>
+    <saveSchedule>false</saveSchedule>
+    <scheduleFile></scheduleFile>
+    <scheduler>
+      <!-- naive: modules run in declaration order. Required here, since the
+           genetic scheduler sees no dependency edge between the writer
+           (mfwrite) and the loader (mf) (the meson-field file on disk is
+           not an environment object), and may schedule the load before
+           the write. Declaration order runs mfwrite before mf. -->
+      <schedulerType>naive</schedulerType>
+    </scheduler>
+    <trajCounter>
+      <end>10000</end>
+      <start>20</start>
+      <step>10000</step>
+    </trajCounter>
+  </parameters>
+</grid>

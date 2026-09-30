@@ -1,0 +1,92 @@
+<grid>
+  <modules>
+    <!-- NEGATIVE CASE (a): a two-key TGammaMap<std::vector<FermionField>>
+         fed to StagA2AMesonField left= - must ABORT at setup with
+         "... but MesonField accepts at most one". Abort fires in the
+         scheduler's setup dry-run pass, before any module executes. -->
+    <module>
+      <id><name>gauge</name><type>MIO::LoadIldg</type></id>
+      <options><file>lat/lat.sample.l4444.ildg</file></options>
+    </module>
+    <module>
+      <id><name>gauge_fat</name><type>MIO::LoadIldg</type></id>
+      <options><file>lat/fatlinks.l4444.ildg</file></options>
+    </module>
+    <module>
+      <id><name>gauge_long</name><type>MIO::LoadIldg</type></id>
+      <options><file>lat/longlinks.l4444.ildg</file></options>
+    </module>
+    <module>
+      <id><name>stag_m</name><type>MAction::ImprovedStaggeredMILC</type></id>
+      <options>
+        <Ls>1</Ls><boundary>1 1 1 1</boundary><c1>1.0</c1><c2>1.0</c2>
+        <gaugefat>gauge_fat</gaugefat><gaugelong>gauge_long</gaugelong>
+        <mass>0.01</mass><tad>1.0</tad><twist>0 0 0</twist>
+      </options>
+    </module>
+    <module>
+      <id><name>stag_cg</name><type>MSolver::StagCGMILC</type></id>
+      <options>
+        <action>stag_m</action>
+        <maxIteration>10000</maxIteration>
+        <residual>1e-12</residual>
+        <guesser></guesser>
+      </options>
+    </module>
+    <module>
+      <id><name>noise_fv</name><type>MNoise::StagFullVolumeSpinColorDiagonal</type></id>
+      <options><nsrc>1</nsrc></options>
+    </module>
+    <!-- two non-displacing gammas => gauge="" is legal (popcount 0) -->
+    <module>
+      <id><name>gammas_2</name><type>MFermion::SpinTaste</type></id>
+      <options>
+        <spinTaste>
+          <gammas>(G1 G1) (GX GX)</gammas>
+          <applyG5>false</applyG5>
+          <gauge></gauge>
+        </spinTaste>
+        <labels></labels>
+      </options>
+    </module>
+    <!-- vector source + two-gamma module => a TWO-KEY
+         TGammaMap<std::vector<FermionField>> output -->
+    <module>
+      <id><name>gprop_2</name><type>MFermion::StagGaugeProp</type></id>
+      <options>
+        <source>noise_fv_vec</source>
+        <solver>stag_cg</solver>
+        <guess></guess>
+        <gammas>gammas_2</gammas>
+        <sourceLabel></sourceLabel>
+      </options>
+    </module>
+    <!-- the offending consumer: left= gprop_2 (2 keys) -->
+    <module>
+      <id><name>mf_neg</name><type>MContraction::StagA2AMesonField</type></id>
+      <options>
+        <action></action>
+        <block>12</block>
+        <left>gprop_2</left>
+        <right></right>
+        <lowModes></lowModes>
+        <mom><elem>0 0 0</elem></mom>
+        <output>work/sib-neg/multimap</output>
+        <gammas>gammas_2</gammas>
+      </options>
+    </module>
+  </modules>
+  <parameters>
+    <genetic>
+      <maxCstGen>100</maxCstGen><maxGen>1000</maxGen>
+      <mutationRate>0.1</mutationRate><popSize>20</popSize>
+    </genetic>
+    <graphFile></graphFile>
+    <parallelWriteMaxRetry>-1</parallelWriteMaxRetry>
+    <runId>sib-neg-multimap</runId>
+    <saveSchedule>false</saveSchedule>
+    <scheduleFile></scheduleFile>
+    <scheduler><schedulerType>naive</schedulerType></scheduler>
+    <trajCounter><end>10000</end><start>20</start><step>10000</step></trajCounter>
+  </parameters>
+</grid>
