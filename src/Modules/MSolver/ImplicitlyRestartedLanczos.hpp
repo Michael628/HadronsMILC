@@ -103,8 +103,11 @@ void TImplicitlyRestartedLanczosMILC<Field, FieldIo>::setup(void)
     {
         gridIo = getGrid<FieldIo>(par().redBlack, Ls);
     }
-    envCreateDerived(BasePack, Pack, getName(), Ls, 
-                     par().lanczosParams.Nm, grid, gridIo);
+    envCreateDerived(BasePack, Pack, getName(), Ls, 0, grid, gridIo);
+    auto         &epack = envGetDerived(BasePack, Pack, getName());
+    epack.eval.reserve(par().lanczosParams.Nm);
+    epack.evec.reserve(par().lanczosParams.Nm);
+    epack.resize(par().lanczosParams.Nstop,grid);
 
     envTmp(Chebyshev<Field>, "cheby", Ls, par().lanczosParams.Cheby);
     envGetTmp(Chebyshev<Field>, cheby);
@@ -169,6 +172,8 @@ void TImplicitlyRestartedLanczosMILC<Field, FieldIo>::execute(void)
         }
     }
 
+    epack.eval.resize(par().lanczosParams.Nm);
+    epack.evec.resize(par().lanczosParams.Nm, grid);
     irl.calc(epack.eval, epack.evec, src, nconv, false,offset);
     epack.eval.resize(par().lanczosParams.Nstop);
     epack.evec.resize(par().lanczosParams.Nstop, grid);
