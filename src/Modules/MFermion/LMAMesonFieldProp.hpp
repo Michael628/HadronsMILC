@@ -127,6 +127,7 @@ BEGIN_HADRONS_NAMESPACE
     tB          last timeslice to produce (inclusive, must be < nt)
     tStep       timeslice stride (>= 1); ONE TGammaMap output per
                 t in [tA, tB] with stride tStep, named "<name>_t<t>"
+                (just "<name>" when exactly one timeslice is produced)
                 (gamma-free: the label is the map key, resolved
                 by consumers such as a StagGaugeProp's guess/source
                 lookup at execute time)
@@ -330,6 +331,11 @@ std::vector<unsigned int> TLMAMesonFieldPropMILC<FImpl, Pack>::sliceTimes(
 template <typename FImpl, typename Pack>
 std::string TLMAMesonFieldPropMILC<FImpl, Pack>::mapName(
     const unsigned int t) const {
+  // a single-timeslice instance publishes plain "<name>", so one
+  // instance per t schedules (and is freed) alongside its consumers
+  if (sliceTimes().size() == 1) {
+    return getName();
+  }
   return getName() + "_t" + std::to_string(t);
 }
 
