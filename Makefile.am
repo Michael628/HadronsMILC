@@ -7,3 +7,5 @@ bin_PROGRAMS = HadronsMILC
 
 HadronsMILC_SOURCES = main.cpp
 HadronsMILC_LDADD = -lHadronsMILC
+
+EXTRA_DIST = DEPENDENCIES CHANGELOG.md

@@ -3,7 +3,9 @@
 /.buildutils
 /.vscode
 /autom4te.cache
-/config.*
+/config.guess
+/config.sub
+/config.h.in
 /compile
 /ar-lib
 /aclocal.m4
