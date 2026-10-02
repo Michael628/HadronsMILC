@@ -8,6 +8,10 @@ are in `DEPENDENCIES`.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-02
+
+Same dependency pins as 0.2.0.
+
 ### Added
 - `configure` compares the Grid (`Grid/Version.h` `GITHASH`) and Hadrons
   (`hadrons-config --git`) commits against `DEPENDENCIES`. It warns on a
