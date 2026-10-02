@@ -492,6 +492,18 @@ void TMesonFieldMILC<FImpl, Pack>::setup(void) {
     HADRONS_ERROR(Argument, "MesonField: 'cbPairsLeft'/'cbPairsRight' "
                             "require 'lowModes'");
   }
+  if (!par().lowModes.empty() && par().cbPairsLeft.empty()) {
+    // red-black eigenvectors without CB pair sources would take the
+    // full-grid path and read each half-volume evec out of bounds
+    auto &lowModes = envGet(Pack, par().lowModes);
+    if (!lowModes.evec.empty() && lowModes.evec[0].Grid()->_isCheckerBoarded) {
+      HADRONS_ERROR(Argument,
+                    "MesonField: 'lowModes' ('" + par().lowModes +
+                        "') holds red-black checkerboard eigenvectors; set "
+                        "'cbPairsLeft'/'cbPairsRight' (two "
+                        "EigenPackCBPairs instances)");
+    }
+  }
   bool anyMomentum = false;
   for (auto &p : _mom)
     for (auto pmu : p)
