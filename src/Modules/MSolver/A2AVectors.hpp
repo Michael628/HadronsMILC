@@ -104,19 +104,16 @@ std::vector<std::string> TA2AVectorsMILC<FImpl, Pack>::getInput(void) {
   }
   solver_ = par().solver;
   subsolver_ = par().solver;
+  if (!par().solver.empty()) {
+    in.push_back(par().solver);
+  }
   if (!par().lowModes.empty()) {
     in.push_back(par().lowModes);
+    // setup() decides between the plain and subtract solvers from the
+    // lowModes type, so both must be requested when the subtract one exists
     if (env().hasObject(par().solver + "_subtract")) {
       in.push_back(par().solver + "_subtract");
       subsolver_ += "_subtract";
-    } else {
-      if (!par().solver.empty()) {
-        in.push_back(par().solver);
-      }
-    }
-  } else {
-    if (!par().solver.empty()) {
-      in.push_back(par().solver);
     }
   }
 
