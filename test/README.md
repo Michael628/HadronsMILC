@@ -49,6 +49,7 @@ Output lands in `work/`. Comparison scripts read `ref/` and `work/`.
 | `average_point_sources.py` | averages 256 point sources -> `all-points.20.h5` |
 | `compare_guess_quality.py` | `StagLMAMesonFieldProp`-driven CG guess residual vs zero-guess baseline (reads a captured run log, not `work/`/`ref/` HDF5 output — run with `../HadronsMILC params/lma-mesonfield-guess-quality.20.xml --grid 4.4.4.4 > work/guess-quality.log` first) |
 | `compare_sib_hvp_a2a_batch.py` | SIB HVP A2A batch: RandomWall `_vec` + `StagLMAMesonFieldProp` `a2a_batch` + `StagA2AMesonField` unwrap — five checks (column-order match, batch-vs-per-slice, `_vec` correctness, unwrap equivalence, guess quality) from `params/sib-hvp-a2a-batch.20.xml` |
+| `compare_sib_pair_identity.py` | pair-basis identity harness: offline derivability of the SIB `lp`/`np`/scalar-`nl` blocks from `tab`+`ll`+evals — five checks (time-summed eigfull probe = w·tab, per-t lp = unweighted-ll·w·tab per family, per-t np = tab†·w·tab, nl_s = eval-weighted conj(tab)ᵀ, ⟨p|p⟩ closure) from `params/sib-pair-identity.20.xml`; `--mass` must match the XML's ModifyEigenPackMILC shift (default 0.01) |
 | `check_setup_error.py` | negative cases: asserts the `sib-hvp-neg-*.20.xml` params abort at setup with their expected `HADRONS_ERROR` (no args runs all three; the abort fires in the setup dry-run, before any execute) |
 
 ## Promoting a reference
