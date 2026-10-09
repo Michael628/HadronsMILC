@@ -31,10 +31,10 @@
 #ifndef HadronsMILC_MFermion_SpinTaste_hpp_
 #define HadronsMILC_MFermion_SpinTaste_hpp_
 
+#include <GridMilc/GridMilc.h>
 #include <Hadrons/Global.hpp>
 #include <Hadrons/Module.hpp>
 #include <Hadrons/ModuleFactory.hpp>
-#include <GridMilc/GridMilc.h>
 
 #include <map>
 #include <string>
@@ -57,8 +57,7 @@ BEGIN_HADRONS_NAMESPACE
 // Duplicate labels dedupe by first occurrence (map::emplace no-op on
 // existing keys), matching the first-wins semantics of the former
 // std::map::insert keys.
-template <typename T>
-class TGammaMap : public std::map<std::string, T> {
+template <typename T> class TGammaMap : public std::map<std::string, T> {
 public:
   TGammaMap(void) = default;
 
@@ -111,8 +110,8 @@ BEGIN_MODULE_NAMESPACE(MFermion)
 //         effective label, physics still follows the StagGamma object.
 class SpinTasteMILCPar : Serializable {
 public:
-  GRID_SERIALIZABLE_CLASS_MEMBERS(SpinTasteMILCPar, SpinTasteParams,
-                                  spinTaste, std::string, labels);
+  GRID_SERIALIZABLE_CLASS_MEMBERS(SpinTasteMILCPar, SpinTasteParams, spinTaste,
+                                  std::string, labels);
 };
 
 template <typename FImpl>
@@ -141,8 +140,8 @@ private:
   // count-matched) override list is non-empty, else ops[i].getLabelName().
   // Single derivation point for setup()'s opsMap keying AND the
   // duplicate-label check, so the two can never disagree.
-  std::vector<std::string> effectiveLabels(
-      const std::vector<StagGamma> &ops) const;
+  std::vector<std::string>
+  effectiveLabels(const std::vector<StagGamma> &ops) const;
 };
 
 MODULE_REGISTER_TMP(SpinTaste, TSpinTasteMILC<STAGIMPL>, MFermion);
@@ -180,6 +179,7 @@ DependencyMap TSpinTasteMILC<FImpl>::getObjectDependencies(void) {
 
   if (!par().spinTaste.gauge.empty()) {
     dep.insert({par().spinTaste.gauge, getName()});
+    dep.insert({par().spinTaste.gauge, getName() + "_map"});
   }
 
   return dep;
@@ -226,7 +226,7 @@ template <typename FImpl> void TSpinTasteMILC<FImpl>::setup(void) {
     U = &envGet(LatticeGaugeField, par().spinTaste.gauge);
   }
   auto ops = StagGamma::MakeSpinTasteOps(par().spinTaste.gammas,
-                                        par().spinTaste.applyG5, U);
+                                         par().spinTaste.applyG5, U);
 
   if (ops.empty()) {
     LOG(Warning) << "SpinTaste module '" << getName()
@@ -252,10 +252,9 @@ template <typename FImpl> void TSpinTasteMILC<FImpl>::setup(void) {
   for (unsigned int i = 0; i < labels.size(); ++i) {
     for (unsigned int j = i + 1; j < labels.size(); ++j) {
       if (labels[i] == labels[j]) {
-        HADRONS_ERROR(Argument,
-                      "duplicate gamma label '" + labels[i] +
-                          "' in SpinTaste module '" + getName() +
-                          "' (gamma-map entries would collide)");
+        HADRONS_ERROR(Argument, "duplicate gamma label '" + labels[i] +
+                                    "' in SpinTaste module '" + getName() +
+                                    "' (gamma-map entries would collide)");
       }
     }
   }
