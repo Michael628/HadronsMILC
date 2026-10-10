@@ -8,6 +8,35 @@ are in `DEPENDENCIES`.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-10
+
+Requires the GridMilc library and the patched Hadrons pinned in `DEPENDENCIES`.
+
+### Interface
+- New `MUtilities` modules: `EigenPackFullPairs`, `EigenPackCBPairs`,
+  `EigenPackCheck`, `GammaMapElement` and `PropToFermions`.
+- New `MIO` module `LoadMesonField`; new `MFermion` module
+  `StagLMAMesonFieldProp`, an eager LMA meson-field propagator producer with
+  batched eigenpasses and fused reconstruction (multi-gamma tables, per-noise
+  reconstruction, A2A batch output mode, weighted-guess projector parameter).
+- The pre-gamma-map implementations are kept as `MFermion::StagGaugePropLegacy`
+  and `MContraction::StagMesonLegacy`; `StagGaugeProp` and `StagMeson` are now
+  gamma-map-driven.
+- `SpinTasteParams` is removed: gamma dispatch in `GaugeProp`, `Meson` and
+  `LMAMesonFieldProp` is driven by `SpinTaste`/`GammaMapElement` maps and
+  `TGammaMap` outputs.
+- `StagA2AMesonField` is stencil-only; `StagA2AMesonFieldOld` is removed.
+- `StagRandomWall` supports full-volume external noise.
+- `StagA2AVectors` gains SIB comparison parameters and requests a plain solver
+  when `lowModes` is given.
+
+### Behavior
+- cshift general spin-taste A2A implementation and a stencil-based A2A meson
+  field option (performance).
+- Reduced memory usage in `StagFermionIRL` setup().
+- Meson-field checkerboard guard for low modes.
+- Fixed a use-after-free on gauge links.
+
 ### Fixed
 - `MSolver::StagCGMILC`: the `<name>_subtract` solver returned the guess minus
   the final residual instead of the solution minus the guess. V vectors made
