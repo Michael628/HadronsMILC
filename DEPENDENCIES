@@ -1,5 +1,5 @@
-# HadronsMILC 0.2.0 dependency pins
-# Each commit is also tagged hadronsmilc/v0.2.0 in its repository.
+# HadronsMILC 0.3.0 dependency pins
+# Each commit is also tagged hadronsmilc/v0.3.0 in its repository.
 # name    url                                   commit
-grid      git@github.com:milc-qcd/Grid.git      7f82b1eec17e267e25f6f7e3c8b2b52ce0dd6fec
+grid      git@github.com:milc-qcd/Grid.git      d67dd2079bea125138502a13120858aa58997379
 hadrons   git@github.com:milc-qcd/Hadrons.git   3a0980157914dd54e96744fccaf0fbf88620b5a5
