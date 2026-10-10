@@ -8,6 +8,16 @@ are in `DEPENDENCIES`.
 
 ## [Unreleased]
 
+### Fixed
+- `MSolver::StagCGMILC`: the `<name>_subtract` solver returned the guess minus
+  the final residual instead of the solution minus the guess. V vectors made
+  with `StagA2AVectors` using this solver and guess-vector `lowModes` since the
+  module was added are wrong and must be regenerated.
+
+## [0.2.1] - 2026-10-02
+
+Same dependency pins as 0.2.0.
+
 ### Added
 - `configure` compares the Grid (`Grid/Version.h` `GITHASH`) and Hadrons
   (`hadrons-config --git`) commits against `DEPENDENCIES`. It warns on a

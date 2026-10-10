@@ -122,7 +122,7 @@ DependencyMap TCGMILC<FImpl>::getObjectDependencies(void) {
   RealD nr = norm2(tmp);                                                       \
   LOG(Message) << "Final true residual: " << std::sqrt(nr / ns) << std::endl;  \
   if (subGuess) {                                                              \
-    guesser(source, sol);                                                      \
+    guesser(source, tmp);                                                      \
     sol = sol - tmp;                                                           \
   }
 

@@ -63,14 +63,9 @@
       </id>
       <options>
         <Ls>1</Ls>
-        <boundary>1 1 1 1</boundary>
-        <c1>1.0</c1>
-        <c2>1.0</c2>
         <gaugefat>gauge_fat</gaugefat>
         <gaugelong>gauge_long</gaugelong>
         <mass>0.1</mass>
-        <tad>1.0</tad>
-        <twist>0 0 0</twist>
       </options>
     </module>
     <module>
@@ -94,15 +89,22 @@
         <mom>0 0 0</mom>
       </options>
     </module>
-    <!--
-      32 requested spin-taste labels used for both source construction and tie-up.
-      All spinTaste blocks below set applyG5=true. The sink companion uses (G5 G5),
-      which becomes the identity after applyG5.
-      ops = (G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT)
-    (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T)
-    (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT)
-    (G5Z GYT) (G5 G5X)
-    -->
+    <!-- ONE SpinTaste module per distinct (gammas, applyG5, gauge) triple,
+         declared BEFORE every consumer; the full gamma list moves here
+         verbatim. The sink companion (each q_sink_* GaugeProp) uses (G5 G5)
+         with applyG5=true, which folds to the identity -> D5 legacy
+         empty-gammas path (bare output), no module needed. -->
+    <module>
+      <id>
+        <name>gammas_32</name>
+        <type>MFermion::SpinTaste</type>
+      </id>
+      <options>
+        <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
+        <applyG5>true</applyG5>
+        <gauge>gauge_apbc</gauge>
+      </options>
+    </module>
     <!-- Hypercube point source at (0 0 0 0); output has 32 correlators, each of length Nt. -->
     <module>
       <id>
@@ -122,11 +124,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x0y0z0t0</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas>gammas_32</gammas>
       </options>
     </module>
     <module>
@@ -138,11 +136,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x0y0z0t0</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G5 G5)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas></gammas>
       </options>
     </module>
     <module>
@@ -151,16 +145,11 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-reference/corr_32_x0y0z0t0</output>
+        <output>work/point-source-spintaste/corr_32_x0y0z0t0</output>
         <sink>q_sink_x0y0z0t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
-        <sinkSpinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </sinkSpinTaste>
+        <gammas>gammas_32</gammas>
         <source>q_ops_x0y0z0t0</source>
-        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
         <sourceShift></sourceShift>
       </options>
     </module>
@@ -183,11 +172,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x1y0z0t0</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas>gammas_32</gammas>
       </options>
     </module>
     <module>
@@ -199,11 +184,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x1y0z0t0</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G5 G5)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas></gammas>
       </options>
     </module>
     <module>
@@ -212,16 +193,11 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-reference/corr_32_x1y0z0t0</output>
+        <output>work/point-source-spintaste/corr_32_x1y0z0t0</output>
         <sink>q_sink_x1y0z0t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
-        <sinkSpinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </sinkSpinTaste>
+        <gammas>gammas_32</gammas>
         <source>q_ops_x1y0z0t0</source>
-        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
         <sourceShift></sourceShift>
       </options>
     </module>
@@ -244,11 +220,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x0y1z0t0</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas>gammas_32</gammas>
       </options>
     </module>
     <module>
@@ -260,11 +232,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x0y1z0t0</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G5 G5)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas></gammas>
       </options>
     </module>
     <module>
@@ -273,16 +241,11 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-reference/corr_32_x0y1z0t0</output>
+        <output>work/point-source-spintaste/corr_32_x0y1z0t0</output>
         <sink>q_sink_x0y1z0t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
-        <sinkSpinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </sinkSpinTaste>
+        <gammas>gammas_32</gammas>
         <source>q_ops_x0y1z0t0</source>
-        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
         <sourceShift></sourceShift>
       </options>
     </module>
@@ -305,11 +268,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x1y1z0t0</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas>gammas_32</gammas>
       </options>
     </module>
     <module>
@@ -321,11 +280,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x1y1z0t0</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G5 G5)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas></gammas>
       </options>
     </module>
     <module>
@@ -334,16 +289,11 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-reference/corr_32_x1y1z0t0</output>
+        <output>work/point-source-spintaste/corr_32_x1y1z0t0</output>
         <sink>q_sink_x1y1z0t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
-        <sinkSpinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </sinkSpinTaste>
+        <gammas>gammas_32</gammas>
         <source>q_ops_x1y1z0t0</source>
-        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
         <sourceShift></sourceShift>
       </options>
     </module>
@@ -366,11 +316,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x0y0z1t0</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas>gammas_32</gammas>
       </options>
     </module>
     <module>
@@ -382,11 +328,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x0y0z1t0</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G5 G5)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas></gammas>
       </options>
     </module>
     <module>
@@ -395,16 +337,11 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-reference/corr_32_x0y0z1t0</output>
+        <output>work/point-source-spintaste/corr_32_x0y0z1t0</output>
         <sink>q_sink_x0y0z1t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
-        <sinkSpinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </sinkSpinTaste>
+        <gammas>gammas_32</gammas>
         <source>q_ops_x0y0z1t0</source>
-        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
         <sourceShift></sourceShift>
       </options>
     </module>
@@ -427,11 +364,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x1y0z1t0</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas>gammas_32</gammas>
       </options>
     </module>
     <module>
@@ -443,11 +376,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x1y0z1t0</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G5 G5)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas></gammas>
       </options>
     </module>
     <module>
@@ -456,16 +385,11 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-reference/corr_32_x1y0z1t0</output>
+        <output>work/point-source-spintaste/corr_32_x1y0z1t0</output>
         <sink>q_sink_x1y0z1t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
-        <sinkSpinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </sinkSpinTaste>
+        <gammas>gammas_32</gammas>
         <source>q_ops_x1y0z1t0</source>
-        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
         <sourceShift></sourceShift>
       </options>
     </module>
@@ -488,11 +412,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x0y1z1t0</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas>gammas_32</gammas>
       </options>
     </module>
     <module>
@@ -504,11 +424,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x0y1z1t0</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G5 G5)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas></gammas>
       </options>
     </module>
     <module>
@@ -517,16 +433,11 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-reference/corr_32_x0y1z1t0</output>
+        <output>work/point-source-spintaste/corr_32_x0y1z1t0</output>
         <sink>q_sink_x0y1z1t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
-        <sinkSpinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </sinkSpinTaste>
+        <gammas>gammas_32</gammas>
         <source>q_ops_x0y1z1t0</source>
-        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
         <sourceShift></sourceShift>
       </options>
     </module>
@@ -549,11 +460,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x1y1z1t0</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas>gammas_32</gammas>
       </options>
     </module>
     <module>
@@ -565,11 +472,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x1y1z1t0</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G5 G5)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas></gammas>
       </options>
     </module>
     <module>
@@ -578,16 +481,11 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-reference/corr_32_x1y1z1t0</output>
+        <output>work/point-source-spintaste/corr_32_x1y1z1t0</output>
         <sink>q_sink_x1y1z1t0</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
-        <sinkSpinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </sinkSpinTaste>
+        <gammas>gammas_32</gammas>
         <source>q_ops_x1y1z1t0</source>
-        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
         <sourceShift></sourceShift>
       </options>
     </module>
@@ -610,11 +508,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x0y0z0t1</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas>gammas_32</gammas>
       </options>
     </module>
     <module>
@@ -626,11 +520,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x0y0z0t1</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G5 G5)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas></gammas>
       </options>
     </module>
     <module>
@@ -639,16 +529,11 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-reference/corr_32_x0y0z0t1</output>
+        <output>work/point-source-spintaste/corr_32_x0y0z0t1</output>
         <sink>q_sink_x0y0z0t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
-        <sinkSpinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </sinkSpinTaste>
+        <gammas>gammas_32</gammas>
         <source>q_ops_x0y0z0t1</source>
-        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
         <sourceShift></sourceShift>
       </options>
     </module>
@@ -671,11 +556,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x1y0z0t1</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas>gammas_32</gammas>
       </options>
     </module>
     <module>
@@ -687,11 +568,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x1y0z0t1</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G5 G5)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas></gammas>
       </options>
     </module>
     <module>
@@ -700,16 +577,11 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-reference/corr_32_x1y0z0t1</output>
+        <output>work/point-source-spintaste/corr_32_x1y0z0t1</output>
         <sink>q_sink_x1y0z0t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
-        <sinkSpinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </sinkSpinTaste>
+        <gammas>gammas_32</gammas>
         <source>q_ops_x1y0z0t1</source>
-        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
         <sourceShift></sourceShift>
       </options>
     </module>
@@ -732,11 +604,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x0y1z0t1</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas>gammas_32</gammas>
       </options>
     </module>
     <module>
@@ -748,11 +616,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x0y1z0t1</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G5 G5)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas></gammas>
       </options>
     </module>
     <module>
@@ -761,16 +625,11 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-reference/corr_32_x0y1z0t1</output>
+        <output>work/point-source-spintaste/corr_32_x0y1z0t1</output>
         <sink>q_sink_x0y1z0t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
-        <sinkSpinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </sinkSpinTaste>
+        <gammas>gammas_32</gammas>
         <source>q_ops_x0y1z0t1</source>
-        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
         <sourceShift></sourceShift>
       </options>
     </module>
@@ -793,11 +652,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x1y1z0t1</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas>gammas_32</gammas>
       </options>
     </module>
     <module>
@@ -809,11 +664,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x1y1z0t1</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G5 G5)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas></gammas>
       </options>
     </module>
     <module>
@@ -822,16 +673,11 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-reference/corr_32_x1y1z0t1</output>
+        <output>work/point-source-spintaste/corr_32_x1y1z0t1</output>
         <sink>q_sink_x1y1z0t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
-        <sinkSpinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </sinkSpinTaste>
+        <gammas>gammas_32</gammas>
         <source>q_ops_x1y1z0t1</source>
-        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
         <sourceShift></sourceShift>
       </options>
     </module>
@@ -854,11 +700,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x0y0z1t1</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas>gammas_32</gammas>
       </options>
     </module>
     <module>
@@ -870,11 +712,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x0y0z1t1</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G5 G5)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas></gammas>
       </options>
     </module>
     <module>
@@ -883,16 +721,11 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-reference/corr_32_x0y0z1t1</output>
+        <output>work/point-source-spintaste/corr_32_x0y0z1t1</output>
         <sink>q_sink_x0y0z1t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
-        <sinkSpinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </sinkSpinTaste>
+        <gammas>gammas_32</gammas>
         <source>q_ops_x0y0z1t1</source>
-        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
         <sourceShift></sourceShift>
       </options>
     </module>
@@ -915,11 +748,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x1y0z1t1</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas>gammas_32</gammas>
       </options>
     </module>
     <module>
@@ -931,11 +760,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x1y0z1t1</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G5 G5)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas></gammas>
       </options>
     </module>
     <module>
@@ -944,16 +769,11 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-reference/corr_32_x1y0z1t1</output>
+        <output>work/point-source-spintaste/corr_32_x1y0z1t1</output>
         <sink>q_sink_x1y0z1t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
-        <sinkSpinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </sinkSpinTaste>
+        <gammas>gammas_32</gammas>
         <source>q_ops_x1y0z1t1</source>
-        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
         <sourceShift></sourceShift>
       </options>
     </module>
@@ -976,11 +796,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x0y1z1t1</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas>gammas_32</gammas>
       </options>
     </module>
     <module>
@@ -992,11 +808,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x0y1z1t1</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G5 G5)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas></gammas>
       </options>
     </module>
     <module>
@@ -1005,16 +817,11 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-reference/corr_32_x0y1z1t1</output>
+        <output>work/point-source-spintaste/corr_32_x0y1z1t1</output>
         <sink>q_sink_x0y1z1t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
-        <sinkSpinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </sinkSpinTaste>
+        <gammas>gammas_32</gammas>
         <source>q_ops_x0y1z1t1</source>
-        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
         <sourceShift></sourceShift>
       </options>
     </module>
@@ -1037,14 +844,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x1y1z1t1</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT)
-            (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY
-            GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5)
-            (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas>gammas_32</gammas>
       </options>
     </module>
     <module>
@@ -1056,11 +856,7 @@
         <guess></guess>
         <solver>stag_cg_ref</solver>
         <source>src_x1y1z1t1</source>
-        <spinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G5 G5)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </spinTaste>
+        <gammas></gammas>
       </options>
     </module>
     <module>
@@ -1069,16 +865,11 @@
         <type>MContraction::StagMeson</type>
       </id>
       <options>
-        <output>point-source-spintaste-reference/corr_32_x1y1z1t1</output>
+        <output>work/point-source-spintaste/corr_32_x1y1z1t1</output>
         <sink>q_sink_x1y1z1t1</sink>
         <sinkFunc>sink_zero_mom</sinkFunc>
-        <sinkSpinTaste>
-          <applyG5>true</applyG5>
-          <gammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</gammas>
-          <gauge>gauge_apbc</gauge>
-        </sinkSpinTaste>
+        <gammas>gammas_32</gammas>
         <source>q_ops_x1y1z1t1</source>
-        <sourceGammas>(G1 G1) (GZ GZ) (GY GY) (GYZ GYZ) (GX GX) (GZX GZX) (GXY GXY) (G5T G5T) (GT GT) (GZT GZT) (GYT GYT) (G5X G5X) (GXT GXT) (G5Y G5Y) (G5Z G5Z) (G5 G5) (G1 GX) (GZ GZX) (GY GXY) (GYZ G5T) (GX G1) (GZX GZ) (GXY GY) (G5T GYZ) (GT GXT) (GZT G5Y) (GYT G5Z) (G5X G5) (GXT GT) (G5Y GZT) (G5Z GYT) (G5 G5X)</sourceGammas>
         <sourceShift></sourceShift>
       </options>
     </module>

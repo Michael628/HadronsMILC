@@ -66,10 +66,13 @@ public:
                                     std::string,    q,
                                     unsigned int,   tA,
                                     unsigned int,   tB,
-                                    SpinTasteParams, spinTaste,
+                                    std::string,    gammas,
                                     std::string,    emField,
                                     std::string,    mom);
 };
+// gammas: name of an MFermion::SpinTaste module publishing exactly 4
+//         std::vector<StagGamma> entries -- the directional J.A loop
+//         contracts entry mu with PeekIndex<LorentzIndex>(A, mu)
 
 template <typename FImpl>
 class TSeqAslashMILC: public Module<SeqAslashMILCPar>
@@ -110,11 +113,15 @@ TSeqAslashMILC<FImpl>::TSeqAslashMILC(const std::string name)
 template <typename FImpl>
 std::vector<std::string> TSeqAslashMILC<FImpl>::getInput(void)
 {
-    std::vector<std::string> in = {par().q,par().emField};
-    
-    if (!par().spinTaste.gauge.empty()) {
-        in.push_back(par().spinTaste.gauge);
-    }    
+    std::vector<std::string> in = {par().q, par().emField};
+
+    if (par().gammas.empty())
+    {
+        HADRONS_ERROR(Argument, "SeqAslash requires the 'gammas' "
+                      "SpinTaste module name");
+    }
+    in.push_back(par().gammas);
+
     return in;
 }
 
@@ -130,6 +137,12 @@ std::vector<std::string> TSeqAslashMILC<FImpl>::getOutput(void)
 template <typename FImpl>
 void TSeqAslashMILC<FImpl>::setup(void)
 {
+    if (par().gammas.empty())
+    {
+        HADRONS_ERROR(Argument, "SeqAslash requires the 'gammas' "
+                      "SpinTaste module name");
+    }
+
     envTmpLat(PropagatorField, "field");
 
     if (envHasType(PropagatorField, par().q))
@@ -178,27 +191,25 @@ void TSeqAslashMILC<FImpl>::makeSource(PropagatorField &src,
     ph = exp((Real)(2*M_PI)*i*ph);
     LatticeCoordinate(t, Tp);
     
-    StagGamma gamma;
-    if (!par().spinTaste.gauge.empty()) {
-        auto& Umu = envGet(GaugeField,par().spinTaste.gauge);
-        gamma.setGaugeField(Umu);
-    }
     Complex ci(0.0,1.0);
     src = Zero();
-    auto gamma_vals = StagGamma::ParseSpinTasteString(par().spinTaste.gammas,par().spinTaste.applyG5);
-    if (gamma_vals.size() != 4) {
-        HADRONS_ERROR(Argument,"spinTaste parameter must provide 4 gammas for J.A")
+
+    const auto &gammas = envGet(std::vector<StagGamma>, par().gammas);
+    if (gammas.size() != 4)
+    {
+        HADRONS_ERROR(Argument, "gammas module '" + par().gammas +
+                      "' must publish exactly 4 gammas for J.A (got " +
+                      std::to_string(gammas.size()) + ")");
     }
 
     envGetTmp(PropagatorField,field);
     field = Zero();
 
-    for(unsigned int mu=0;mu<gamma_vals.size();mu++)
+    for (unsigned int mu = 0; mu < gammas.size(); mu++)
     {
-        gamma.setSpinTaste(gamma_vals[mu]);
-        gamma(field,q);
+        gammas[mu](field, q);
 
-        src = src + where((t >= par().tA) and (t <= par().tB), 
+        src = src + where((t >= par().tA) and (t <= par().tB),
                           ci*PeekIndex<LorentzIndex>(stoch_photon, mu) *(ph*field), 0.*field);
     }
 }
@@ -206,19 +217,17 @@ void TSeqAslashMILC<FImpl>::makeSource(PropagatorField &src,
 template <typename FImpl>
 void TSeqAslashMILC<FImpl>::execute(void)
 {
-    LOG(Warning) << "Applying spinTaste gammas in (x,y,z,t) order." << std::endl;
-
     if (par().tA == par().tB)
     {
         LOG(Message) << "Generating Aslash sequential source(s) at t= " << par().tA 
-		             << " using the photon field '" << par().emField 
+		             << " using gammas module '" << par().gammas << "' and photon field '" << par().emField 
                      << "'" << std::endl; 
     }
     else
     {
         LOG(Message) << "Generating Aslash sequential source(s) for "
                      << par().tA << " <= t <= " << par().tB 
-		             << " using the photon field '" << par().emField 
+		             << " using gammas module '" << par().gammas << "' and photon field '" << par().emField 
                      << "'" << std::endl;
     }
     

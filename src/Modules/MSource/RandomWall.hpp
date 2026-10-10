@@ -39,14 +39,37 @@
 BEGIN_HADRONS_NAMESPACE
 
 /*
- 
+
  Random Wall source
  -----------------------------
- 
+
  * options:
- - tW:   source timeslice (integer)
- - size: number of sources (integer)
- 
+ - tStep:     step between source timeslices (integer)
+ - t0:        first source timeslice, must be < tStep (integer)
+ - nSrc:      number of noise sources (integer)
+ - reuset0:   reuse noise vectors at t=t0 and shift in time ("true"/"false")
+ - colorDiag: store propagator fields if true, fermion fields if false
+ - noise:     name of an external spin-color diagonal noise module, either
+              time-diluted (MNoise::TimeDilutedSpinColorDiagonal) or
+              full-volume (MNoise::FullVolumeSpinColorDiagonal); if empty,
+              time-diluted noise is generated internally. Full-volume noise
+              is masked to a single time slice per source (zeros elsewhere),
+              matching the internal-noise output bit-for-bit when the noise
+              module name in this run equals the RandomWall module name in
+              the internal-noise run (same RNG stream) with nsrc >= nSrc.
+ - vec output: with colorDiag=true an additional output "<name>_vec" is
+              published: a std::vector<FermionField> of length
+              nSrc*nSlices*3 in COLUMN ORDER 3*(i*nSlices+j)+k (noise i,
+              timeslice j, color k fastest) -- the color-diluted companion
+              of the main output and the shared column-order contract of
+              the A2A batch (docs/CONTEXT.md). Filled by splitting each
+              already-computed propagator of the main output by color AFTER
+              the main assignment, so the reuset0 temporal Cshift chain is
+              inherited bit-exactly (setFerm commutes with Cshift). NEVER
+              scalar-collapsed: length 3 even when nSrc*nSlices == 1. Not
+              published when colorDiag=false -- a consumer naming it then
+              fails loudly at graph build.
+
  */
 
 /******************************************************************************
@@ -116,6 +139,13 @@ template <typename FImpl>
 std::vector<std::string> TRandomWallMILC<FImpl>::getOutput(void)
 {
     std::vector<std::string> out = {getName(), getName()+"_shift"};
+    // _vec only exists in the color-diluted mode: omitted here when
+    // colorDiag=false so a consumer naming it fails at graph build
+    // (loud) instead of hitting a created-but-empty object at execute
+    // (silent)
+    if (par().colorDiag) {
+        out.push_back(getName()+"_vec");
+    }
     
     return out;
 }
@@ -128,15 +158,59 @@ void TRandomWallMILC<FImpl>::setup(void)
         envTmp(TimeDilutedNoiseMILC<FImpl>, "noise", 1, envGetGrid(FermionField), par().nSrc);
     }
     envTmpLat(PropagatorField, "shiftedField");
+    envTmp(Lattice<iScalar<vInteger>>, "t", 1, envGetGrid(PropagatorField));
     envTmpLat(FermionField,"ferm");
 
+    // Scalar collapse: with a single output vector (nSrc == 1 and a
+    // single time slice, nt/min(tStep,nt) == 1) publish the module name
+    // as a SCALAR field instead of a length-1 std::vector — GaugeProp
+    // outputs and guesses mirror the source container type, so a
+    // vector-of-1 wall would force vector-typed guesses downstream
+    // while scalar producers (StagLMAMesonFieldProp) offer scalar
+    // guesses only. Both paths kept (a3f6e74 precedent); _shift stays a
+    // std::vector<Integer> (Meson.hpp envGets it unconditionally).
+    if (par().tStep < 1) {
+        HADRONS_ERROR(Logic, "Parameter tStep must be >= 1 (got " +
+                            std::to_string(par().tStep) + ")");
+    }
+    const int nt       = static_cast<int>(env().getDim().back());
+    const int tStep    = par().tStep;
+    const int nSources = par().nSrc;
+    const int nSlices  = nt/std::min(tStep,nt);
+    const bool scalar  = (nSources*nSlices == 1);
+
     if (par().colorDiag) {
-        envCreate(std::vector<PropagatorField>, getName(), 1, 0, envGetGrid(PropagatorField));
+        if (scalar) {
+            envCreate(PropagatorField, getName(), 1, envGetGrid(PropagatorField));
+        } else {
+            envCreate(std::vector<PropagatorField>, getName(), 1, 0, envGetGrid(PropagatorField));
+        }
     } else {
-        envCreate(std::vector<FermionField>, getName(), 1, 0, envGetGrid(FermionField));
+        if (scalar) {
+            envCreate(FermionField, getName(), 1, envGetGrid(FermionField));
+        } else {
+            envCreate(std::vector<FermionField>, getName(), 1, 0, envGetGrid(FermionField));
+        }
     }
 
     envCreate(std::vector<Integer>, getName()+"_shift", 1, 0, 0);
+
+    // color-diluted companion output "<name>_vec" (header comment):
+    // one FermionField per (noise, slice, color) column, ALWAYS a
+    // vector -- never scalar-collapsed, length nVecs*3 even when the
+    // main output collapses to a scalar field. Created at FULL size
+    // inside the setup window (not created-empty-then-resized) so the
+    // memory profiler and the garbage-collection scheduler see the
+    // true footprint. nSources/nSlices are the setup locals above.
+    if (par().colorDiag) {
+        // FImpl::Dimension bound to a local first: passing it straight
+        // through envCreate's forwarding references would odr-use the
+        // constexpr static member (PropToFermions.hpp precedent)
+        const unsigned int nColor = FImpl::Dimension;
+        envCreate(std::vector<FermionField>, getName()+"_vec", 1,
+                  static_cast<unsigned int>(nSources)*nSlices*nColor,
+                  envGetGrid(FermionField));
+    }
 
     if (!par().reuset0.empty()) {
         if (!(std::istringstream(par().reuset0) >> std::boolalpha >> reuset0_)) {
@@ -150,15 +224,27 @@ template <typename FImpl>
 void TRandomWallMILC<FImpl>::execute(void)
 {    
     SpinColorDiagonalNoiseMILC<FImpl> *noise;
+    bool fullVolumeNoise = false;
     if (par().noise.empty()) {
         noise = env().template getObject<TimeDilutedNoiseMILC<FImpl> >(getName() + "_tmp_noise");
         LOG(Message) << "Generating " << par().nSrc << " time-diluted, spin-color diagonal noise sources at every " << par().tStep << " time step(s)" << std::endl;
         noise->generateNoise(rng4d());
     } else {
         noise = env().template getObject<SpinColorDiagonalNoiseMILC<FImpl> >(par().noise);
+        if (static_cast<int>(par().nSrc) > noise->size()) {
+            HADRONS_ERROR(Logic,"external noise '" + par().noise + "' provides "
+                         + std::to_string(noise->size()) + " source(s),"
+                         + " cannot feed nSrc = " + std::to_string(par().nSrc));
+        }
+        fullVolumeNoise = (dynamic_cast<FullVolumeNoiseMILC<FImpl> *>(noise) != nullptr);
+        if (fullVolumeNoise) {
+            LOG(Message) << "Reading full-volume, spin-color diagonal noise from '"
+                         << par().noise << "', keeping single time slices only" << std::endl;
+        }
     }
     envGetTmp(PropagatorField,shiftedField);
     envGetTmp(FermionField,ferm);
+    envGetTmp(Lattice<iScalar<vInteger>>, t);
 
     bool colorDiag = par().colorDiag;
 
@@ -178,53 +264,104 @@ void TRandomWallMILC<FImpl>::execute(void)
 
     time_shift.resize(nVecs,0);
 
+    if (fullVolumeNoise) {
+        LatticeCoordinate(t, Tp);
+    }
+
+    // time-diluted noise: propagator index is i*nt + t;
+    // full-volume noise:  propagator index is i, masked to the t time slice
+    auto getNoiseProp = [&](int i, int tSlice) -> PropagatorField & {
+        if (!fullVolumeNoise) {
+            return noise->getProp(i*nt + tSlice);
+        } else {
+            PropagatorField &src = noise->getProp(i);
+            shiftedField = where((t == tSlice), src, 0.*src);
+            return shiftedField;
+        }
+    };
+
     if (reuset0_) {
         LOG(Message) << "Reusing noise vectors at t=0 and shifting by " << par().tStep << std::endl;
     }
 
 
     if (colorDiag) {
+        if (nVecs == 1) {
+            // scalar collapse (see setup): single source, single slice.
+            // j == 0 in either reuset0 mode — both compute
+            // getNoiseProp(0, t0) — so the branch is unconditional.
+            auto &noisevec = envGet(PropagatorField,getName());
+            noisevec = getNoiseProp(0, t0);
+            time_shift[0] = t0;
+            // _vec never collapses (header comment): FImpl::Dimension
+            // columns split from the single scalar propagator
+            auto &noisevecFerm = envGet(std::vector<FermionField>,getName()+"_vec");
+            for (int k=0;k<FImpl::Dimension;k++) {
+                setFerm(noisevecFerm[k],noisevec,k);
+            }
+            return;
+        }
         auto &noisevec = envGet(std::vector<PropagatorField>,getName());
         noisevec.resize(nVecs,envGetGrid(PropagatorField));
+        auto &noisevecFerm = envGet(std::vector<FermionField>,getName()+"_vec");
 
         for (int i=0;i<nSources;i++) {
             if (reuset0_) {
-                shiftedField = noise->getProp(i*nt + t0);
-                noisevec[i*nSlices] = shiftedField;
+                noisevec[i*nSlices] = getNoiseProp(i, t0);
             }
             for (int j=0;j<nSlices;j++) {
                 int idx = i*nSlices+j;
-                int offset = i*nt+j*tStep+t0;
                 if (!reuset0_) {
-                    noisevec[idx] = noise->getProp(offset);                
+                    noisevec[idx] = getNoiseProp(i, j*tStep+t0);
                 } else {
                     if (j != 0) {
                         noisevec[idx] = Cshift(noisevec[idx-1],Tp,tStep);
                     }
                 }
                 time_shift[idx] = j*tStep+t0;
+                // color-diluted companion: split AFTER the main
+                // assignment -- setFerm commutes with the temporal
+                // Cshift, so the reuset0 chain is inherited bit-exactly
+                // and full-volume/internal noise modes give identical
+                // columns (they differ only in how noisevec was filled)
+                for (int k=0;k<FImpl::Dimension;k++) {
+                    setFerm(noisevecFerm[3*idx+k],noisevec[idx],k);
+                }
             }
         }
     } else {
+        if (nVecs == 1) {
+            // scalar collapse (see setup): single source, single slice;
+            // color-summed exactly as the vector path's element 0
+            auto &noisevec = envGet(FermionField,getName());
+            noisevec = Zero();
+            PropagatorField &srcProp = getNoiseProp(0, t0);
+            for (int k=0;k<FImpl::Dimension;k++) {
+                setFerm(ferm,srcProp,k);
+                noisevec += ferm;
+            }
+            time_shift[0] = t0;
+            return;
+        }
         auto &noisevec = envGet(std::vector<FermionField>,getName());
         noisevec.resize(nVecs,envGetGrid(FermionField));
 
         for (int i=0;i<nSources;i++) {
             if (reuset0_) {
-                shiftedField = noise->getProp(i*nt+t0);
+                PropagatorField &srcProp = getNoiseProp(i, t0);
                 noisevec[i*nSlices] = Zero();
-                for (int j=0;j<FImpl::Dimension;j++) {
-                    setFerm(ferm,shiftedField,j);
+                for (int k=0;k<FImpl::Dimension;k++) {
+                    setFerm(ferm,srcProp,k);
                     noisevec[i*nSlices] += ferm;
                 }
             }
             for (int j=0;j<nSlices;j++) {
                 int idx = i*nSlices+j;
-                int offset = i*nt+j*tStep+t0;
                 noisevec[idx] = Zero();
                 if (!reuset0_) {
+                    PropagatorField &srcProp = getNoiseProp(i, j*tStep+t0);
                     for (int k=0;k<FImpl::Dimension;k++) {
-                        setFerm(ferm,noise->getProp(offset),k);
+                        setFerm(ferm,srcProp,k);
                         noisevec[idx] += ferm;
                     }
                 } else {

@@ -1,0 +1,263 @@
+<grid>
+  <modules>
+    <!-- ============ infrastructure (lma-mesonfield-weighted-compare
+         clone; the 4^4 test configuration) ============ -->
+    <module>
+      <id><name>gauge</name><type>MIO::LoadIldg</type></id>
+      <options><file>lat/lat.sample.l4444.ildg</file></options>
+    </module>
+    <module>
+      <id><name>gauge_fat</name><type>MIO::LoadIldg</type></id>
+      <options><file>lat/fatlinks.l4444.ildg</file></options>
+    </module>
+    <module>
+      <id><name>gauge_long</name><type>MIO::LoadIldg</type></id>
+      <options><file>lat/longlinks.l4444.ildg</file></options>
+    </module>
+    <!-- massless action: Meooe for the guess / CB pairs -->
+    <module>
+      <id><name>stag</name><type>MAction::ImprovedStaggeredMILC</type></id>
+      <options>
+        <Ls>1</Ls><boundary>1 1 1 1</boundary><c1>1.0</c1><c2>1.0</c2>
+        <gaugefat>gauge_fat</gaugefat><gaugelong>gauge_long</gaugelong>
+        <mass>0.0</mass><tad>1.0</tad><twist>0 0 0</twist>
+      </options>
+    </module>
+    <module>
+      <id><name>stag_op</name><type>MFermion::StagOperators</type></id>
+      <options><action>stag</action></options>
+    </module>
+    <!-- checkerboarded massless eigenvectors (20 pairs, the
+         weighted-compare eigenscale) -->
+    <module>
+      <id><name>epack</name><type>MSolver::StagFermionIRL</type></id>
+      <options>
+        <evenEigen>true</evenEigen>
+        <lanczosParams>
+          <Cheby><Npoly>11</Npoly><alpha>0.0</alpha><beta>24.0</beta></Cheby>
+          <MaxIt>5000</MaxIt><MinRes>0</MinRes><Nk>24</Nk><Nm>32</Nm>
+          <Nstop>20</Nstop><betastp>0</betastp><resid>1e-08</resid>
+        </lanczosParams>
+        <multiFile>false</multiFile>
+        <op>stag_op_schur</op>
+        <output></output>
+        <redBlack>true</redBlack>
+      </options>
+    </module>
+    <!-- mass-shifted pack every low-side artifact builds from (the
+         production defl_mass convention; m = 0.01) -->
+    <module>
+      <id><name>eig</name><type>MUtilities::ModifyEigenPackMILC</type></id>
+      <options>
+        <eigenPack>epack</eigenPack>
+        <evenEigen>true</evenEigen>
+        <mass>0.01</mass>
+      </options>
+    </module>
+    <!-- lambda^2 of the BASE pack (RealD), the offline side of the
+         identity weight w: lam_k = sqrt, m = 2*0.01 (MILC convention) -->
+    <module>
+      <id><name>evals_base</name><type>MUtilities::EigenPackExtractEvals</type></id>
+      <options><eigenPack>epack</eigenPack><output>work/sib-pair-identity/evals</output></options>
+    </module>
+    <!-- two distinct on-demand CB pair sources over the shifted pack -->
+    <module>
+      <id><name>cbpairs_l</name><type>MUtilities::EigenPackCBPairs</type></id>
+      <options><action>stag</action><eigenPack>eig</eigenPack></options>
+    </module>
+    <module>
+      <id><name>cbpairs_r</name><type>MUtilities::EigenPackCBPairs</type></id>
+      <options><action>stag</action><eigenPack>eig</eigenPack></options>
+    </module>
+    <!-- full-volume |e+o>/|e-o> pairs: probe basis (rows numerically
+         identical to the CB-pair writer rows; weighted-compare comment) -->
+    <module>
+      <id><name>eigfull</name><type>MUtilities::EigenPackFullPairs</type></id>
+      <options><eigenPack>eig</eigenPack><action>stag</action></options>
+    </module>
+    <!-- ============ noise ============ -->
+    <module>
+      <id><name>noise_fv</name><type>MNoise::StagFullVolumeSpinColorDiagonal</type></id>
+      <options><nsrc>2</nsrc></options>
+    </module>
+    <!-- ============ gamma modules ============ -->
+    <module>
+      <id><name>gammas_g1</name><type>MFermion::SpinTaste</type></id>
+      <options>
+        <spinTaste>
+          <gammas>(G1 G1)</gammas>
+          <applyG5>false</applyG5>
+          <gauge>gauge</gauge>
+        </spinTaste>
+        <labels></labels>
+      </options>
+    </module>
+    <module>
+      <id><name>gammas_vloc</name><type>MFermion::SpinTaste</type></id>
+      <options>
+        <spinTaste>
+          <gammas>(GX GX) (GY GY) (GZ GZ)</gammas>
+          <applyG5>false</applyG5>
+          <gauge></gauge>
+        </spinTaste>
+        <labels></labels>
+      </options>
+    </module>
+    <!-- ============ the derivation inputs ============ -->
+    <!-- tab = MF(ell, eta): the table g reconstructs from (scalar only) -->
+    <module>
+      <id><name>mfwrite</name><type>MContraction::StagA2AMesonField</type></id>
+      <options>
+        <action></action><block>12</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft><cbPairsRight>cbpairs_r</cbPairsRight>
+        <left></left><lowModes>eig</lowModes>
+        <mom><elem>0 0 0</elem></mom>
+        <output>work/sib-pair-identity/tab</output>
+        <right>noise_fv_vec</right>
+        <gammas>gammas_g1</gammas>
+      </options>
+    </module>
+    <module>
+      <id><name>mf</name><type>MIO::LoadMesonField</type></id>
+      <options>
+        <file>work/sib-pair-identity/tab.@traj@/G1_G1_0_0_0.h5</file>
+        <dataset>G1_G1_0_0_0</dataset>
+        <side></side><lowModes></lowModes>
+      </options>
+    </module>
+    <!-- ============ the guess (production form) ============ -->
+    <!-- g: a2a_batch, t0=0/tStep=2/nSrc=2 -> 2 slices (t=0,2), 12
+         columns 3*(n*2+j)+c; defaults: eigStart 0, nEigs -1 (all
+         pairs), projector empty (weighted branch), pairScale empty
+         (sqrt(2)); noise enables the built-in SUM/DIFF self-checks.
+         Batch column (n, j, c) reconstructs from tab[tA + j*tStep]
+         column 3*n + c = the per-slice addressing the identities use. -->
+    <module>
+      <id><name>g</name><type>MFermion::StagLMAMesonFieldProp</type></id>
+      <options>
+        <action>stag</action>
+        <lowModes>eig</lowModes>
+        <gammas>gammas_g1</gammas>
+        <labels>G1_G1</labels>
+        <mesonField>mf</mesonField>
+        <noiseIndex>0</noiseIndex>
+        <nNoise>2</nNoise>
+        <tA>0</tA><tB>2</tB><tStep>2</tStep>
+        <eigStart>0</eigStart><nEigs>-1</nEigs>
+        <projector></projector><negFirst></negFirst><pairScale></pairScale>
+        <noise>noise_fv_vec</noise>
+        <a2a_batch>true</a2a_batch>
+      </options>
+    </module>
+    <!-- bare-object bridge of the batch map: its element is already a
+         vector<FermionField>, so NO PropToFermions (that bridge is for
+         per-slice PropagatorField elements only; sib-hvp-a2a-batch.20.xml
+         mf_g_bare binds gme_batch directly). compare_sib_hvp check 4
+         established g == gbare bitwise; probes read gbare, the
+         production-form blocks read g. -->
+    <module>
+      <id><name>gbare</name><type>MUtilities::GammaMapElement</type></id>
+      <options><map>g</map><label>G1_G1</label></options>
+    </module>
+    <!-- ============ probes ============ -->
+    <!-- eigfull probe of p: probe[t][2k,2k+1; col] = <e+-o_k | p_col>(t);
+         the time-summed rows equal C * (w o tab[s_col]) = check 1 -->
+    <module>
+      <id><name>probe_g</name><type>MContraction::StagA2AMesonField</type></id>
+      <options>
+        <action></action><block>12</block>
+        <left>eigfull_vec</left><lowModes></lowModes>
+        <mom><elem>0 0 0</elem></mom>
+        <output>work/sib-pair-identity/probe_g</output>
+        <right>gbare</right>
+        <gammas>gammas_g1</gammas>
+      </options>
+    </module>
+    <!-- <p|p> per column pair: the direct side of the closure = check 5.
+         left=gbare (bare vector, the eigfull_vec/eta-left precedent),
+         right=g (the single-key unwrap, the mf_g/mf_*_lg precedent);
+         avoids binding the same object on both sides. -->
+    <module>
+      <id><name>pp</name><type>MContraction::StagA2AMesonField</type></id>
+      <options>
+        <action></action><block>12</block>
+        <left>gbare</left><lowModes></lowModes>
+        <mom><elem>0 0 0</elem></mom>
+        <output>work/sib-pair-identity/pp</output>
+        <right>g</right>
+        <gammas>gammas_g1</gammas>
+      </options>
+    </module>
+    <!-- ============ production-form blocks (scalar family) ============ -->
+    <!-- the blocks whose emission the identity replaces; written ONCE
+         here for validation. Bindings mirror sib-hvp-mesonfields.xml
+         mf_s_* (ll/lg/el/eg) with pyfm naming: lp=lg, nl=el, np=eg -->
+    <module>
+      <id><name>mf_s_ll</name><type>MContraction::StagA2AMesonField</type></id>
+      <options><action></action><block>12</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft><cbPairsRight>cbpairs_r</cbPairsRight>
+        <left></left><right></right><lowModes>eig</lowModes>
+        <mom><elem>0 0 0</elem></mom><output>work/sib-pair-identity/s_ll</output>
+        <gammas>gammas_g1</gammas></options>
+    </module>
+    <module>
+      <id><name>mf_s_lp</name><type>MContraction::StagA2AMesonField</type></id>
+      <options><action></action><block>12</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft><cbPairsRight>cbpairs_r</cbPairsRight>
+        <left></left><right>g</right><lowModes>eig</lowModes>
+        <mom><elem>0 0 0</elem></mom><output>work/sib-pair-identity/s_lp</output>
+        <gammas>gammas_g1</gammas></options>
+    </module>
+    <module>
+      <id><name>mf_s_np</name><type>MContraction::StagA2AMesonField</type></id>
+      <options><action></action><block>12</block>
+        <left>noise_fv_vec</left><right>g</right><lowModes></lowModes>
+        <mom><elem>0 0 0</elem></mom><output>work/sib-pair-identity/s_np</output>
+        <gammas>gammas_g1</gammas></options>
+    </module>
+    <module>
+      <id><name>mf_s_nl</name><type>MContraction::StagA2AMesonField</type></id>
+      <options><action></action><block>12</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft><cbPairsRight>cbpairs_r</cbPairsRight>
+        <left>noise_fv_vec</left><right></right><lowModes>eig</lowModes>
+        <mom><elem>0 0 0</elem></mom><output>work/sib-pair-identity/s_nl</output>
+        <gammas>gammas_g1</gammas></options>
+    </module>
+    <!-- ============ production-form blocks (vl family; OQ1 coverage) ==== -->
+    <module>
+      <id><name>mf_vl_ll</name><type>MContraction::StagA2AMesonField</type></id>
+      <options><action></action><block>12</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft><cbPairsRight>cbpairs_r</cbPairsRight>
+        <left></left><right></right><lowModes>eig</lowModes>
+        <mom><elem>0 0 0</elem></mom><output>work/sib-pair-identity/vl_ll</output>
+        <gammas>gammas_vloc</gammas></options>
+    </module>
+    <module>
+      <id><name>mf_vl_lp</name><type>MContraction::StagA2AMesonField</type></id>
+      <options><action></action><block>12</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft><cbPairsRight>cbpairs_r</cbPairsRight>
+        <left></left><right>g</right><lowModes>eig</lowModes>
+        <mom><elem>0 0 0</elem></mom><output>work/sib-pair-identity/vl_lp</output>
+        <gammas>gammas_vloc</gammas></options>
+    </module>
+  </modules>
+  <parameters>
+    <genetic>
+      <maxCstGen>100</maxCstGen><maxGen>1000</maxGen>
+      <mutationRate>0.1</mutationRate><popSize>20</popSize>
+    </genetic>
+    <graphFile></graphFile>
+    <parallelWriteMaxRetry>-1</parallelWriteMaxRetry>
+    <runId>sib-pair-identity</runId>
+    <saveSchedule>false</saveSchedule>
+    <scheduleFile></scheduleFile>
+    <scheduler>
+      <!-- naive: declaration order. Required: the meson-field writer
+           (mfwrite) and the loader (mf) have no environment edge. -->
+      <schedulerType>naive</schedulerType>
+    </scheduler>
+    <trajCounter>
+      <end>10000</end><start>20</start><step>10000</step>
+    </trajCounter>
+  </parameters>
+</grid>

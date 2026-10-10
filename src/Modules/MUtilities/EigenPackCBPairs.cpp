@@ -1,9 +1,8 @@
 /*
- * A2AMesonFieldMILC.cpp, part of Hadrons (https://github.com/aportelli/Hadrons)
+ * EigenPackCBPairs.cpp, part of Hadrons (https://github.com/aportelli/Hadrons)
  *
- * Copyright (C) 2015 - 2020
+ * Copyright (C) 2015 - 2026
  *
- * Author: Antonin Portelli <antonin.portelli@me.com>
  * Author: Michael Lynch <michaellynch628@gmail.com>
  *
  * Hadrons is free software: you can redistribute it and/or modify
@@ -19,15 +18,17 @@
  * You should have received a copy of the GNU General Public License
  * along with Hadrons.  If not, see <http://www.gnu.org/licenses/>.
  *
- * See the full license in the file "LICENSE" in the top level distribution 
- * directory.
+ * (same GNU GPL as the repo headers; see the LICENSE file).
  */
 
 /*  END LEGAL */
-#include "MesonField_old.hpp"
+#include "EigenPackCBPairs.hpp"
 
 using namespace Grid;
 using namespace Hadrons;
-using namespace MContraction;
+using namespace MUtilities;
 
-template class Grid::Hadrons::MContraction::TA2AMesonFieldMILC<STAGIMPL,MassShiftEigenPack<STAGIMPL> >;
+template class Grid::Hadrons::MUtilities::
+    TEigenPackCBPairs<STAGIMPL, MassShiftEigenPack<STAGIMPL>>;
+template class Grid::Hadrons::MUtilities::
+    EigenPackCBPairSource<STAGIMPL, MassShiftEigenPack<STAGIMPL>>;

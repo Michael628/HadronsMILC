@@ -27,3 +27,8 @@ AGENTS.md
 CLAUDE.md
 .pi*
 .rpiv
+autoresearch.jsonl
+
+# test/ run output -- see test/README.md
+/test/work/
+docs
