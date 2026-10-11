@@ -141,11 +141,9 @@ public:
                         int orthogDir, LatticeGaugeField *U) {
     _stencilWorker = std::make_unique<A2AWorkerSpinTasteStencil<FImpl>>(
         grid, mom, gammas, U, orthogDir);
-    _sigma.clear();
-    for (const auto &g : gammas) {
-      int pc = StagGamma::popcountShift(g._spin, g._taste);
-      _sigma.push_back((pc & 1) ? -1.0 : 1.0);
-    }
+    // (the per-gamma sigma sign table moved into the task: built from
+    // the gammas the task already holds, applied at the fused CB store
+    // sites in assembleMat)
   }
 
 private:
@@ -208,25 +206,17 @@ private:
       rhs = right_e;
     }
 
-    // The worker emits raw parity partials in one uniform block layout
-    // (2*sizeL, sizeR): rows [0,sizeL) = M0 (even source sites), rows
-    // [sizeL,2*sizeL) = M1 (odd). That layout equals mBlock only for
-    // LeftHalf (RightHalf has equal element count but different dims,
-    // BothHalf half the elements) -- always contract into a scratch at
-    // the worker-native shape, then convert to the legacy interleaved
-    // (M, M-dagger) slot layout the framework bake and HDF5 consumers
-    // expect.
-    _scratch.resize(m.dimension(0) * m.dimension(1) * m.dimension(2) *
-                    (2 * sizeL) * sizeR);
-    A2AMatrixSet<T> mScratch(_scratch.data(), m.dimension(0), m.dimension(1),
-                             m.dimension(2), 2 * sizeL, sizeR);
-
+    // The task's CB modes write the legacy interleaved (M, M-dagger)
+    // slot layout DIRECTLY into m (sigma-combination fused at
+    // assembleMat's store sites, sigma = -1 for odd popcount on
+    // device): no scratch buffer, no single-threaded host
+    // reconstruction pass. m's dims are already final -- (N_ii, N_jj)
+    // with N_ii = 2*sizeL / N_jj = 2*sizeR on the CB-flagged sides.
+    //
     // Contents change at fixed buffer addresses: force the worker to
     // re-pack (its address cache would otherwise contract stale data).
     _stencilWorker->resetCache();
-    _stencilWorker->StagMesonField(mScratch, lhs, rhs, sizeL, sizeR, ct);
-
-    reconstructLegacy(m, mScratch, sizeL, sizeR, leftCB, rightCB);
+    _stencilWorker->StagMesonField(m, lhs, rhs, sizeL, sizeR, ct);
   }
 
   // Pack n CB pairs into cached full-grid objects: E copy on even
@@ -286,47 +276,9 @@ public:
   }
 
 private:
-  // Convert the raw (2*sizeL, sizeR) parity partials M0/M1 into the legacy
-  // interleaved slot layout -- the exact algebraic image of the legacy
-  // simdSumHalf/simdSumMixed tables, validated value-for-value against the
-  // legacy 4-arg worker in Grid's Test_a2a_stencil.cc reconstructLegacySlot:
-  // sigma = -1 for odd popcount(spin^taste), entering RightHalf's rc=1 slot
-  // and BothHalf's rc=1 column slots only (LeftHalf is sigma-free).
-  void reconstructLegacy(A2AMatrixSet<T> &m, const A2AMatrixSet<T> &mScratch,
-                         const int sizeL, const int sizeR, const bool leftCB,
-                         const bool rightCB) {
-    int next = m.dimension(0), nstr = m.dimension(1), nt = m.dimension(2);
-    for (int e = 0; e < next; ++e)
-      for (int s = 0; s < nstr; ++s) {
-        RealD sig = _sigma[s];
-        for (int t = 0; t < nt; ++t) {
-          for (int l = 0; l < sizeL; ++l)
-            for (int r = 0; r < sizeR; ++r) {
-              T M0 = mScratch(e, s, t, l, r);
-              T M1 = mScratch(e, s, t, sizeL + l, r);
-              if (leftCB && rightCB) {
-                m(e, s, t, 2 * l, 2 * r) = M0 + M1;
-                m(e, s, t, 2 * l, 2 * r + 1) = sig * (M0 - M1);
-                m(e, s, t, 2 * l + 1, 2 * r) = M0 - M1;
-                m(e, s, t, 2 * l + 1, 2 * r + 1) = sig * (M0 + M1);
-              } else if (leftCB) {
-                m(e, s, t, 2 * l, r) = M0 + M1;
-                m(e, s, t, 2 * l + 1, r) = M0 - M1;
-              } else {
-                m(e, s, t, l, 2 * r) = M0 + M1;
-                m(e, s, t, l, 2 * r + 1) = sig * (M0 - M1);
-              }
-            }
-        }
-      }
-  }
-
-private:
   double _vol;
   std::unique_ptr<A2AWorkerSpinTasteStencil<FImpl>> _stencilWorker;
   std::vector<FermionField> _packL, _packR; // full-grid packing buffers (grow-only)
-  std::vector<T> _scratch;                  // raw (2*sizeL, sizeR) worker output
-  std::vector<RealD> _sigma;                // per-gamma sign (+1/-1)
 };
 
 template <typename FImpl, typename Pack>
