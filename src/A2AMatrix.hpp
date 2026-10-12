@@ -65,6 +65,26 @@ using A2AMatrix = Eigen::Matrix<T, -1, -1, Eigen::RowMajor>;
 template <typename T>
 using A2AMatrixTr = Eigen::Matrix<T, -1, -1, Eigen::ColMajor>;
 
+// Per-side staged-input content stamp: identifies WHICH block's staging a
+// kernel call carries. A side's staged contents are a pure function of
+// (execute call, block coordinate): the block loop is the sole writer of
+// the staged buffers and staging is deterministic per coordinate -- pair
+// sources refill their grow-only buffers per requested range, the SwapFn
+// path refills _lowBuf and re-swaps evec slots per block (restoring them
+// after), high modes pick a fixed vector element per coordinate, and the
+// i==j alias hands over the right side's mode-i staging (the same content
+// get() would produce). Addresses are NOT content keys: pair-source
+// buffers and _lowBuf are deliberately stable across refills. epoch
+// disambiguates repeated execute() calls on the same kernel.
+struct A2ASideStamp {
+  unsigned long long epoch = 0;
+  int block = -1;
+  bool operator==(const A2ASideStamp &o) const {
+    return epoch == o.epoch && block == o.block;
+  }
+  bool operator!=(const A2ASideStamp &o) const { return !(*this == o); }
+};
+
 /******************************************************************************
  *                      Abstract class for A2A kernels                        *
  ******************************************************************************/
@@ -75,6 +95,15 @@ public:
   virtual void operator()(A2AMatrixSet<T> &m, const Field *left_e,
                           const Field *left_o, const Field *right_e,
                           const Field *right_o) = 0;
+  // Stamped overload: kernels that track per-side staged-input validity
+  // key on (epoch, block) content stamps; the default forwards to the
+  // pointer-based entry so untracked kernels work unchanged.
+  virtual void operator()(A2AMatrixSet<T> &m, const Field *left_e,
+                          const Field *left_o, const Field *right_e,
+                          const Field *right_o, const A2ASideStamp &lstamp,
+                          const A2ASideStamp &rstamp) {
+    (*this)(m, left_e, left_o, right_e, right_o);
+  }
   virtual double flops(const unsigned int blockSizei,
                        const unsigned int blockSizej, int cbDiv = 1) = 0;
   virtual double bytes(const unsigned int blockSizei,
@@ -186,6 +215,10 @@ private:
   unsigned int _orthogDim, _nt, _next, _nstr, _blockSize, _min_i, _min_j;
   std::vector<IoHelper> _nodeIo;
   std::vector<Field> _lowBuf_i, _lowBuf_j;
+  // Content-generation counter for per-side stamps (the Computation
+  // object persists per module via envGetTmp, so the bump separates
+  // repeated execute() calls on the same kernel).
+  unsigned long long _stampEpoch = 0;
 };
 
 /******************************************************************************
@@ -450,6 +483,8 @@ void A2AMatrixBlockComputationMILC<T, Field, MetadataType, TIo>::execute(
   // Total index is sum of these  i+ii+iii etc...
   //////////////////////////////////////////////////////////////////////////
 
+  _stampEpoch++; // this call's stamps are a new content generation
+
   std::vector<T> mCache;
   mCache.resize(_nt * _next * _nstr * _blockSize * _blockSize);
   // LOG(Message) << "cache bytes: " << mCache_bytes << std::endl;
@@ -695,7 +730,8 @@ void A2AMatrixBlockComputationMILC<T, Field, MetadataType, TIo>::execute(
 
       wrapUs = -GET_TIMER("kernel");
       START_TIMER("kernel");
-      kernel(mBlock, l_temp_e, l_temp_o, r_temp_e, r_temp_o);
+      kernel(mBlock, l_temp_e, l_temp_o, r_temp_e, r_temp_o,
+             A2ASideStamp{_stampEpoch, i}, A2ASideStamp{_stampEpoch, j});
       STOP_TIMER("kernel");
       wrapUs += GET_TIMER("kernel");
 

@@ -118,7 +118,26 @@ public:
       // Full-array entry on the full-grid arrays (high modes).
       MesonFunctionStencil<FImpl>(m, left_e, right_e);
     } else {
-      MesonFunctionStencilCB<FImpl>(m, left_e, left_o, right_e, right_o);
+      MesonFunctionStencilCB<FImpl>(m, left_e, left_o, right_e, right_o,
+                                    A2ASideStamp{}, A2ASideStamp{});
+    }
+  }
+
+  // Stamped dispatcher override -- Full keeps its pointer-based fast
+  // path (raw staging pointers advance per block; the worker's own
+  // address cache is a correct validity test there); CB blocks take the
+  // content-stamped path.
+  virtual void operator()(A2AMatrixSet<T> &m, const FermionField *left_e,
+                          const FermionField *left_o,
+                          const FermionField *right_e,
+                          const FermionField *right_o,
+                          const A2ASideStamp &lstamp,
+                          const A2ASideStamp &rstamp) {
+    if (left_o == nullptr && right_o == nullptr) {
+      MesonFunctionStencil<FImpl>(m, left_e, right_e);
+    } else {
+      MesonFunctionStencilCB<FImpl>(m, left_e, left_o, right_e, right_o,
+                                    lstamp, rstamp);
     }
   }
 
@@ -174,7 +193,9 @@ private:
                                               const FermionField *left_e,
                                               const FermionField *left_o,
                                               const FermionField *right_e,
-                                              const FermionField *right_o) {
+                                              const FermionField *right_o,
+                                              const A2ASideStamp &lstamp,
+                                              const A2ASideStamp &rstamp) {
     int N_ii = m.dimension(3), N_jj = m.dimension(4);
     bool leftCB = (left_o != nullptr), rightCB = (right_o != nullptr);
     if (leftCB && (N_ii % 2 != 0)) {
@@ -194,28 +215,49 @@ private:
 
     const FermionField *lhs, *rhs;
     if (leftCB) {
-      growPack(_packL, sizeL, left_e, left_o);
+      if (lstamp != _lstampL) {
+        growPack(_packL, sizeL, left_e, left_o);
+        _stencilWorker->resetLeft();
+        _lstampL = lstamp;
+      }
       lhs = _packL.data();
     } else {
       lhs = left_e;
     }
     if (rightCB) {
-      growPack(_packR, sizeR, right_e, right_o);
+      if (rstamp != _lstampR) {
+        growPack(_packR, sizeR, right_e, right_o);
+        _stencilWorker->resetRight();
+        _lstampR = rstamp;
+      }
       rhs = _packR.data();
     } else {
       rhs = right_e;
     }
 
     // The task's CB modes write the legacy interleaved (M, M-dagger)
-    // slot layout DIRECTLY into m (sigma-combination fused at
-    // assembleMat's store sites, sigma = -1 for odd popcount on
-    // device): no scratch buffer, no single-threaded host
-    // reconstruction pass. m's dims are already final -- (N_ii, N_jj)
+    // slot layout into m (raw (2L, R) parity partials are stored on
+    // device and expanded to the interleaved slots inside the worker's
+    // finishMatOutput). m's dims are already final -- (N_ii, N_jj)
     // with N_ii = 2*sizeL / N_jj = 2*sizeR on the CB-flagged sides.
     //
-    // Contents change at fixed buffer addresses: force the worker to
-    // re-pack (its address cache would otherwise contract stale data).
-    _stencilWorker->resetCache();
+    // Staleness contract: a side's pack is reused iff its stamp is
+    // unchanged. Stamps advance exactly when that side's staged
+    // contents change -- EigenPackCBPairSource::get() refills its
+    // grow-only even_/odd_ buffers at stable addresses every call and
+    // the SwapFn path refills _lowBuf_x[0] in place per block, so RAW
+    // POINTER COMPARISON IS NOT A VALIDITY TEST on this path (the
+    // pointer-keyed first draft produced stale packs and a bitwise
+    // FAIL, 2026-10-12). The i==j alias hands the right side's buffers
+    // over as left inputs under a fresh left stamp (mode-i content):
+    // one redundant left pack per sweep, same as pre-stamp behavior.
+    // growPack growth that relocates the pack still re-fires the
+    // worker's own address guard (an extra set, never stale).
+    // Cross-sweep note: i restarts at 0 each j-sweep, so left stamps
+    // REPEAT across sweeps and left packs are legitimately reused
+    // (staging is deterministic per coordinate); setLeft ~NBlock_i and
+    // setRight ~NBlock_j per execute, down from one of each per (i,j)
+    // block.
     _stencilWorker->StagMesonField(m, lhs, rhs, sizeL, sizeR, ct);
   }
 
@@ -279,6 +321,8 @@ private:
   double _vol;
   std::unique_ptr<A2AWorkerSpinTasteStencil<FImpl>> _stencilWorker;
   std::vector<FermionField> _packL, _packR; // full-grid packing buffers (grow-only)
+  A2ASideStamp _lstampL{}, _lstampR{}; // last-packed side stamps; the
+                                       // block=-1 default never matches
 };
 
 template <typename FImpl, typename Pack>
