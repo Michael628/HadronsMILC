@@ -169,9 +169,12 @@
         <type>MFermion::SpinTaste</type>
       </id>
       <options>
-        <gammas>(G1 G1)(GX G1)(GXY G1)</gammas>
-        <applyG5>false</applyG5>
-        <gauge>gauge</gauge>
+        <spinTaste>
+          <gammas>(G1 G1)(GX G1)(GXY G1)</gammas>
+          <applyG5>false</applyG5>
+          <gauge>gauge</gauge>
+        </spinTaste>
+        <labels></labels>
       </options>
     </module>
     <module>
@@ -221,9 +224,12 @@
         <type>MFermion::SpinTaste</type>
       </id>
       <options>
-        <gammas>(G5T G1)</gammas>
-        <applyG5>false</applyG5>
-        <gauge>gauge</gauge>
+        <spinTaste>
+          <gammas>(G5T G1)</gammas>
+          <applyG5>false</applyG5>
+          <gauge>gauge</gauge>
+        </spinTaste>
+        <labels></labels>
       </options>
     </module>
     <module>
@@ -273,9 +279,12 @@
         <type>MFermion::SpinTaste</type>
       </id>
       <options>
-        <gammas>(G5 G1)</gammas>
-        <applyG5>false</applyG5>
-        <gauge>gauge</gauge>
+        <spinTaste>
+          <gammas>(G5 G1)</gammas>
+          <applyG5>false</applyG5>
+          <gauge>gauge</gauge>
+        </spinTaste>
+        <labels></labels>
       </options>
     </module>
     <module>

@@ -8,6 +8,29 @@ are in `DEPENDENCIES`.
 
 ## [Unreleased]
 
+### Interface
+- `MContraction::StagA2AMesonField` supports general momentum projection:
+  any number of non-zero momenta; one HDF5 file per (gamma, momentum) pair
+  with the per-file momentum recorded in `md.momentum` (per-file layout and
+  the `version = "1"` schema unchanged; zero-momentum outputs unchanged).
+- `MContraction::StagA2AASlashMesonField` migrates to the Grid stencil
+  worker (J.A local ctor; zero-momentum outputs value-compatible with the
+  previous implementation on identical stochastic seeds) and to the
+  pair-source CB route: the `action` parameter is REMOVED, replaced by
+  `cbPairsLeft`/`cbPairsRight` (two `EigenPackCBPairs` instances, matching
+  `StagA2AMesonField`); the module is momentum-capable.
+- New `MContraction::StagA2AASlashMesonFieldLegacy`: the frozen
+  `A2AWorkerLocal` implementation with the former `action`/swapFn CB route
+  (zero-momentum only), retained as a consistency probe for the migration.
+- New `MContraction::StagA2AASlashOneLinkMesonField`: per-component
+  one-link `J_kA_k` meson fields from raw stochastic photon components
+  dressing the gauge links (new required `gauge` parameter; no gammas
+  module needed); per-file `amu_index` = the direction k, `amu_seed`
+  sample-qualified `<EmSeedString>_<j>`.
+- Grid dependency pin bumped to `5325da90c42a61ed76ec407f8156dc662dfe9c8d`
+  (general-momentum + J.A local/one-link stencil A2A API; install refresh
+  required before building).
+
 ## [0.3.0] - 2026-10-10
 
 Requires the GridMilc library and the patched Hadrons pinned in `DEPENDENCIES`.

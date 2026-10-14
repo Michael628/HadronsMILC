@@ -125,6 +125,30 @@
       </options>
     </module>
     <!--
+      Red-black IRL eigenvectors need CB pair sources for the stencil
+      meson-field module (the rb-evec guard rejects bare lowModes).
+    -->
+    <module>
+      <id>
+        <name>cbpairs_l</name>
+        <type>MUtilities::EigenPackCBPairs</type>
+      </id>
+      <options>
+        <action>stag_mass_l</action>
+        <eigenPack>evecs_mass_l</eigenPack>
+      </options>
+    </module>
+    <module>
+      <id>
+        <name>cbpairs_r</name>
+        <type>MUtilities::EigenPackCBPairs</type>
+      </id>
+      <options>
+        <action>stag_mass_l</action>
+        <eigenPack>evecs_mass_l</eigenPack>
+      </options>
+    </module>
+    <!--
       Pure low-mode (LL) A2A meson field built directly from the exact
       eigenbasis (left/right empty => contract lowModes against themselves),
       restricted to the single G1_G1 operator for a quick, exact comparison
@@ -136,9 +160,12 @@
         <type>MFermion::SpinTaste</type>
       </id>
       <options>
-        <gammas>(G1 G1)</gammas>
-        <applyG5>false</applyG5>
-        <gauge></gauge>
+        <spinTaste>
+          <gammas>(G1 G1)</gammas>
+          <applyG5>false</applyG5>
+          <gauge></gauge>
+        </spinTaste>
+        <labels></labels>
       </options>
     </module>
     <module>
@@ -149,6 +176,8 @@
       <options>
         <action>stag_mass_l</action>
         <block>768</block>
+        <cbPairsLeft>cbpairs_l</cbPairsLeft>
+        <cbPairsRight>cbpairs_r</cbPairsRight>
         <left></left>
         <lowModes>evecs_mass_l</lowModes>
         <mom>

@@ -234,7 +234,7 @@
          colors of noises 0/1 at t=0). -->
     <module>
       <id><name>lma_fc_g1_t0</name><type>MUtilities::GammaMapElement</type></id>
-      <options><map>lma_file_t0</map><label>G1_G1</label></options>
+      <options><map>lma_file</map><label>G1_G1</label></options>
     </module>
     <module>
       <id><name>prop2f_file</name><type>MUtilities::PropToFermions</type></id>
