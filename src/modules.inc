@@ -2,10 +2,11 @@ modules_cpp =\
   Modules/MAction/ImprovedStaggered.cpp \
   Modules/MAction/ImprovedStaggered5D.cpp \
   Modules/MContraction/ASlashMesonField.cpp \
+  Modules/MContraction/ASlashMesonFieldLegacy.cpp \
   Modules/MContraction/Meson.cpp \
-  Modules/MContraction/MesonLegacy.cpp \
   Modules/MContraction/MesonField.cpp \
   Modules/MContraction/MesonFieldLegacy.cpp \
+  Modules/MContraction/MesonLegacy.cpp \
   Modules/MFermion/GaugeProp.cpp \
   Modules/MFermion/GaugePropLegacy.cpp \
   Modules/MFermion/LMAMesonFieldProp.cpp \
@@ -42,10 +43,11 @@ modules_hpp =\
   Modules/MAction/ImprovedStaggered.hpp \
   Modules/MAction/ImprovedStaggered5D.hpp \
   Modules/MContraction/ASlashMesonField.hpp \
+  Modules/MContraction/ASlashMesonFieldLegacy.hpp \
   Modules/MContraction/Meson.hpp \
-  Modules/MContraction/MesonLegacy.hpp \
   Modules/MContraction/MesonField.hpp \
   Modules/MContraction/MesonFieldLegacy.hpp \
+  Modules/MContraction/MesonLegacy.hpp \
   Modules/MFermion/GaugeProp.hpp \
   Modules/MFermion/GaugePropLegacy.hpp \
   Modules/MFermion/LMAMesonFieldProp.hpp \
