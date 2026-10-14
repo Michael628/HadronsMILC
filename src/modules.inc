@@ -3,6 +3,7 @@ modules_cpp =\
   Modules/MAction/ImprovedStaggered5D.cpp \
   Modules/MContraction/ASlashMesonField.cpp \
   Modules/MContraction/ASlashMesonFieldLegacy.cpp \
+  Modules/MContraction/ASlashOneLinkMesonField.cpp \
   Modules/MContraction/Meson.cpp \
   Modules/MContraction/MesonField.cpp \
   Modules/MContraction/MesonFieldLegacy.cpp \
@@ -44,6 +45,7 @@ modules_hpp =\
   Modules/MAction/ImprovedStaggered5D.hpp \
   Modules/MContraction/ASlashMesonField.hpp \
   Modules/MContraction/ASlashMesonFieldLegacy.hpp \
+  Modules/MContraction/ASlashOneLinkMesonField.hpp \
   Modules/MContraction/Meson.hpp \
   Modules/MContraction/MesonField.hpp \
   Modules/MContraction/MesonFieldLegacy.hpp \

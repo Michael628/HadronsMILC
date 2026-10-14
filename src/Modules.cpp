@@ -2,6 +2,7 @@
 #include "Modules/MAction/ImprovedStaggered5D.cpp"
 #include "Modules/MContraction/ASlashMesonField.cpp"
 #include "Modules/MContraction/ASlashMesonFieldLegacy.cpp"
+#include "Modules/MContraction/ASlashOneLinkMesonField.cpp"
 #include "Modules/MContraction/Meson.cpp"
 #include "Modules/MContraction/MesonField.cpp"
 #include "Modules/MContraction/MesonFieldLegacy.cpp"
