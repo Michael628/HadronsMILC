@@ -36,20 +36,27 @@
 #include <A2AVectors.hpp>
 #include <EigenPack.hpp>
 #include <A2AMatrix.hpp>
+#include <A2AStencilKernel.hpp>
 #include <GridMilc/GridMilc.h>
 
 BEGIN_HADRONS_NAMESPACE
 
-/******************************************************************************
- *                     All-to-all meson field creation                        *
- ******************************************************************************/
+// Stencil flavour of the stochastic A_slash A2A meson-field module: the
+// A2AWorkerSpinTasteStencil J.A local worker (caller-folded per-channel
+// Amu phase fields). CB low modes via two distinct EigenPackCBPairs
+// module instances named by cbPairsLeft/cbPairsRight (immutable pair
+// sources; the former action/swapFn route lives on in
+// StagA2AASlashMesonFieldLegacy). Momentum-capable: the worker emits a
+// g-major flat mu axis (mu = a*nMom + p) and the Computation allocates
+// (Amu channel, momentum) dims accordingly.
 BEGIN_MODULE_NAMESPACE(MContraction)
 
 class ASlashMesonFieldMILCPar : Serializable {
 public:
   GRID_SERIALIZABLE_CLASS_MEMBERS(ASlashMesonFieldMILCPar, int, block,
                                   std::string, lowModes, std::string, left,
-                                  std::string, action, std::string, right,
+                                  std::string, cbPairsLeft, std::string,
+                                  cbPairsRight, std::string, right,
                                   std::string, output, std::string, gammas,
                                   std::string, EmFunc, int,
                                   nEmFields, std::string, EmSeedString,
@@ -71,8 +78,7 @@ public:
 };
 
 template <typename T, typename FImpl>
-class ASlashMesonFieldKernelMILC
-    : public A2AKernelMILC<T, typename FImpl::FermionField> {
+class ASlashMesonFieldKernelMILC : public A2AStencilKernelMILC<T, FImpl> {
 public:
   FERM_TYPE_ALIASES(FImpl, );
 
@@ -80,53 +86,22 @@ public:
   ASlashMesonFieldKernelMILC(GridBase *grid,
                              const std::vector<ComplexField> &mom,
                              const std::vector<ComplexField> &Amu,
-                             int orthogDir) {
-    _worker =
-        std::make_unique<A2AWorkerLocal<FImpl>>(grid, mom, Amu, orthogDir);
-    _vol = 1.;
-    for (auto &d : grid->GlobalDimensions()) {
-      _vol *= d;
+                             int orthogDir)
+      : A2AStencilKernelMILC<T, FImpl>(grid) {
+    GridCartesian *cart = dynamic_cast<GridCartesian *>(grid);
+    if (cart == nullptr) {
+      HADRONS_ERROR(Implementation,
+                    "ASlashMesonField requires a Cartesian grid");
     }
+    // J.A local: the caller's Amu fields ARE the per-channel site phase
+    // (folded caller-side in execute; the task adds nothing) -- a drop-in
+    // for the legacy local-worker ctor (frozen worker family).
+    this->setWorker(cart, mom, Amu, orthogDir);
   }
 
   virtual ~ASlashMesonFieldKernelMILC(void) = default;
-  virtual void operator()(A2AMatrixSet<T> &m, const FermionField *left_e,
-                          const FermionField *left_o,
-                          const FermionField *right_e,
-                          const FermionField *right_o) {
-    MesonFunction<FImpl>(m, left_e, left_o, right_e, right_o);
-  }
-
-  virtual double flops(const unsigned int blockSizei,
-                       const unsigned int blockSizej, int cbDiv = 1) {
-
-    return _vol / cbDiv * (_worker->getFlops()) * blockSizei * blockSizej;
-  }
-
-  virtual double bytes(const unsigned int blockSizei,
-                       const unsigned int blockSizej) {
-    // return _vol*(12.0*sizeof(T))*blockSizei*blockSizej
-    // +  _vol*(2.0*sizeof(T)*_mom.size())*blockSizei*blockSizej*_gamma.size();
-    return -1.0;
-  }
-
-  virtual double kernelTime() { return _worker->_t_kernel; }
-  virtual double globalSumTime() { return _worker->_t_gsum; }
-
-private:
-  template <typename TFImpl, typename... Args>
-  IfNotStag<TFImpl, void> MesonFunction(Args &&...args) {
-    assert(0);
-  }
-
-  template <typename TFImpl, typename... Args>
-  IfStag<TFImpl, void> MesonFunction(Args &&...args) {
-    _worker->StagMesonField(args...);
-  }
-
-private:
-  double _vol;
-  std::unique_ptr<A2AWorkerBase<FImpl>> _worker;
+  // dispatch/growPack/stamps/flops/timing live in the shared base; the
+  // Full/CB entries and the stamped overload are inherited.
 };
 
 template <typename FImpl, typename Pack>
@@ -185,8 +160,10 @@ std::vector<std::string> TASlashMesonFieldMILC<FImpl, Pack>::getInput(void) {
     in.push_back(par().right);
 
   if (!par().lowModes.empty()) {
-    if (!par().action.empty())
-      in.push_back(par().action);
+    if (!par().cbPairsLeft.empty()) {
+      in.push_back(par().cbPairsLeft);
+      in.push_back(par().cbPairsRight);
+    }
     in.push_back(par().lowModes);
   }
 
@@ -231,15 +208,50 @@ void TASlashMesonFieldMILC<FImpl, Pack>::setup(void) {
     _mom.push_back(p);
   }
   int nmom = _mom.size();
-  bool allzero = true;
+  // All-zero collapse: ONLY the single-(zero-)momentum case skips the
+  // phase fields (the worker treats empty mom as nMom == 1). A
+  // multi-entry list must keep every entry -- the p=0 entry included
+  // (its phase field is exp(0)=1; skipping it would silently truncate
+  // the flat mu axis). NOTE: scoped from the legacy module's verbatim
+  // form, whose outside-the-guard `allzero` collapsed multi-momentum
+  // lists to zero phase fields (invisible on the legacy path, fatal on
+  // the stencil path -- MesonField.hpp pattern).
   if (par().mom.size() == 1) {
+    bool allzero = true;
     for (auto p : _mom[0]) {
       if (p != 0)
         allzero = false;
     }
+    if (allzero)
+      nmom = 0;
   }
-  if (allzero)
-    nmom = 0;
+
+  if (!par().cbPairsLeft.empty() != !par().cbPairsRight.empty()) {
+    HADRONS_ERROR(Argument,
+                  "ASlashMesonField: 'cbPairsLeft' and 'cbPairsRight' must "
+                  "be set together (two EigenPackCBPairs module instances)");
+  }
+  if (!par().cbPairsLeft.empty() && par().cbPairsLeft == par().cbPairsRight) {
+    HADRONS_ERROR(Argument, "ASlashMesonField: 'cbPairsLeft' and "
+                            "'cbPairsRight' must name distinct "
+                            "EigenPackCBPairs instances");
+  }
+  if (!par().cbPairsLeft.empty() && par().lowModes.empty()) {
+    HADRONS_ERROR(Argument, "ASlashMesonField: 'cbPairsLeft'/'cbPairsRight' "
+                            "require 'lowModes'");
+  }
+  if (!par().lowModes.empty() && par().cbPairsLeft.empty()) {
+    // red-black eigenvectors without CB pair sources would take the
+    // full-grid path and read each half-volume evec out of bounds
+    auto &lowModes = envGet(Pack, par().lowModes);
+    if (!lowModes.evec.empty() && lowModes.evec[0].Grid()->_isCheckerBoarded) {
+      HADRONS_ERROR(Argument,
+                    "ASlashMesonField: 'lowModes' ('" + par().lowModes +
+                        "') holds red-black checkerboard eigenvectors; set "
+                        "'cbPairsLeft'/'cbPairsRight' (two "
+                        "EigenPackCBPairs instances)");
+    }
+  }
 
   envCache(std::vector<ComplexField>, _momphName, 1, nmom,
            envGetGrid(ComplexField));
@@ -248,7 +260,7 @@ void TASlashMesonFieldMILC<FImpl, Pack>::setup(void) {
            envGetGrid(ComplexField));
   envTmpLat(ComplexField, "coor");
   envTmp(Computation, "computation", 1, envGetGrid(FermionField),
-         env().getNd() - 1, _mom.size(), par().nEmFields, par().block, this);
+         env().getNd() - 1, par().nEmFields, _mom.size(), par().block, this);
   envTmp(std::vector<FermionField>, "dummy", 1, 0, envGetGrid(FermionField));
   envTmpLat(PhotonR::GaugeField, "AField");
 }
@@ -257,7 +269,7 @@ void TASlashMesonFieldMILC<FImpl, Pack>::setup(void) {
 template <typename FImpl, typename Pack>
 void TASlashMesonFieldMILC<FImpl, Pack>::execute(void) {
   bool hasLowModes = (!par().lowModes.empty());
-  bool isCheckerBoarded = (!par().action.empty());
+  bool isCheckerBoarded = (!par().cbPairsLeft.empty());
 
   std::vector<FermionField> *left, *right;
 
@@ -371,10 +383,10 @@ void TASlashMesonFieldMILC<FImpl, Pack>::execute(void) {
     stopTimer("Stochastic Amu");
   }
 
-  auto AmuIOnameFn = [this](const unsigned int m, const unsigned int g) {
+  auto AmuIOnameFn = [this](const unsigned int a, const unsigned int m) {
     std::stringstream ss;
 
-    ss << par().EmSeedString << "_" << int(g) << "_";
+    ss << par().EmSeedString << "_" << int(a) << "_";
 
     for (unsigned int mu = 0; mu < _mom[m].size(); ++mu) {
       ss << _mom[m][mu] << ((mu == _mom[m].size() - 1) ? "" : "_");
@@ -383,13 +395,13 @@ void TASlashMesonFieldMILC<FImpl, Pack>::execute(void) {
     return ss.str();
   };
 
-  auto AmuFilenameFn = [this, &AmuIOnameFn](const unsigned int m,
-                                            const unsigned int g) {
+  auto AmuFilenameFn = [this, &AmuIOnameFn](const unsigned int a,
+                                            const unsigned int m) {
     return par().output + "." + std::to_string(vm().getTrajectory()) + "/" +
-           AmuIOnameFn(m, g) + ".h5";
+           AmuIOnameFn(a, m) + ".h5";
   };
 
-  auto AmuMetadataFn = [this](const unsigned int m, const unsigned int g) {
+  auto AmuMetadataFn = [this](const unsigned int a, const unsigned int m) {
     ASlashMesonFieldMILCMetadata md;
 
     for (auto pmu : _mom[m]) {
@@ -399,7 +411,7 @@ void TASlashMesonFieldMILC<FImpl, Pack>::execute(void) {
     md.amu_seed = par().EmSeedString.empty()
                       ? "<blank> see output file for seed string!"
                       : par().EmSeedString;
-    md.amu_index = g;
+    md.amu_index = a;
 
     return md;
   };
@@ -412,26 +424,15 @@ void TASlashMesonFieldMILC<FImpl, Pack>::execute(void) {
     auto &lowModes = envGet(Pack, par().lowModes);
 
     if (isCheckerBoarded) {
-
-      auto &action = envGet(FMat, par().action);
-      std::function<void(int)> swapEvecCheckerFn = [this, &action,
-                                                    &lowModes](int index) {
-        ComplexD eval_D = ComplexD(0.0, lowModes.eval[index].imag());
-        int cb = lowModes.evec[index].Checkerboard();
-        int cbNeg = (cb == Even) ? Odd : Even;
-
-        FermionField temp(lowModes.evec[index].Grid());
-        temp.Checkerboard() = cbNeg;
-        action.Meooe(lowModes.evec[index], temp);
-        lowModes.evec[index].Checkerboard() = cbNeg;
-        lowModes.evec[index] = (1.0 / eval_D) * temp;
-      };
-
       if (par().nEmFields > 0) {
+        auto &pairLeft = envGet(A2ALowModePairSourceMILC<FermionField>,
+                                par().cbPairsLeft);
+        auto &pairRight = envGet(A2ALowModePairSourceMILC<FermionField>,
+                                 par().cbPairsRight);
         Kernel kernel(envGetGrid(FermionField), ph, Amu, orthogDir);
         computation.execute(*left, *right, kernel, AmuIOnameFn, AmuFilenameFn,
                             AmuMetadataFn, &lowModes.evec, lowModes.eval,
-                            &swapEvecCheckerFn);
+                            nullptr, &pairLeft, &pairRight);
       }
     } else {
       if (par().nEmFields > 0) {
