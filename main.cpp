@@ -131,14 +131,35 @@ int main(int argc, char *argv[]) {
 
   // run setup ///////////////////////////////////////////////////////////////
   std::string paramFile = argv[1];
-  checkProvenance(paramFile);
-  Application app(paramFile);
 
-  // execution — run() auto-calls parseParameterFile() because the filename
-  // constructor set parameterFileName_ and no modules exist yet. This reads
-  // <parameters>, creates all modules from <modules> (including optional
-  // <subgrid> tags), then executes the trajectory loop.
-  app.run();
+  // execution — every throwing path (provenance parse, application setup,
+  // module creation, the scheduler's setup dry-run, program execution) is
+  // routed through Exceptions::abort, which logs the failing module from
+  // vm().getCurrentModule(), the message and a cached backtrace, then
+  // MPI_Aborts — instead of a bare std::terminate that hides all context
+  // (the 'gauge_apbc is empty' Aurora failure). Modeled on Hadrons'
+  // application-template/main.cpp, extended to cover checkProvenance and the
+  // parameter-file constructor. NOTE: app now destructs before Grid_finalize;
+  // its destructor only nulls Grid::MemoryProfiler::stats, and a null stats
+  // pointer is the safe state for Grid's allocation hooks.
+  try
+  {
+    checkProvenance(paramFile);
+    Application app(paramFile);
+    // run() auto-calls parseParameterFile() because the filename constructor
+    // set parameterFileName_ and no modules exist yet. This reads
+    // <parameters>, creates all modules from <modules> (including optional
+    // <subgrid> tags), then executes the trajectory loop.
+    app.run();
+  }
+  catch (const std::exception &e)
+  {
+    Exceptions::abort(e);
+  }
+  catch (...)
+  {
+    Exceptions::abort(std::runtime_error("unknown non-standard exception"));
+  }
 
   // epilogue
   LOG(Message) << "Grid is finalizing now" << std::endl;
