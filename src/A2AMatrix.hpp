@@ -65,6 +65,26 @@ using A2AMatrix = Eigen::Matrix<T, -1, -1, Eigen::RowMajor>;
 template <typename T>
 using A2AMatrixTr = Eigen::Matrix<T, -1, -1, Eigen::ColMajor>;
 
+// Per-side staged-input content stamp: identifies WHICH block's staging a
+// kernel call carries. A side's staged contents are a pure function of
+// (execute call, block coordinate): the block loop is the sole writer of
+// the staged buffers and staging is deterministic per coordinate -- pair
+// sources refill their grow-only buffers per requested range, the SwapFn
+// path refills _lowBuf and re-swaps evec slots per block (restoring them
+// after), high modes pick a fixed vector element per coordinate, and the
+// i==j alias hands over the right side's mode-i staging (the same content
+// get() would produce). Addresses are NOT content keys: pair-source
+// buffers and _lowBuf are deliberately stable across refills. epoch
+// disambiguates repeated execute() calls on the same kernel.
+struct A2ASideStamp {
+  unsigned long long epoch = 0;
+  int block = -1;
+  bool operator==(const A2ASideStamp &o) const {
+    return epoch == o.epoch && block == o.block;
+  }
+  bool operator!=(const A2ASideStamp &o) const { return !(*this == o); }
+};
+
 /******************************************************************************
  *                      Abstract class for A2A kernels                        *
  ******************************************************************************/
@@ -75,6 +95,15 @@ public:
   virtual void operator()(A2AMatrixSet<T> &m, const Field *left_e,
                           const Field *left_o, const Field *right_e,
                           const Field *right_o) = 0;
+  // Stamped overload: kernels that track per-side staged-input validity
+  // key on (epoch, block) content stamps; the default forwards to the
+  // pointer-based entry so untracked kernels work unchanged.
+  virtual void operator()(A2AMatrixSet<T> &m, const Field *left_e,
+                          const Field *left_o, const Field *right_e,
+                          const Field *right_o, const A2ASideStamp &lstamp,
+                          const A2ASideStamp &rstamp) {
+    (*this)(m, left_e, left_o, right_e, right_o);
+  }
   virtual double flops(const unsigned int blockSizei,
                        const unsigned int blockSizej, int cbDiv = 1) = 0;
   virtual double bytes(const unsigned int blockSizei,
@@ -186,6 +215,10 @@ private:
   unsigned int _orthogDim, _nt, _next, _nstr, _blockSize, _min_i, _min_j;
   std::vector<IoHelper> _nodeIo;
   std::vector<Field> _lowBuf_i, _lowBuf_j;
+  // Content-generation counter for per-side stamps (the Computation
+  // object persists per module via envGetTmp, so the bump separates
+  // repeated execute() calls on the same kernel).
+  unsigned long long _stampEpoch = 0;
 };
 
 /******************************************************************************
@@ -450,6 +483,8 @@ void A2AMatrixBlockComputationMILC<T, Field, MetadataType, TIo>::execute(
   // Total index is sum of these  i+ii+iii etc...
   //////////////////////////////////////////////////////////////////////////
 
+  _stampEpoch++; // this call's stamps are a new content generation
+
   std::vector<T> mCache;
   mCache.resize(_nt * _next * _nstr * _blockSize * _blockSize);
   // LOG(Message) << "cache bytes: " << mCache_bytes << std::endl;
@@ -552,6 +587,19 @@ void A2AMatrixBlockComputationMILC<T, Field, MetadataType, TIo>::execute(
   bool low_i, low_j;
   int i, j, evec_i, evec_j, N_ii, N_jj;
 
+  // Per-block untimed-work attribution (A2A host-loops instrumentation).
+  // TimerArray::getDTimer is CUMULATIVE (never reset-on-read), so every
+  // per-block value below uses the negate-accumulate idiom of ioTime
+  // (v = -GET_TIMER(name) before START_TIMER, v += GET_TIMER(name)
+  // after STOP_TIMER). The stage timer is open across block boundaries:
+  // a block's "stage" is everything from the previous block's untimed
+  // line (or loop entry) to this block's mCache-zero region -- evec
+  // restore, loop advance and L/R tile staging land in the NEXT block's
+  // stage.
+  double zeroUs, stageUs, wrapUs, normUs, barrierUs;
+  stageUs = -GET_TIMER("untimed: stage");
+  START_TIMER("untimed: stage");
+
   j = 0, evec_j = 0;
   while (j < N_j) { // While we still have bra vectors to contract
 
@@ -640,11 +688,37 @@ void A2AMatrixBlockComputationMILC<T, Field, MetadataType, TIo>::execute(
         l_temp_o = nullptr;
       }
 
+      // close this block's stage interval (L/R staging done); the mBlock
+      // view construction and the block log line below are sub-us gaps
+      STOP_TIMER("untimed: stage");
+      stageUs += GET_TIMER("untimed: stage");
+
       // A2AMatrixSet<T> mBlock(mCache_p, _next, _nstr, _nt, N_ii, N_jj);
       A2AMatrixSet<T> mBlock(mCache.data(), _next, _nstr, _nt, N_ii, N_jj);
 
-      // accelerator_for(idx,mBlock.size(),1,{
-      thread_for(idx, mBlock.size(), { mCache[idx] = 0.0; });
+      // The former ~1 GB host zeroing of mCache here (thread_for over
+      // mBlock.size()) was dead code: every kernel entry path fully
+      // overwrites the block before execute reads it again in the
+      // conversion pass --
+      //   - stencil Full: finishMatOutput copies the whole block D2H and
+      //     global-sums it (Grid/GridMilc/a2a/A2AWorkerStencil.h:147-167);
+      //   - stencil CB: assembleMat's fused stores write every slot of
+      //     the (interleaved) output for all three ContractTypes
+      //     (pre-fusion: reconstructLegacy wrote every element,
+      //     MesonField.hpp BothHalf/LeftHalf/RightHalf tables);
+      //   - legacy/ASlash kernels: StagMesonField zeroes the DEVICE mat
+      //     then copies the full block back (Grid/GridMilc/a2a/A2AWorker.h).
+      // Proven bit-identical by the gt/devfix whole-tree comparison
+      // (test/compare_a2a_hostfix.py) across multi-block schedules --
+      // stale-data reuse from a partially-overwritten block would show
+      // as a bitwise deviation. a197df6 precedent (dead zero-init drop).
+      // The zero timer bracket is kept (empty region -> ~0 in the
+      // attribution line) so before/after benchmark logs stay
+      // parser-comparable.
+      zeroUs = -GET_TIMER("untimed: zero");
+      START_TIMER("untimed: zero");
+      STOP_TIMER("untimed: zero");
+      zeroUs += GET_TIMER("untimed: zero");
 
       LOG(Message) << "All-to-all matrix block "
                    << i / _blockSize + NBlock_i * j / _blockSize + 1 << "/"
@@ -654,26 +728,62 @@ void A2AMatrixBlockComputationMILC<T, Field, MetadataType, TIo>::execute(
       flops = 0.0;
       bytes = 0.0;
 
+      wrapUs = -GET_TIMER("kernel");
       START_TIMER("kernel");
-      kernel(mBlock, l_temp_e, l_temp_o, r_temp_e, r_temp_o);
+      kernel(mBlock, l_temp_e, l_temp_o, r_temp_e, r_temp_o,
+             A2ASideStamp{_stampEpoch, i}, A2ASideStamp{_stampEpoch, j});
       STOP_TIMER("kernel");
+      wrapUs += GET_TIMER("kernel");
 
       flops += kernel.flops(N_ii, N_jj, (low_j ? Ncb : 1) * (low_i ? Ncb : 1));
       bytes += kernel.bytes(N_ii, N_jj);
 
       t_kernel = kernel.kernelTime();
       t_gsum = kernel.globalSumTime();
+      // kernel() residue: the "kernel" bracket minus the worker's timed
+      // execute + global sum (device D2H, setL/R re-pack, host CB work).
+      // GRID_TRACE (ZeroInit/SetLeft/SetRight/CopyFromDevice/GlobalSum)
+      // decomposes the Grid-side parts of this residue.
+      wrapUs -= t_kernel + t_gsum;
 
-      mBuf.resize(mBlock.size());
-      A2AMatrixSet<TIo> mIOBlock(mBuf.data(), _next, _nstr, _nt, N_ii, N_jj);
+      normUs = -GET_TIMER("untimed: normalise");
+      START_TIMER("untimed: normalise");
 
-      {
-        int next = _next, nstr = _nstr, Lt = _nt;
+      // Build this rank's I/O task list BEFORE the conversion pass: the
+      // conversion below only touches (e,s) slabs this rank owns (files
+      // f = myRank, myRank + nRank, ... of the _next*_nstr pairs), so
+      // file-less ranks convert nothing and skip mBuf entirely. The
+      // filename/ioname/metadata builders are pure (no side effects, no
+      // I/O), so hoisting is behavior-neutral; the list contents are
+      // identical to the former in-IO-section build.
+#ifdef HADRONS_A2AM_PARALLEL_IO
+      unsigned int myRank = _grid->ThisRank(), nRank = _grid->RankCount();
+      _nodeIo.clear();
+      for (int f = myRank; f < _next * _nstr; f += nRank) {
+        IoHelper h;
+
+        h.i = i;
+        h.j = j;
+        h.e = f / _nstr;
+        h.s = f % _nstr;
+        h.io = A2AMatrixIoMILC<TIo>(filenameFn(h.e, h.s), ionameFn(h.e, h.s),
+                                    _nt, N_i, N_j);
+        h.md = metadataFn(h.e, h.s);
+        _nodeIo.push_back(h);
+      }
+#endif
+
+      if (!_nodeIo.empty()) {
+        mBuf.resize(mBlock.size());
+
+        // Per-ket-column coefficient table: coeff is a pure function of
+        // jj and block-level scalars (low_i/low_j, norm, evec_j, evals)
+        // -- character-identical arithmetic to the former per-jj
+        // computation inside the conversion loop, evaluated once per
+        // block (bit-identical values).
         ComplexD *evals_p = evals.empty() ? nullptr : (ComplexD *)&evals[0];
-        TIo *result_p = mBuf.data();
-        T *cache_p = mBlock.data();
-        // accelerator_for(jj,N_jj,1,{
-        thread_for(jj, N_jj, {
+        std::vector<T> coeffTab(N_jj);
+        for (int jj = 0; jj < N_jj; ++jj) {
           T coeff = 1.0;
           if (low_i || low_j) {
             coeff = norm; // Normalize low modes appropriately
@@ -688,17 +798,48 @@ void A2AMatrixBlockComputationMILC<T, Field, MetadataType, TIo>::execute(
             }
           }
 
-          for (int ii = 0; ii < N_ii; ii++)
-            for (int e = 0; e < next; e++)
-              for (int s = 0; s < nstr; s++)
-                for (int t = 0; t < Lt; t++) {
-                  int idx = jj + N_jj * (ii + N_ii * (t + Lt * (s + nstr * e)));
-                  // If the ket vectors (corresponding to the solves) are low
-                  // modes, multiply by the eigenvals
-                  result_p[idx] = coeff * cache_p[idx];
-                }
-        });
-      }
+          coeffTab[jj] = coeff;
+        }
+
+        // Convert + precision-narrow ONLY this rank's I/O-owned (e,s)
+        // slabs of the block into mBuf (TIo). The former loop
+        // parallelised over jj with the innermost loop striding t at
+        // N_ii*N_jj elements (4 MB at production blocks) -- every access
+        // a cache/TLB miss, ~1 GB read + ~0.5 GB write per block per
+        // rank on replicated data. jj is the RowMajor unit-stride axis
+        // (idx = jj + N_jj*(ii + N_ii*t) + slabBase), so this streaming
+        // form -- parallel over the slab's (t,ii) rows, jj contiguous
+        // innermost -- is bandwidth-bound and computes the SAME
+        // per-element multiply (coeffTab[jj] * cache_p[...]: one
+        // ComplexD multiply + one narrowing store) exactly once per
+        // element, by the slab's owner: bit-identical files (each file
+        // receives only its owned slab), at a fraction of the collective
+        // traffic.
+        const int Lt = _nt;
+        const T *cache_p = mBlock.data();
+        TIo *result_p = mBuf.data();
+        for (const auto &h : _nodeIo) {
+          // one contiguous (e,s) slab: the same hyperslab saveBlock
+          // writes below (offset (e*nstr + s)*Lt*N_ii*N_jj)
+          const size_t slabBase =
+              (size_t)(h.e * _nstr + h.s) * Lt * N_ii * N_jj;
+          thread_for(ti, Lt * N_ii, {
+            const size_t base = slabBase + (size_t)N_jj * ti;
+            for (int jj = 0; jj < N_jj; ++jj) {
+              result_p[base + jj] = coeffTab[jj] * cache_p[base + jj];
+            }
+          });
+        }
+      } // else: file-less rank -- nothing to convert, no mBuf allocation
+
+      // View for the IO section: pointer+dims bookkeeping only (Eigen
+      // TensorMap construction performs no data access); on file-less
+      // ranks mBuf is empty and the view is never dereferenced (the
+      // _nodeIo loop in the IO section does not run).
+      A2AMatrixSet<TIo> mIOBlock(mBuf.data(), _next, _nstr, _nt, N_ii, N_jj);
+
+      STOP_TIMER("untimed: normalise");
+      normUs += GET_TIMER("untimed: normalise");
 
       // perf
       LOG(Message) << "Kernel perf " << flops / t_kernel / 1.0e3 / nodes
@@ -708,34 +849,25 @@ void A2AMatrixBlockComputationMILC<T, Field, MetadataType, TIo>::execute(
 
       // IO
       double blockSize, ioTime;
-      unsigned int myRank = _grid->ThisRank(), nRank = _grid->RankCount();
 
       LOG(Message) << "Writing block to disk" << std::endl;
       ioTime = -GET_TIMER("IO: write block");
+      barrierUs = -GET_TIMER("untimed: barrier");
       START_TIMER("IO: total");
       makeFileDir(filenameFn(0, 0), _grid);
 
 #ifdef HADRONS_A2AM_PARALLEL_IO
+      START_TIMER("untimed: barrier");
       _grid->Barrier();
-      // make task list for current node
-      _nodeIo.clear();
-      for (int f = myRank; f < _next * _nstr; f += nRank) {
-        IoHelper h;
-
-        h.i = i;
-        h.j = j;
-        h.e = f / _nstr;
-        h.s = f % _nstr;
-        h.io = A2AMatrixIoMILC<TIo>(filenameFn(h.e, h.s), ionameFn(h.e, h.s),
-                                    _nt, N_i, N_j);
-        h.md = metadataFn(h.e, h.s);
-        _nodeIo.push_back(h);
-      }
+      STOP_TIMER("untimed: barrier");
+      // task list (_nodeIo) was built before the conversion pass above
       // parallel IO
       for (auto &h : _nodeIo) {
         saveBlock(mIOBlock, h);
       }
+      START_TIMER("untimed: barrier");
       _grid->Barrier();
+      STOP_TIMER("untimed: barrier");
 #else
       assert(0);
 #endif
@@ -743,10 +875,22 @@ void A2AMatrixBlockComputationMILC<T, Field, MetadataType, TIo>::execute(
       blockSize =
           static_cast<double>(_next * _nstr * _nt * N_ii * N_jj * sizeof(TIo));
       ioTime += GET_TIMER("IO: write block");
+      barrierUs += GET_TIMER("untimed: barrier");
       LOG(Message) << "HDF5 IO done " << sizeString(blockSize) << " in "
                    << ioTime << " us ("
                    << blockSize / ioTime * 1.0e6 / 1024 / 1024 << " MB/s)"
                    << std::endl;
+
+      // Additive attribution line; the five contract lines above are
+      // byte-identical to the pre-instrumentation build. Values in us.
+      LOG(Message) << "A2A block untimed: zero " << zeroUs << " stage "
+                   << stageUs << " wrap " << wrapUs << " normalise "
+                   << normUs << " barrier " << barrierUs << std::endl;
+
+      // reopen the stage interval: evec restore + loop advance + the
+      // next block's L/R staging are the NEXT block's stage
+      stageUs = -GET_TIMER("untimed: stage");
+      START_TIMER("untimed: stage");
 
       if (swapEvecCheckerFn != nullptr && low_i &&
           (skip_low_right || i != j)) {
@@ -764,6 +908,9 @@ void A2AMatrixBlockComputationMILC<T, Field, MetadataType, TIo>::execute(
     j += N_jj;
     evec_j += (N_jj / Ncb);
   } // End while (j < N_j) Loop
+  // close the trailing open stage interval (its partial value is
+  // discarded; all timers must be stopped for the module summary table)
+  STOP_TIMER("untimed: stage");
   // acceleratorFreeDevice(mCache_p);
   MemoryManager::PrintBytes();
 }

@@ -31,4 +31,5 @@ autoresearch.jsonl
 
 # test/ run output -- see test/README.md
 /test/work/
+/test/*.log
 docs

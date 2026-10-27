@@ -1004,8 +1004,10 @@ void TLMAMesonFieldPropMILC<FImpl, Pack>::execute(void) {
             for (unsigned int c = 0; c < FImpl::Dimension; ++c) {
               const unsigned int j = nBase + c;
               // rows 2k/2k+1 are |E+O>/|E-O> in PHYSICAL parity
-              // (MesonField.hpp reconstructLegacy), so their sum is the
-              // even-site partial and their difference the odd-site one.
+              // (MesonField.hpp: the fused interleaved (M, M-dagger) slot
+              // layout written directly by the stencil task's assembleMat;
+              // formerly the host-side reconstructLegacy), so their sum is
+              // the even-site partial and their difference the odd-site one.
               // SUM must be the eigenvector's own checkerboard: swap the
               // channels for odd-checkerboard packs (evenEigen=false)
               ComplexD evenPart =

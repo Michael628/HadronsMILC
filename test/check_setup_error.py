@@ -4,7 +4,8 @@ ABORTS at setup with the expected HADRONS_ERROR message (the first
 negative-test pattern in test/; every compare_*.py is a positive HDF5
 diff). Runs the binary, captures stdout+stderr, and requires BOTH a
 non-zero exit AND the expected substring. With no arguments, runs all
-three known SIB HVP negative cases.
+five known negative cases (three SIB HVP setup errors and two
+schedule-validation errors).
 
 The abort fires in the scheduler's setup dry-run pass (before any
 module executes -- no eigensolver, no gauge load), so each case takes
@@ -13,8 +14,11 @@ main run's meson-field file in their loaders; that path is never read
 at the dry-run stage, but run params/sib-hvp-a2a-batch.20.xml first if
 a scheduler without the dry-run pass is ever used.
 
+The sched-neg cases abort at program validation (executeProgram entry,
+after the setup dry-run completes) -- not during setup itself.
+
 Usage (from test/):
-    python3 check_setup_error.py                      # all three cases
+    python3 check_setup_error.py                      # all five cases
     python3 check_setup_error.py --params params/sib-hvp-neg-multimap.20.xml \\
         --expect "accepts at most one"
 """
@@ -30,6 +34,8 @@ CASES = {
     "params/sib-hvp-neg-multimap.20.xml": "accepts at most one",
     "params/sib-hvp-neg-twolabels.20.xml": "requires exactly one label",
     "params/sib-hvp-neg-projector.20.xml": "incompatible with",
+    "params/sched-neg-order.20.xml": "scheduled after its consumer",
+    "params/sched-neg-missing.20.xml": "missing from the program",
 }
 
 
