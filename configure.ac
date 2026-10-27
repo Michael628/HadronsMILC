@@ -1,5 +1,5 @@
 AC_PREREQ([2.69])
-AC_INIT([HadronsMILC], [0.3.0], [michaellynch628@gmail.com])
+AC_INIT([HadronsMILC], [0.4.0], [michaellynch628@gmail.com])
 AC_CANONICAL_BUILD
 AC_CANONICAL_HOST
 AC_CANONICAL_TARGET

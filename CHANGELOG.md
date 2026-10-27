@@ -8,6 +8,39 @@ are in `DEPENDENCIES`.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-27
+
+Requires the GridMilc library and the patched Hadrons pinned in `DEPENDENCIES`.
+
+### Interface
+- Parameter files may carry a per-module `<splitPhase>` tag next to
+  `<subgrid>`. It is parsed by the pinned Hadrons (split-phase module tagging,
+  with phase-order validation of the schedule) and emitted by pyfm 0.4
+  `subgrid_phases` schedules. HadronsMILC module types and parameters are
+  unchanged; the MINOR follows the shared MAJOR.MINOR with pyfm.
+
+### Behavior
+- A2A host loops optimized; checkerboard reconstruction is fused into the
+  stencil task, which writes the interleaved (M, M-dagger) slot layout
+  directly. The meson-field layout is unchanged.
+- Per-side content stamps prevent reuse of a stale checkerboard pack.
+- Every exception thrown from `main()` (provenance parse, application setup,
+  module creation, the scheduler's setup dry-run, program execution) ends in
+  `Exceptions::abort`, which logs the failing module, the message and a
+  backtrace before `MPI_Abort`, instead of a bare `std::terminate`.
+
+### Changed
+- `DEPENDENCIES` pins Grid `8b53f2c` and Hadrons `69d0771`, the
+  `feature/LMI-master` merge commits tagged `hadronsmilc/v0.4.0`. Hadrons
+  moves off `3a09801` (`hadronsmilc/v0.2.0`) for the first time: split-phase
+  module tagging, batched subgrid scatter, consumer-gated shadow storage and
+  subgrid gather.
+- `AC_INIT` version set to `0.4.0`.
+
+### Added
+- Negative fixtures for `executeProgram`'s schedule validation
+  (`test/params/sched-neg-missing`, `test/params/sched-neg-order`).
+
 ## [0.3.0] - 2026-10-10
 
 Requires the GridMilc library and the patched Hadrons pinned in `DEPENDENCIES`.
