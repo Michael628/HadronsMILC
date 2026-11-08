@@ -1,5 +1,5 @@
-# HadronsMILC 0.4.1 dependency pins
-# Each commit is also tagged hadronsmilc/v0.4.1 in its repository.
+# HadronsMILC develop tracks these dependency heads (seeded at the v0.4.1 back-merge).
+# Release pins live on main at tag v0.4.1.
 # name    url                                   commit
-grid      git@github.com:milc-qcd/Grid.git      8b53f2c584304b69062e05afcb3437026fed0dce
-hadrons   git@github.com:milc-qcd/Hadrons.git   46d456a4b873a81ee74c07ec2a7b24af932082a3
+grid      git@github.com:milc-qcd/Grid.git      80944161ef246d0da5f718fc77fafc7af4c88bc7
+hadrons   git@github.com:milc-qcd/Hadrons.git   ec433230510437a4c45dec7a8fa4bb67c3f42834
