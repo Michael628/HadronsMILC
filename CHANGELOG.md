@@ -8,6 +8,22 @@ are in `DEPENDENCIES`.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-08
+
+Requires the GridMilc library and the patched Hadrons pinned in `DEPENDENCIES`.
+
+### Changed
+- `DEPENDENCIES` pins Hadrons `46d456a` (`feature/LMI-master`
+  merge tagged `hadronsmilc/v0.4.1`); Grid stays `8b53f2c5`, now also
+  tagged `hadronsmilc/v0.4.1` (tree unchanged from v0.4.0). The pinned
+  Hadrons logs each pre-scatter unit at Message level — one line per
+  replicated scatter, clone, sole-consumer type batch (and its scalar
+  fallback) and deferred rebuild — so a split phase's pre-scatter span
+  decomposes into per-object and per-type costs from the run log. No
+  interface, scattering or scheduling change; correlators are bitwise
+  v0.4.0's.
+- `AC_INIT` version set to `0.4.1`.
+
 ## [0.4.0] - 2026-10-27
 
 Requires the GridMilc library and the patched Hadrons pinned in `DEPENDENCIES`.
